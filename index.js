@@ -10,10 +10,16 @@ const URL = process.env.WEBHOOK_URL;
 const PORT = process.env.PORT || 3000;
 
 const bot = new TelegramBot(TOKEN, { polling: false });
-bot.setWebhook(`${URL}/bot${TOKEN}`);
+
 app.post(`/bot${TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
+});
+
+bot.setWebhook(`${URL}/bot${TOKEN}`).then(() => {
+  console.log('✅ Webhook de Telegram configurado');
+}).catch(err => {
+  console.error('❌ Error webhook:', err.message);
 });
 
 // ══════════════════════════════════════════
