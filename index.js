@@ -9,8 +9,12 @@ const TOKEN = process.env.TELEGRAM_TOKEN;
 const URL = process.env.WEBHOOK_URL;
 const PORT = process.env.PORT || 3000;
 
-const bot = new TelegramBot(TOKEN);
-bot.setWebHook(`${URL}/bot${TOKEN}`);
+const bot = new TelegramBot(TOKEN, { polling: false });
+bot.setWebhook(`${URL}/bot${TOKEN}`);
+app.post(`/bot${TOKEN}`, (req, res) => {
+  bot.processUpdate(req.body);
+  res.sendStatus(200);
+});
 
 // ══════════════════════════════════════════
 // DATOS DE ARMONNIZA
