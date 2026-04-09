@@ -16,12 +16,6 @@ app.post(`/bot${TOKEN}`, (req, res) => {
   res.sendStatus(200);
 });
 
-bot.setWebhook(`${URL}/bot${TOKEN}`).then(() => {
-  console.log('✅ Webhook de Telegram configurado');
-}).catch(err => {
-  console.error('❌ Error webhook:', err.message);
-});
-
 // ══════════════════════════════════════════
 // DATOS DE ARMONNIZA
 // ══════════════════════════════════════════
