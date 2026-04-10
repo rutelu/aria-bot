@@ -279,7 +279,20 @@ app.post('/webhook', (req, res) => {
             const from = message.from;
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
-            // Aquí se procesarán los mensajes de WhatsApp en la siguiente fase
+            const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+fetch(`https://graph.facebook.com/v25.0/${from}/messages`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    messaging_product: 'whatsapp',
+    to: from,
+    type: 'text',
+    text: { body: '✨ *Bienvenida/o a ARMONNIZA Bolivia* ✨\n\nTu belleza, nuestra ciencia.\n\nSoy *ARIA*, tu asistente virtual. ¿En qué puedo ayudarte hoy?' }
+  })
+});
           });
         }
       });
