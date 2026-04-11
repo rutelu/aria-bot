@@ -315,6 +315,15 @@ app.get('/', (req, res) => {
   res.send('🤖 ARIA Bot — ARMONNIZA Bolivia — Activo ✅');
 });
 
+// Rutas requeridas por Meta
+app.get('/privacy', (req, res) => {
+  res.send('<h1>Política de Privacidad - ARMONNIZA</h1><p>ARMONNIZA recopila datos de contacto únicamente para gestionar citas y consultas médico-estéticas. No compartimos información con terceros.</p>');
+});
+
+app.get('/terms', (req, res) => {
+  res.send('<h1>Términos de Servicio - ARMONNIZA</h1><p>Al usar nuestros servicios digitales aceptas que tus datos serán usados exclusivamente para gestión de citas en ARMONNIZA.</p>');
+});
+
 app.listen(PORT, () => {
   console.log(`✅ ARIA Bot corriendo en puerto ${PORT}`);
 });
