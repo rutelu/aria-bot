@@ -280,7 +280,7 @@ app.post('/webhook', (req, res) => {
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-fetch(`https://graph.facebook.com/v25.0/${from}/messages`, {
+fetch(`https://graph.facebook.com/v25.0/1049327234935783/messages`, {
   method: 'POST',
   headers: {
     'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
