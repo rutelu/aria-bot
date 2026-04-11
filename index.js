@@ -277,7 +277,7 @@ app.post('/webhook', (req, res) => {
         if (messages) {
           messages.forEach(message => {
             const from = message.from;
-            if (from === '59178118003') return; // Ignorar mensajes del propio bot
+            if (from.includes('78118003')) return;
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
