@@ -82,7 +82,7 @@ const HORARIOS = [
 ];
 
 // ══════════════════════════════════════════
-// ESTADOS DE CONVERSACIÓN
+// ESTADOS DE CONVERSACIÓN TELEGRAM
 // ══════════════════════════════════════════
 const userStates = {};
 
@@ -90,7 +90,7 @@ function setState(chatId, state) { userStates[chatId] = state; }
 function getState(chatId) { return userStates[chatId] || 'inicio'; }
 
 // ══════════════════════════════════════════
-// MENÚ PRINCIPAL
+// MENÚ PRINCIPAL TELEGRAM
 // ══════════════════════════════════════════
 function menuPrincipal(chatId) {
   const opts = {
@@ -253,6 +253,210 @@ bot.on('callback_query', (query) => {
 });
 
 // ══════════════════════════════════════════
+// WHATSAPP — ESTADOS DE CONVERSACIÓN
+// ══════════════════════════════════════════
+const waStates = {}; // { [phone]: { state, data } }
+
+function waSetState(phone, state, data = {}) {
+  waStates[phone] = { state, data };
+}
+function waGetState(phone) {
+  return waStates[phone] || { state: 'inicio', data: {} };
+}
+
+async function waSend(to, text) {
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  try {
+    await fetch(`https://graph.facebook.com/v25.0/1049327234935783/messages`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'text',
+        text: { body: text }
+      })
+    });
+  } catch (err) {
+    console.error('Error enviando WhatsApp:', err);
+  }
+}
+
+function waMenuPrincipal(from) {
+  const msg =
+    `✨ *Bienvenida/o a ARMONNIZA Bolivia* ✨\n` +
+    `_Tu belleza, nuestra ciencia._\n\n` +
+    `Soy *ARIA*, tu asistente virtual 🤖\n\n` +
+    `¿En qué puedo ayudarte?\n\n` +
+    `1️⃣ Ver Especialidades\n` +
+    `2️⃣ Tratamientos disponibles\n` +
+    `3️⃣ Agendar una cita\n` +
+    `4️⃣ Horarios de atención\n` +
+    `5️⃣ Promociones\n` +
+    `6️⃣ Hablar con una persona\n\n` +
+    `_Responde con el número de tu opción_ 👇`;
+  waSend(from, msg);
+  waSetState(from, 'menu');
+}
+
+function waMenuEspecialidades(from) {
+  const msg =
+    `🏥 *Nuestras Especialidades*\n\n` +
+    `1️⃣ 💉 Medicina Estética\n` +
+    `2️⃣ 🏥 Cirugía Estética\n` +
+    `3️⃣ 💆 Fisio-Estética\n` +
+    `4️⃣ ✨ Cosmetología\n` +
+    `0️⃣ ⬅️ Volver al menú principal\n\n` +
+    `_Responde con el número_ 👇`;
+  waSend(from, msg);
+  waSetState(from, 'especialidades');
+}
+
+async function waHandleMessage(from, text) {
+  const lower = text.trim().toLowerCase();
+  const { state } = waGetState(from);
+
+  // Palabras clave para reiniciar siempre
+  if (['hola', 'inicio', 'menu', 'menú', 'start', '0'].includes(lower) || lower.includes('hola')) {
+    return waMenuPrincipal(from);
+  }
+
+  // ── ESTADO: menu principal ──
+  if (state === 'inicio' || state === 'menu') {
+    switch (text.trim()) {
+      case '1':
+        return waMenuEspecialidades(from);
+
+      case '2': {
+        let msg = `💉 *Tratamientos Destacados*\n\n`;
+        for (const [, esp] of Object.entries(ESPECIALIDADES)) {
+          msg += `*${esp.nombre}*\n`;
+          esp.tratamientos.slice(0, 3).forEach(t => msg += `  • ${t}\n`);
+          msg += '\n';
+        }
+        msg += `_Escribe *menu* para volver al inicio_`;
+        await waSend(from, msg);
+        waSetState(from, 'menu');
+        break;
+      }
+
+      case '3':
+        await waSend(from,
+          `📅 *Agendar tu Cita*\n\n` +
+          `Para coordinar tu cita necesito saber:\n\n` +
+          `1. ¿Qué tratamiento te interesa?\n` +
+          `2. ¿Qué día/hora prefieres?\n\n` +
+          `Cuéntame y te conecto con nuestro equipo 😊\n\n` +
+          `📱 También puedes llamar: *+591 78118003*\n` +
+          `🌐 O reservar en: *armonniza.com*`
+        );
+        waSetState(from, 'agendar');
+        break;
+
+      case '4':
+        await waSend(from,
+          `🕐 *Horarios de Atención*\n\n` +
+          `${HORARIOS.join('\n')}\n\n` +
+          `📍 *Sede:* La Paz, Bolivia\n\n` +
+          `_Escribe *menu* para volver al inicio_`
+        );
+        waSetState(from, 'menu');
+        break;
+
+      case '5': {
+        const lista = PROMOCIONES.map((p, i) => `${i + 1}. ${p}`).join('\n\n');
+        await waSend(from,
+          `🎁 *Promociones de Temporada*\n\n${lista}\n\n` +
+          `⏰ ¡Ofertas por tiempo limitado!\n\n` +
+          `_Escribe *menu* para volver al inicio_`
+        );
+        waSetState(from, 'menu');
+        break;
+      }
+
+      case '6':
+        await waSend(from,
+          `👩‍💼 *Conectando con nuestro equipo...*\n\n` +
+          `En breve una asesora te atenderá personalmente.\n\n` +
+          `📱 *WhatsApp directo:* +591 78118003\n` +
+          `📸 *Instagram:* @armonniza\n\n` +
+          `¡Gracias por contactar a ARMONNIZA! 💖`
+        );
+        waSetState(from, 'menu');
+        break;
+
+      default:
+        // Palabras clave generales
+        if (lower.includes('botox')) {
+          await waSend(from,
+            `💉 *Botox Facial*\n\n` +
+            `Relaja arrugas de expresión naturalmente.\n` +
+            `• Duración: 4-6 meses\n` +
+            `• Procedimiento: 30 min\n` +
+            `• Recuperación: inmediata\n` +
+            `• Precio: desde Bs 350\n\n` +
+            `👨‍⚕️ Dr. Julio Lucia / Dr. Claudio Tejada\n\n` +
+            `_Escribe *menu* para ver más opciones_`
+          );
+        } else if (lower.includes('precio') || lower.includes('costo') || lower.includes('cuánto') || lower.includes('cuanto')) {
+          await waSend(from,
+            `💰 *Precios ARMONNIZA*\n\n` +
+            `• Valoración inicial: *Bs 50* (reembolsable)\n` +
+            `• Pagos: tarjetas, QR, transferencias\n` +
+            `• Paquetes con descuento disponibles\n\n` +
+            `Agenda tu valoración para un presupuesto exacto 😊\n\n` +
+            `_Escribe *menu* para volver al inicio_`
+          );
+        } else {
+          await waMenuPrincipal(from);
+        }
+    }
+    return;
+  }
+
+  // ── ESTADO: especialidades ──
+  if (state === 'especialidades') {
+    const espList = ['medicina', 'cirugia', 'fisio', 'cosmetologia'];
+    const idx = parseInt(text.trim()) - 1;
+    if (idx >= 0 && idx < espList.length) {
+      const esp = ESPECIALIDADES[espList[idx]];
+      const lista = esp.tratamientos.map(t => `  • ${t}`).join('\n');
+      await waSend(from,
+        `${esp.nombre}\n` +
+        `👨‍⚕️ *${esp.doctor}*\n\n` +
+        `*Tratamientos disponibles:*\n${lista}\n\n` +
+        `💬 ¿Te gustaría agendar una cita?\n` +
+        `Responde *3* para agendar o *menu* para volver`
+      );
+      waSetState(from, 'menu');
+    } else if (text.trim() === '0') {
+      waMenuPrincipal(from);
+    } else {
+      waMenuEspecialidades(from);
+    }
+    return;
+  }
+
+  // ── ESTADO: agendar ──
+  if (state === 'agendar') {
+    await waSend(from,
+      `✅ *¡Recibido!*\n\n` +
+      `Tu solicitud fue anotada. Una asesora de ARMONNIZA te contactará pronto para confirmar tu cita 📅\n\n` +
+      `📱 *WhatsApp directo:* +591 78118003\n\n` +
+      `_Escribe *menu* para volver al inicio_`
+    );
+    waSetState(from, 'menu');
+    return;
+  }
+
+  // Fallback
+  waMenuPrincipal(from);
+}
+
+// ══════════════════════════════════════════
 // WEBHOOK WHATSAPP
 // ══════════════════════════════════════════
 app.get('/webhook', (req, res) => {
@@ -277,23 +481,10 @@ app.post('/webhook', (req, res) => {
         if (messages) {
           messages.forEach(message => {
             const from = message.from;
-            if (from.includes('78118003')) return;
+            if (from.includes('78118003')) return; // ignorar mensajes propios
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
-            const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-fetch(`https://graph.facebook.com/v25.0/1049327234935783/messages`, {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({
-    messaging_product: 'whatsapp',
-    to: from,
-    type: 'text',
-    text: { body: '✨ *Bienvenida/o a ARMONNIZA Bolivia* ✨\n\nTu belleza, nuestra ciencia.\n\nSoy *ARIA*, tu asistente virtual. ¿En qué puedo ayudarte hoy?' }
-  })
-});
+            waHandleMessage(from, text);
           });
         }
       });
@@ -316,7 +507,6 @@ app.get('/', (req, res) => {
   res.send('🤖 ARIA Bot — ARMONNIZA Bolivia — Activo ✅');
 });
 
-// Rutas requeridas por Meta
 app.get('/privacy', (req, res) => {
   res.send('<h1>Política de Privacidad - ARMONNIZA</h1><p>ARMONNIZA recopila datos de contacto únicamente para gestionar citas y consultas médico-estéticas. No compartimos información con terceros.</p>');
 });
