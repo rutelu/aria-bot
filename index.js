@@ -360,6 +360,135 @@ async function waHandleMessage(from, text) {
 }
 
 // ══════════════════════════════════════════
+// MESSENGER (FACEBOOK DM) — ESTADOS
+// ══════════════════════════════════════════
+const fbStates = {};
+function fbSetState(userId, state) { fbStates[userId] = { state }; }
+function fbGetState(userId) { return fbStates[userId] || { state: 'inicio' }; }
+
+async function fbSend(recipientId, text) {
+  const FB_TOKEN = process.env.MESSENGER_TOKEN;
+  try {
+    await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${FB_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient: { id: recipientId }, message: { text } })
+    });
+  } catch (err) { console.error('Error Messenger:', err); }
+}
+
+function fbMenuPrincipal(userId) {
+  fbSend(userId,
+    `✨ Hola! Soy ARIA, asistente de ARMONNIZA 💆‍♀️\n\n` +
+    `Gracias por escribirnos en Facebook 📘\n\n` +
+    `¿En qué puedo ayudarte?\n\n` +
+    `1️⃣ Ver tratamientos\n` +
+    `2️⃣ Precios y promociones\n` +
+    `3️⃣ Agendar una cita\n` +
+    `4️⃣ Horarios de atención\n` +
+    `5️⃣ Hablar con una persona\n\n` +
+    `Responde con el número 👇`
+  );
+  fbSetState(userId, 'menu');
+}
+
+async function fbHandleMessage(userId, text) {
+  const lower = text.trim().toLowerCase();
+  const { state } = fbGetState(userId);
+
+  if (['hola', 'hi', 'hello', 'inicio', 'menu', 'menú', 'start'].includes(lower) || lower.includes('hola')) {
+    return fbMenuPrincipal(userId);
+  }
+
+  if (state === 'inicio' || state === 'menu') {
+    switch (text.trim()) {
+      case '1': {
+        let msg = `💆‍♀️ Nuestros Tratamientos\n\n`;
+        for (const [, esp] of Object.entries(ESPECIALIDADES)) {
+          msg += `${esp.nombre}\n`;
+          esp.tratamientos.slice(0, 2).forEach(t => msg += `  • ${t}\n`);
+          msg += '\n';
+        }
+        msg += `✨ Reserva en:\n👉 ${AGENDA_URL}\n\nEscribe menu para volver`;
+        await fbSend(userId, msg);
+        fbSetState(userId, 'menu');
+        break;
+      }
+      case '2': {
+        const lista = PROMOCIONES.map((p, i) => `${i + 1}. ${p}`).join('\n\n');
+        await fbSend(userId,
+          `💰 Precios y Promociones\n\n` +
+          `• Valoración: Bs 50 (reembolsable)\n` +
+          `• Pagos: tarjetas, QR, transferencias\n\n` +
+          `🎁 Promociones activas:\n\n${lista}\n\n` +
+          `👉 ${AGENDA_URL}\n\nEscribe menu para volver`
+        );
+        fbSetState(userId, 'menu');
+        break;
+      }
+      case '3':
+        await fbSend(userId,
+          `📅 Agenda tu Cita\n\n` +
+          `Reserva en segundos:\n` +
+          `👉 ${AGENDA_URL}\n\n` +
+          `O cuéntame qué tratamiento te interesa 😊`
+        );
+        fbSetState(userId, 'agendar_fb');
+        break;
+      case '4':
+        await fbSend(userId,
+          `🕐 Horarios\n\n` +
+          `📅 ${HORARIOS.join('\n📅 ')}\n\n` +
+          `📍 La Paz, Bolivia\n` +
+          `🌐 ${AGENDA_URL}\n\n` +
+          `Escribe menu para volver`
+        );
+        fbSetState(userId, 'menu');
+        break;
+      case '5':
+        await fbSend(userId,
+          `👩‍💼 Conectando con el equipo...\n\n` +
+          `Una asesora te atenderá pronto.\n\n` +
+          `📱 WhatsApp: +591 78118003\n` +
+          `📸 Instagram: @armonniza\n` +
+          `🌐 ${AGENDA_URL}\n\n` +
+          `¡Gracias por contactar a ARMONNIZA! 💖`
+        );
+        fbSetState(userId, 'menu');
+        break;
+      default:
+        if (lower.includes('precio') || lower.includes('costo') || lower.includes('cuanto') || lower.includes('cuánto') || lower.includes('botox')) {
+          await fbSend(userId,
+            `💰 Precios desde Bs 150\n\n` +
+            `• Botox Facial — Bs 350\n` +
+            `• Rellenos — Bs 450\n` +
+            `• HydraFacial — Bs 350\n` +
+            `• Criolipólisis — Bs 500\n\n` +
+            `👉 ${AGENDA_URL}\n\nEscribe menu para volver`
+          );
+        } else {
+          fbMenuPrincipal(userId);
+        }
+    }
+    return;
+  }
+
+  if (state === 'agendar_fb') {
+    await fbSend(userId,
+      `✅ Recibido!\n\n` +
+      `Reserva directamente en:\n` +
+      `👉 ${AGENDA_URL}\n\n` +
+      `O una asesora te contactará pronto 📅\n\n` +
+      `Escribe menu para volver`
+    );
+    fbSetState(userId, 'menu');
+    return;
+  }
+
+  fbMenuPrincipal(userId);
+}
+
+// ══════════════════════════════════════════
 // INSTAGRAM — ESTADOS
 // ══════════════════════════════════════════
 const igStates = {};
@@ -367,7 +496,7 @@ function igSetState(userId, state) { igStates[userId] = { state }; }
 function igGetState(userId) { return igStates[userId] || { state: 'inicio' }; }
 
 async function igSend(recipientId, text) {
-  const IG_TOKEN = process.env.TOKEN_DE_INSTAGRAM;
+  const IG_TOKEN = process.env.INSTAGRAM_TOKEN;
   try {
     await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
       method: 'POST',
@@ -493,7 +622,7 @@ async function igHandleMessage(userId, text) {
 }
 
 // ══════════════════════════════════════════
-// WEBHOOK — WhatsApp + Instagram
+// WEBHOOK — WhatsApp + Messenger + Instagram
 // ══════════════════════════════════════════
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'armonniza2024';
@@ -524,6 +653,22 @@ app.post('/webhook', (req, res) => {
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             waHandleMessage(from, text);
           });
+        }
+      });
+    });
+    res.sendStatus(200);
+    return;
+  }
+
+  // Messenger (Facebook DM)
+  if (body.object === 'page') {
+    body.entry?.forEach(entry => {
+      entry.messaging?.forEach(event => {
+        if (event.message && !event.message.is_echo) {
+          const userId = event.sender.id;
+          const text = event.message.text || '';
+          console.log(`💬 Messenger DM de ${userId}: ${text}`);
+          fbHandleMessage(userId, text);
         }
       });
     });
