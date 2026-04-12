@@ -267,7 +267,7 @@ function waGetState(phone) {
 async function waSend(to, text) {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   try {
-    await fetch(`https://graph.facebook.com/v25.0/1049327234935783/messages`, {
+    await fetch(`https://graph.facebook.com/v25.0/1072474535952812/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
