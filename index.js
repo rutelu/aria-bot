@@ -20,6 +20,8 @@ app.post(`/bot${TOKEN}`, (req, res) => {
 // DATOS DE ARMONNIZA
 // ══════════════════════════════════════════
 
+const AGENDA_URL = 'www.armonniza.com';
+
 const ESPECIALIDADES = {
   medicina: {
     nombre: '💉 Medicina Estética',
@@ -69,23 +71,22 @@ const ESPECIALIDADES = {
 };
 
 const PROMOCIONES = [
-  '🌟 *Pack Rejuvenecimiento* — 20% Off en Botox Full Face + Ácido Hialurónico',
-  '☀️ *Verano Perfecto* — Lleva 5 sesiones de Modelado y paga solo 3',
-  '✨ *Glow Up Inmediato* — HydraFacial + LED con 30% de descuento',
+  'Pack Rejuvenecimiento — 20% Off en Botox Full Face + Ácido Hialurónico',
+  'Verano Perfecto — Lleva 5 sesiones de Modelado y paga solo 3',
+  'Glow Up Inmediato — HydraFacial + LED con 30% de descuento',
 ];
 
 const HORARIOS = [
-  '📅 Lic. Princeica Tejada — Lun a Vie: 09:00 AM – 06:00 PM',
-  '📅 Téc. Valeria Mendoza — Mar, Jue, Sáb: 09:00 AM – 05:00 PM',
-  '📅 Dr. Julio Lucia — Consultar disponibilidad',
-  '📅 Dr. Claudio Tejada — Consultar disponibilidad',
+  'Lic. Princeica Tejada — Lun a Vie: 09:00 AM – 06:00 PM',
+  'Téc. Valeria Mendoza — Mar, Jue, Sáb: 09:00 AM – 05:00 PM',
+  'Dr. Julio Lucia — Consultar disponibilidad',
+  'Dr. Claudio Tejada — Consultar disponibilidad',
 ];
 
 // ══════════════════════════════════════════
-// ESTADOS DE CONVERSACIÓN TELEGRAM
+// ESTADOS TELEGRAM
 // ══════════════════════════════════════════
 const userStates = {};
-
 function setState(chatId, state) { userStates[chatId] = state; }
 function getState(chatId) { return userStates[chatId] || 'inicio'; }
 
@@ -112,19 +113,18 @@ function menuPrincipal(chatId) {
 }
 
 // ══════════════════════════════════════════
-// MANEJADOR DE MENSAJES TELEGRAM
+// MANEJADOR TELEGRAM
 // ══════════════════════════════════════════
 bot.on('message', (msg) => {
   const chatId = msg.chat.id;
   const text = (msg.text || '').trim();
   const lower = text.toLowerCase();
 
-  if (text === '/start' || lower.includes('hola') || lower.includes('inicio')) {
-    return menuPrincipal(chatId);
-  }
+  if (text === '/start' || lower.includes('hola') || lower.includes('inicio')) return menuPrincipal(chatId);
 
   if (text === '🌟 Ver Especialidades') {
-    const opts = {
+    bot.sendMessage(chatId, '🏥 *Nuestras Especialidades*\n\nSelecciona una:', {
+      parse_mode: 'Markdown',
       reply_markup: {
         keyboard: [
           ['💉 Medicina Estética', '🏥 Cirugía Estética'],
@@ -133,163 +133,99 @@ bot.on('message', (msg) => {
         ],
         resize_keyboard: true
       }
-    };
-    bot.sendMessage(chatId, '🏥 *Nuestras Especialidades*\n\nSelecciona una para ver más información:', { parse_mode: 'Markdown', ...opts });
+    });
     return;
   }
 
-  const espMap = {
-    '💉 medicina estética': 'medicina',
-    '🏥 cirugía estética': 'cirugia',
-    '💆 fisio-estética': 'fisio',
-    '✨ cosmetología': 'cosmetologia',
-  };
+  const espMap = { '💉 medicina estética': 'medicina', '🏥 cirugía estética': 'cirugia', '💆 fisio-estética': 'fisio', '✨ cosmetología': 'cosmetologia' };
   const espKey = espMap[lower];
   if (espKey) {
     const esp = ESPECIALIDADES[espKey];
     const lista = esp.tratamientos.map(t => `  • ${t}`).join('\n');
-    bot.sendMessage(chatId,
-      `${esp.nombre}\n👨‍⚕️ *${esp.doctor}*\n\n*Tratamientos disponibles:*\n${lista}\n\n💬 ¿Te gustaría agendar una cita?`,
-      { parse_mode: 'Markdown' }
-    );
+    bot.sendMessage(chatId, `${esp.nombre}\n👨‍⚕️ *${esp.doctor}*\n\n*Tratamientos:*\n${lista}\n\n👉 Agenda en *${AGENDA_URL}*`, { parse_mode: 'Markdown' });
     return;
   }
 
   if (text === '💆 Tratamientos') {
-    let msg = '💉 *Nuestros Tratamientos Destacados*\n\n';
+    let m = '💉 *Tratamientos Destacados*\n\n';
     for (const [, esp] of Object.entries(ESPECIALIDADES)) {
-      msg += `*${esp.nombre}*\n`;
-      esp.tratamientos.slice(0, 3).forEach(t => msg += `  • ${t}\n`);
-      msg += '\n';
+      m += `*${esp.nombre}*\n`;
+      esp.tratamientos.slice(0, 3).forEach(t => m += `  • ${t}\n`);
+      m += '\n';
     }
-    bot.sendMessage(chatId, msg, { parse_mode: 'Markdown' });
+    bot.sendMessage(chatId, m, { parse_mode: 'Markdown' });
     return;
   }
 
   if (text === '📅 Agendar una Cita') {
     bot.sendMessage(chatId,
-      `📅 *Agendar tu Cita en ARMONNIZA*\n\nTienes 3 opciones:\n\n1️⃣ *Online* → Reserva en nuestro sitio web\n2️⃣ *WhatsApp* → Escríbenos directamente\n3️⃣ *Aquí mismo* → Cuéntame qué tratamiento te interesa 😊`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🌐 Reservar Online', url: 'https://armonniza.com' }],
-            [{ text: '💬 WhatsApp', url: 'https://wa.me/59178118003' }],
-            [{ text: '📝 Agendar aquí', callback_data: 'agendar_aqui' }]
-          ]
-        }
-      }
+      `📅 *Agenda tu Cita en ARMONNIZA*\n\nReserva en segundos desde nuestra agenda online:\n👉 *${AGENDA_URL}*\n\nO cuéntame qué tratamiento te interesa 😊`,
+      { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[{ text: `🌐 Reservar en ${AGENDA_URL}`, url: `https://${AGENDA_URL}` }]] } }
     );
     return;
   }
 
   if (text === '🕐 Horarios') {
-    bot.sendMessage(chatId,
-      `🕐 *Horarios de Atención*\n\n${HORARIOS.join('\n')}\n\n📍 *Sede principal:* La Paz, Bolivia`,
-      { parse_mode: 'Markdown' }
-    );
+    bot.sendMessage(chatId, `🕐 *Horarios de Atención*\n\n${HORARIOS.map(h => `📅 ${h}`).join('\n')}\n\n📍 La Paz, Bolivia`, { parse_mode: 'Markdown' });
     return;
   }
 
   if (text === '🎁 Promociones') {
-    const lista = PROMOCIONES.map((p, i) => `${i + 1}. ${p}`).join('\n\n');
-    bot.sendMessage(chatId,
-      `🎁 *Promociones de Temporada*\n\n${lista}\n\n⏰ ¡Ofertas por tiempo limitado!`,
-      { parse_mode: 'Markdown' }
-    );
+    const lista = PROMOCIONES.map((p, i) => `${i + 1}. 🌟 ${p}`).join('\n\n');
+    bot.sendMessage(chatId, `🎁 *Promociones de Temporada*\n\n${lista}\n\n⏰ ¡Por tiempo limitado!\n👉 *${AGENDA_URL}*`, { parse_mode: 'Markdown' });
     return;
   }
 
   if (text === '📞 Hablar con Humano') {
-    bot.sendMessage(chatId,
-      `👩‍💼 *Conectando con nuestro equipo...*\n\nEn breve una asesora te atenderá.\n\n📱 *WhatsApp:* +591 78118003\n📸 *Instagram:* @armonniza`,
-      { parse_mode: 'Markdown' }
-    );
+    bot.sendMessage(chatId, `👩‍💼 *Conectando con nuestro equipo...*\n\n📱 WhatsApp: +591 78118003\n📸 Instagram: @armonniza\n🌐 ${AGENDA_URL}`, { parse_mode: 'Markdown' });
     return;
   }
 
   if (text === '⬅️ Volver al menú') return menuPrincipal(chatId);
 
   if (lower.includes('botox')) {
-    bot.sendMessage(chatId,
-      `💉 *Botox Facial*\n\nRelaja arrugas de expresión naturalmente.\n• Duración: 4-6 meses\n• Procedimiento: 30 min\n• Recuperación: inmediata\n\n👨‍⚕️ *Dr. Julio Lucia* / *Dr. Claudio Tejada*`,
-      { parse_mode: 'Markdown' }
-    );
+    bot.sendMessage(chatId, `💉 *Botox Facial* — Desde Bs 350\n\n• Duración: 4-6 meses\n• Procedimiento: 30 min\n• Recuperación: inmediata\n\n👉 Agenda en *${AGENDA_URL}*`, { parse_mode: 'Markdown' });
     return;
   }
 
   if (lower.includes('precio') || lower.includes('costo') || lower.includes('cuánto') || lower.includes('cuanto')) {
-    bot.sendMessage(chatId,
-      `💰 *Precios ARMONNIZA*\n\n• Valoración inicial: *Bs 50* (reembolsable)\n• Pagos: tarjetas, QR, transferencias\n• Paquetes con descuento disponibles\n\nAgenda tu valoración para un presupuesto exacto. 😊`,
-      { parse_mode: 'Markdown' }
-    );
+    bot.sendMessage(chatId, `💰 *Precios ARMONNIZA*\n\n• Valoración: *Bs 50* (reembolsable)\n• Pagos: tarjetas, QR, transferencias\n\n👉 *${AGENDA_URL}*`, { parse_mode: 'Markdown' });
     return;
   }
 
-  bot.sendMessage(chatId,
-    `🤔 No estoy segura de entender tu consulta.\n\nPuedo ayudarte con especialidades, tratamientos, precios, promociones y agendar citas. Usa el menú de abajo. 😊`,
-    {
-      reply_markup: {
-        keyboard: [
-          ['🌟 Ver Especialidades', '💆 Tratamientos'],
-          ['📅 Agendar una Cita', '🕐 Horarios'],
-          ['🎁 Promociones', '📞 Hablar con Humano']
-        ],
-        resize_keyboard: true
-      }
-    }
-  );
+  bot.sendMessage(chatId, `🤔 No entendí tu consulta. Usa el menú de abajo 😊`, {
+    reply_markup: { keyboard: [['🌟 Ver Especialidades', '💆 Tratamientos'], ['📅 Agendar una Cita', '🕐 Horarios'], ['🎁 Promociones', '📞 Hablar con Humano']], resize_keyboard: true }
+  });
 });
 
 bot.on('callback_query', (query) => {
-  const chatId = query.message.chat.id;
-  if (query.data === 'agendar_aqui') {
-    bot.sendMessage(chatId,
-      `📝 Cuéntame:\n1. ¿Qué tratamiento te interesa?\n2. ¿En qué ciudad estás?\n3. ¿Preferencia de día u hora?\n\nEscríbeme y coordino con el equipo. 😊`,
-      { parse_mode: 'Markdown' }
-    );
-  }
   bot.answerCallbackQuery(query.id);
 });
 
 // ══════════════════════════════════════════
-// WHATSAPP — ESTADOS DE CONVERSACIÓN
+// WHATSAPP — ESTADOS
 // ══════════════════════════════════════════
-const waStates = {}; // { [phone]: { state, data } }
-
-function waSetState(phone, state, data = {}) {
-  waStates[phone] = { state, data };
-}
-function waGetState(phone) {
-  return waStates[phone] || { state: 'inicio', data: {} };
-}
+const waStates = {};
+function waSetState(phone, state) { waStates[phone] = { state }; }
+function waGetState(phone) { return waStates[phone] || { state: 'inicio' }; }
 
 async function waSend(to, text) {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE_ID = process.env.WHATSAPP_PHONE_ID || '1072474535952812';
   try {
-    await fetch(`https://graph.facebook.com/v25.0/1072474535952812/messages`, {
+    await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        to,
-        type: 'text',
-        text: { body: text }
-      })
+      headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text } })
     });
-  } catch (err) {
-    console.error('Error enviando WhatsApp:', err);
-  }
+  } catch (err) { console.error('Error WA:', err); }
 }
 
 function waMenuPrincipal(from) {
-  const msg =
-    `✨ *Bienvenida/o a ARMONNIZA Bolivia* ✨\n` +
-    `_Tu belleza, nuestra ciencia._\n\n` +
-    `Soy *ARIA*, tu asistente virtual 🤖\n\n` +
+  waSend(from,
+    `✨ Bienvenida/o a ARMONNIZA Bolivia ✨\n` +
+    `Tu belleza, nuestra ciencia.\n\n` +
+    `Soy ARIA, tu asistente virtual 🤖\n\n` +
     `¿En qué puedo ayudarte?\n\n` +
     `1️⃣ Ver Especialidades\n` +
     `2️⃣ Tratamientos disponibles\n` +
@@ -297,21 +233,21 @@ function waMenuPrincipal(from) {
     `4️⃣ Horarios de atención\n` +
     `5️⃣ Promociones\n` +
     `6️⃣ Hablar con una persona\n\n` +
-    `_Responde con el número de tu opción_ 👇`;
-  waSend(from, msg);
+    `Responde con el número 👇`
+  );
   waSetState(from, 'menu');
 }
 
 function waMenuEspecialidades(from) {
-  const msg =
-    `🏥 *Nuestras Especialidades*\n\n` +
+  waSend(from,
+    `🏥 Nuestras Especialidades\n\n` +
     `1️⃣ 💉 Medicina Estética\n` +
     `2️⃣ 🏥 Cirugía Estética\n` +
     `3️⃣ 💆 Fisio-Estética\n` +
     `4️⃣ ✨ Cosmetología\n` +
-    `0️⃣ ⬅️ Volver al menú principal\n\n` +
-    `_Responde con el número_ 👇`;
-  waSend(from, msg);
+    `0️⃣ Volver al menú\n\n` +
+    `Responde con el número 👇`
+  );
   waSetState(from, 'especialidades');
 }
 
@@ -319,97 +255,72 @@ async function waHandleMessage(from, text) {
   const lower = text.trim().toLowerCase();
   const { state } = waGetState(from);
 
-  // Palabras clave para reiniciar siempre
   if (['hola', 'inicio', 'menu', 'menú', 'start', '0'].includes(lower) || lower.includes('hola')) {
     return waMenuPrincipal(from);
   }
 
-  // ── ESTADO: menu principal ──
   if (state === 'inicio' || state === 'menu') {
     switch (text.trim()) {
-      case '1':
-        return waMenuEspecialidades(from);
-
+      case '1': return waMenuEspecialidades(from);
       case '2': {
-        let msg = `💉 *Tratamientos Destacados*\n\n`;
+        let msg = `💉 Tratamientos Destacados\n\n`;
         for (const [, esp] of Object.entries(ESPECIALIDADES)) {
-          msg += `*${esp.nombre}*\n`;
+          msg += `${esp.nombre}\n`;
           esp.tratamientos.slice(0, 3).forEach(t => msg += `  • ${t}\n`);
           msg += '\n';
         }
-        msg += `_Escribe *menu* para volver al inicio_`;
+        msg += `👉 Agenda en: ${AGENDA_URL}\n\nEscribe menu para volver`;
         await waSend(from, msg);
         waSetState(from, 'menu');
         break;
       }
-
       case '3':
         await waSend(from,
-          `📅 *Agendar tu Cita*\n\n` +
-          `Para coordinar tu cita necesito saber:\n\n` +
-          `1. ¿Qué tratamiento te interesa?\n` +
-          `2. ¿Qué día/hora prefieres?\n\n` +
-          `Cuéntame y te conecto con nuestro equipo 😊\n\n` +
-          `📱 También puedes llamar: *+591 78118003*\n` +
-          `🌐 O reservar en: *armonniza.com*`
+          `📅 Agenda tu Cita en ARMONNIZA\n\n` +
+          `Reserva en segundos desde nuestra agenda online:\n` +
+          `👉 ${AGENDA_URL}\n\n` +
+          `O cuéntame qué tratamiento te interesa y te conecto con el equipo 😊\n\n` +
+          `📱 También: +591 78118003`
         );
         waSetState(from, 'agendar');
         break;
-
       case '4':
         await waSend(from,
-          `🕐 *Horarios de Atención*\n\n` +
-          `${HORARIOS.join('\n')}\n\n` +
-          `📍 *Sede:* La Paz, Bolivia\n\n` +
-          `_Escribe *menu* para volver al inicio_`
+          `🕐 Horarios de Atención\n\n` +
+          `📅 ${HORARIOS.join('\n📅 ')}\n\n` +
+          `📍 La Paz, Bolivia\n` +
+          `🌐 ${AGENDA_URL}\n\n` +
+          `Escribe menu para volver`
         );
         waSetState(from, 'menu');
         break;
-
       case '5': {
         const lista = PROMOCIONES.map((p, i) => `${i + 1}. ${p}`).join('\n\n');
         await waSend(from,
-          `🎁 *Promociones de Temporada*\n\n${lista}\n\n` +
-          `⏰ ¡Ofertas por tiempo limitado!\n\n` +
-          `_Escribe *menu* para volver al inicio_`
+          `🎁 Promociones de Temporada\n\n${lista}\n\n` +
+          `⏰ ¡Por tiempo limitado!\n` +
+          `👉 Reserva en: ${AGENDA_URL}\n\n` +
+          `Escribe menu para volver`
         );
         waSetState(from, 'menu');
         break;
       }
-
       case '6':
         await waSend(from,
-          `👩‍💼 *Conectando con nuestro equipo...*\n\n` +
-          `En breve una asesora te atenderá personalmente.\n\n` +
-          `📱 *WhatsApp directo:* +591 78118003\n` +
-          `📸 *Instagram:* @armonniza\n\n` +
+          `👩‍💼 Conectando con nuestro equipo...\n\n` +
+          `Una asesora te atenderá pronto.\n\n` +
+          `📱 WhatsApp: +591 78118003\n` +
+          `📸 Instagram: @armonniza\n` +
+          `🌐 ${AGENDA_URL}\n\n` +
           `¡Gracias por contactar a ARMONNIZA! 💖`
         );
         waSetState(from, 'menu');
         break;
-
       default:
-        // Palabras clave generales
         if (lower.includes('botox')) {
-          await waSend(from,
-            `💉 *Botox Facial*\n\n` +
-            `Relaja arrugas de expresión naturalmente.\n` +
-            `• Duración: 4-6 meses\n` +
-            `• Procedimiento: 30 min\n` +
-            `• Recuperación: inmediata\n` +
-            `• Precio: desde Bs 350\n\n` +
-            `👨‍⚕️ Dr. Julio Lucia / Dr. Claudio Tejada\n\n` +
-            `_Escribe *menu* para ver más opciones_`
-          );
+          await waSend(from, `💉 Botox Facial — Desde Bs 350\n\n• Duración: 4-6 meses\n• Procedimiento: 30 min\n• Recuperación: inmediata\n\n👉 Agenda en: ${AGENDA_URL}\n\nEscribe menu para más opciones`);
         } else if (lower.includes('precio') || lower.includes('costo') || lower.includes('cuánto') || lower.includes('cuanto')) {
-          await waSend(from,
-            `💰 *Precios ARMONNIZA*\n\n` +
-            `• Valoración inicial: *Bs 50* (reembolsable)\n` +
-            `• Pagos: tarjetas, QR, transferencias\n` +
-            `• Paquetes con descuento disponibles\n\n` +
-            `Agenda tu valoración para un presupuesto exacto 😊\n\n` +
-            `_Escribe *menu* para volver al inicio_`
-          );
+          await waSend(from, `💰 Precios ARMONNIZA\n\n• Valoración: Bs 50 (reembolsable)\n• Pagos: tarjetas, QR, transferencias\n\n👉 Agenda en: ${AGENDA_URL}\n\nEscribe menu para volver`);
         } else {
           await waMenuPrincipal(from);
         }
@@ -417,20 +328,13 @@ async function waHandleMessage(from, text) {
     return;
   }
 
-  // ── ESTADO: especialidades ──
   if (state === 'especialidades') {
     const espList = ['medicina', 'cirugia', 'fisio', 'cosmetologia'];
     const idx = parseInt(text.trim()) - 1;
     if (idx >= 0 && idx < espList.length) {
       const esp = ESPECIALIDADES[espList[idx]];
       const lista = esp.tratamientos.map(t => `  • ${t}`).join('\n');
-      await waSend(from,
-        `${esp.nombre}\n` +
-        `👨‍⚕️ *${esp.doctor}*\n\n` +
-        `*Tratamientos disponibles:*\n${lista}\n\n` +
-        `💬 ¿Te gustaría agendar una cita?\n` +
-        `Responde *3* para agendar o *menu* para volver`
-      );
+      await waSend(from, `${esp.nombre}\n👨‍⚕️ ${esp.doctor}\n\nTratamientos:\n${lista}\n\n👉 Agenda en: ${AGENDA_URL}\n\nEscribe 3 para agendar o menu para volver`);
       waSetState(from, 'menu');
     } else if (text.trim() === '0') {
       waMenuPrincipal(from);
@@ -440,24 +344,156 @@ async function waHandleMessage(from, text) {
     return;
   }
 
-  // ── ESTADO: agendar ──
   if (state === 'agendar') {
     await waSend(from,
-      `✅ *¡Recibido!*\n\n` +
-      `Tu solicitud fue anotada. Una asesora de ARMONNIZA te contactará pronto para confirmar tu cita 📅\n\n` +
-      `📱 *WhatsApp directo:* +591 78118003\n\n` +
-      `_Escribe *menu* para volver al inicio_`
+      `✅ ¡Recibido!\n\n` +
+      `Una asesora te contactará pronto 📅\n\n` +
+      `También puedes reservar directamente:\n` +
+      `👉 ${AGENDA_URL}\n\n` +
+      `Escribe menu para volver`
     );
     waSetState(from, 'menu');
     return;
   }
 
-  // Fallback
   waMenuPrincipal(from);
 }
 
 // ══════════════════════════════════════════
-// WEBHOOK WHATSAPP
+// INSTAGRAM — ESTADOS
+// ══════════════════════════════════════════
+const igStates = {};
+function igSetState(userId, state) { igStates[userId] = { state }; }
+function igGetState(userId) { return igStates[userId] || { state: 'inicio' }; }
+
+async function igSend(recipientId, text) {
+  const IG_TOKEN = process.env.TOKEN_DE_INSTAGRAM;
+  try {
+    await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${IG_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recipient: { id: recipientId }, message: { text } })
+    });
+  } catch (err) { console.error('Error IG:', err); }
+}
+
+function igMenuPrincipal(userId) {
+  igSend(userId,
+    `✨ Hola! Soy ARIA, asistente de ARMONNIZA 💆‍♀️\n\n` +
+    `Gracias por escribirnos en Instagram 📸\n\n` +
+    `¿En qué puedo ayudarte?\n\n` +
+    `1️⃣ Ver tratamientos y resultados\n` +
+    `2️⃣ Precios y promociones\n` +
+    `3️⃣ Agendar una cita\n` +
+    `4️⃣ Horarios de atención\n` +
+    `5️⃣ Hablar con una persona\n\n` +
+    `Responde con el número 👇`
+  );
+  igSetState(userId, 'menu');
+}
+
+async function igHandleMessage(userId, text) {
+  const lower = text.trim().toLowerCase();
+  const { state } = igGetState(userId);
+
+  if (['hola', 'hi', 'hello', 'inicio', 'menu', 'menú', 'start'].includes(lower) || lower.includes('hola')) {
+    return igMenuPrincipal(userId);
+  }
+
+  if (state === 'inicio' || state === 'menu') {
+    switch (text.trim()) {
+      case '1': {
+        let msg = `💆‍♀️ Nuestros Tratamientos\n\n`;
+        for (const [, esp] of Object.entries(ESPECIALIDADES)) {
+          msg += `${esp.nombre}\n`;
+          esp.tratamientos.slice(0, 2).forEach(t => msg += `  • ${t}\n`);
+          msg += '\n';
+        }
+        msg += `✨ Reserva y ve todos los resultados en:\n👉 ${AGENDA_URL}\n\nEscribe menu para volver`;
+        await igSend(userId, msg);
+        igSetState(userId, 'menu');
+        break;
+      }
+      case '2': {
+        const lista = PROMOCIONES.map((p, i) => `${i + 1}. ${p}`).join('\n\n');
+        await igSend(userId,
+          `💰 Precios y Promociones ARMONNIZA\n\n` +
+          `• Valoración: Bs 50 (reembolsable)\n` +
+          `• Pagos: tarjetas, QR, transferencias\n\n` +
+          `🎁 Promociones activas:\n\n${lista}\n\n` +
+          `⏰ Por tiempo limitado!\n` +
+          `👉 Reserva en: ${AGENDA_URL}\n\n` +
+          `Escribe menu para volver`
+        );
+        igSetState(userId, 'menu');
+        break;
+      }
+      case '3':
+        await igSend(userId,
+          `📅 Agenda tu Cita en ARMONNIZA\n\n` +
+          `Reserva en segundos desde nuestra agenda online:\n` +
+          `👉 ${AGENDA_URL}\n\n` +
+          `Es rapido y puedes elegir el horario que prefieras 😊\n\n` +
+          `O cuentame que tratamiento te interesa y te ayudo`
+        );
+        igSetState(userId, 'agendar_ig');
+        break;
+      case '4':
+        await igSend(userId,
+          `🕐 Horarios de Atención\n\n` +
+          `📅 ${HORARIOS.join('\n📅 ')}\n\n` +
+          `📍 La Paz, Bolivia\n` +
+          `🌐 ${AGENDA_URL}\n\n` +
+          `Escribe menu para volver`
+        );
+        igSetState(userId, 'menu');
+        break;
+      case '5':
+        await igSend(userId,
+          `👩‍💼 Conectando con nuestro equipo...\n\n` +
+          `Una asesora te atenderá pronto.\n\n` +
+          `📱 WhatsApp: +591 78118003\n` +
+          `📸 Instagram: @armonniza\n` +
+          `🌐 ${AGENDA_URL}\n\n` +
+          `Gracias por seguirnos! 💖`
+        );
+        igSetState(userId, 'menu');
+        break;
+      default:
+        if (lower.includes('botox') || lower.includes('relleno') || lower.includes('precio') || lower.includes('costo') || lower.includes('cuanto') || lower.includes('cuánto')) {
+          await igSend(userId,
+            `💉 Nuestros tratamientos desde Bs 150\n\n` +
+            `• Botox Facial — Desde Bs 350\n` +
+            `• Rellenos — Desde Bs 450\n` +
+            `• HydraFacial — Desde Bs 350\n` +
+            `• Criolipólisis — Desde Bs 500\n\n` +
+            `👉 Ve todos los precios en:\n${AGENDA_URL}\n\n` +
+            `Escribe menu para más opciones`
+          );
+        } else {
+          igMenuPrincipal(userId);
+        }
+    }
+    return;
+  }
+
+  if (state === 'agendar_ig') {
+    await igSend(userId,
+      `✅ Perfecto!\n\n` +
+      `La forma mas rapida de reservar:\n` +
+      `👉 ${AGENDA_URL}\n\n` +
+      `O una asesora te contactara pronto 📅\n\n` +
+      `Escribe menu para volver`
+    );
+    igSetState(userId, 'menu');
+    return;
+  }
+
+  igMenuPrincipal(userId);
+}
+
+// ══════════════════════════════════════════
+// WEBHOOK — WhatsApp + Instagram
 // ══════════════════════════════════════════
 app.get('/webhook', (req, res) => {
   const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || 'armonniza2024';
@@ -465,7 +501,7 @@ app.get('/webhook', (req, res) => {
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
   if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-    console.log('✅ Webhook de WhatsApp verificado');
+    console.log('✅ Webhook verificado');
     res.status(200).send(challenge);
   } else {
     res.sendStatus(403);
@@ -474,6 +510,8 @@ app.get('/webhook', (req, res) => {
 
 app.post('/webhook', (req, res) => {
   const body = req.body;
+
+  // WhatsApp
   if (body.object === 'whatsapp_business_account') {
     body.entry?.forEach(entry => {
       entry.changes?.forEach(change => {
@@ -481,7 +519,7 @@ app.post('/webhook', (req, res) => {
         if (messages) {
           messages.forEach(message => {
             const from = message.from;
-            if (from.includes('78118003')) return; // ignorar mensajes propios
+            if (from.includes('78118003')) return;
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             waHandleMessage(from, text);
@@ -490,9 +528,26 @@ app.post('/webhook', (req, res) => {
       });
     });
     res.sendStatus(200);
-  } else {
-    res.sendStatus(404);
+    return;
   }
+
+  // Instagram
+  if (body.object === 'instagram') {
+    body.entry?.forEach(entry => {
+      entry.messaging?.forEach(event => {
+        if (event.message && !event.message.is_echo) {
+          const userId = event.sender.id;
+          const text = event.message.text || '';
+          console.log(`📸 Instagram DM de ${userId}: ${text}`);
+          igHandleMessage(userId, text);
+        }
+      });
+    });
+    res.sendStatus(200);
+    return;
+  }
+
+  res.sendStatus(404);
 });
 
 // ══════════════════════════════════════════
@@ -503,9 +558,7 @@ app.post(`/bot${TOKEN}`, (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('/', (req, res) => {
-  res.send('🤖 ARIA Bot — ARMONNIZA Bolivia — Activo ✅');
-});
+app.get('/', (req, res) => res.send('🤖 ARIA Bot — ARMONNIZA Bolivia — Activo ✅'));
 
 app.get('/privacy', (req, res) => {
   res.send('<h1>Política de Privacidad - ARMONNIZA</h1><p>ARMONNIZA recopila datos de contacto únicamente para gestionar citas y consultas médico-estéticas. No compartimos información con terceros.</p>');
@@ -515,6 +568,4 @@ app.get('/terms', (req, res) => {
   res.send('<h1>Términos de Servicio - ARMONNIZA</h1><p>Al usar nuestros servicios digitales aceptas que tus datos serán usados exclusivamente para gestión de citas en ARMONNIZA.</p>');
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ ARIA Bot corriendo en puerto ${PORT}`);
-});
+app.listen(PORT, () => console.log(`✅ ARIA Bot corriendo en puerto ${PORT}`));
