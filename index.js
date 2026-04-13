@@ -691,6 +691,24 @@ app.post('/webhook', (req, res) => {
     res.sendStatus(200);
     return;
   }
+  // WhatsApp
+  if (body.object === 'whatsapp_business_account') {
+    body.entry?.forEach(entry => {
+      entry.changes?.forEach(change => {
+        const messages = change.value?.messages;
+        if (messages) {
+          messages.forEach(message => {
+            const from = message.from;
+            const text = message.text?.body || '';
+            console.log(`📱 WhatsApp de ${from}: ${text}`);
+            waHandleMessage(from, text);
+          });
+        }
+      });
+    });
+    res.sendStatus(200);
+    return;
+  }
 
   res.sendStatus(404);
 });
