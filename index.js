@@ -106,7 +106,7 @@ function menuPrincipal(chatId) {
     }
   };
   bot.sendMessage(chatId,
-    `✨ *Bienvenida/o a ARMONNIZA Bolivia* ✨\n\n_Tu belleza, nuestra ciencia._\n\nSoy *ARIA*, tu asistente virtual. ¿En qué puedo ayudarte hoy?\n\nElige una opción del menú 👇`,
+    `✨ *Bienvenida/o a ARMONNIZA Bolivia* ✨\n\n_Tu belleza, nuestra ciencia._\n\nSoy *Valeria*, tu asistente virtual. ¿En qué puedo ayudarte hoy?\n\nElige una opción del menú 👇`,
     { parse_mode: 'Markdown', ...opts }
   );
   setState(chatId, 'menu');
@@ -225,7 +225,7 @@ function waMenuPrincipal(from) {
   waSend(from,
     `✨ Bienvenida/o a ARMONNIZA Bolivia ✨\n` +
     `Tu belleza, nuestra ciencia.\n\n` +
-    `Soy ARIA, tu asistente virtual 🤖\n\n` +
+    `Soy Valeria, tu asistente virtual 🤖\n\n` +
     `¿En qué puedo ayudarte?\n\n` +
     `1️⃣ Ver Especialidades\n` +
     `2️⃣ Tratamientos disponibles\n` +
@@ -379,7 +379,7 @@ async function fbSend(recipientId, text) {
 
 function fbMenuPrincipal(userId) {
   fbSend(userId,
-    `✨ Hola! Soy ARIA, asistente de ARMONNIZA 💆‍♀️\n\n` +
+    `✨ Hola! Soy Valeria, asistente de ARMONNIZA 💆‍♀️\n\n` +
     `Gracias por escribirnos en Facebook 📘\n\n` +
     `¿En qué puedo ayudarte?\n\n` +
     `1️⃣ Ver tratamientos\n` +
@@ -508,7 +508,7 @@ async function igSend(recipientId, text) {
 
 function igMenuPrincipal(userId) {
   igSend(userId,
-    `✨ Hola! Soy ARIA, asistente de ARMONNIZA 💆‍♀️\n\n` +
+    `✨ Hola! Soy Valeria, asistente de ARMONNIZA 💆‍♀️\n\n` +
     `Gracias por escribirnos en Instagram 📸\n\n` +
     `¿En qué puedo ayudarte?\n\n` +
     `1️⃣ Ver tratamientos y resultados\n` +
@@ -691,24 +691,6 @@ app.post('/webhook', (req, res) => {
     res.sendStatus(200);
     return;
   }
-  // WhatsApp
-  if (body.object === 'whatsapp_business_account') {
-    body.entry?.forEach(entry => {
-      entry.changes?.forEach(change => {
-        const messages = change.value?.messages;
-        if (messages) {
-          messages.forEach(message => {
-            const from = message.from;
-            const text = message.text?.body || '';
-            console.log(`📱 WhatsApp de ${from}: ${text}`);
-            waHandleMessage(from, text);
-          });
-        }
-      });
-    });
-    res.sendStatus(200);
-    return;
-  }
 
   res.sendStatus(404);
 });
@@ -721,7 +703,7 @@ app.post(`/bot${TOKEN}`, (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('/', (req, res) => res.send('🤖 ARIA Bot — ARMONNIZA Bolivia — Activo ✅'));
+app.get('/', (req, res) => res.send('🤖 Valeria Bot — ARMONNIZA Bolivia — Activo ✅'));
 
 app.get('/privacy', (req, res) => {
   res.send('<h1>Política de Privacidad - ARMONNIZA</h1><p>ARMONNIZA recopila datos de contacto únicamente para gestionar citas y consultas médico-estéticas. No compartimos información con terceros.</p>');
@@ -731,4 +713,4 @@ app.get('/terms', (req, res) => {
   res.send('<h1>Términos de Servicio - ARMONNIZA</h1><p>Al usar nuestros servicios digitales aceptas que tus datos serán usados exclusivamente para gestión de citas en ARMONNIZA.</p>');
 });
 
-app.listen(PORT, () => console.log(`✅ ARIA Bot corriendo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`));
