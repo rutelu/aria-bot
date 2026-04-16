@@ -495,15 +495,27 @@ const igStates = {};
 function igSetState(userId, state) { igStates[userId] = { state }; }
 function igGetState(userId) { return igStates[userId] || { state: 'inicio' }; }
 
+// ── igSend CON LOGS DE DIAGNÓSTICO ──
 async function igSend(recipientId, text) {
   const IG_TOKEN = process.env.INSTAGRAM_TOKEN;
+  console.log(`📤 igSend → recipientId: ${recipientId}, token existe: ${!!IG_TOKEN}`);
   try {
-    await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
+    const response = await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${IG_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipient: { id: recipientId }, message: { text } })
+      headers: {
+        'Authorization': `Bearer ${IG_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text }
+      })
     });
-  } catch (err) { console.error('Error IG:', err); }
+    const data = await response.json();
+    console.log(`📸 IG API response:`, JSON.stringify(data));
+  } catch (err) {
+    console.error('Error IG:', err);
+  }
 }
 
 function igMenuPrincipal(userId) {
