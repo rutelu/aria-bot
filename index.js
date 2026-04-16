@@ -495,12 +495,13 @@ const igStates = {};
 function igSetState(userId, state) { igStates[userId] = { state }; }
 function igGetState(userId) { return igStates[userId] || { state: 'inicio' }; }
 
-// ── igSend CON LOGS DE DIAGNÓSTICO ──
+// ── igSend CON ID DE PÁGINA CORRECTO ──
 async function igSend(recipientId, text) {
   const IG_TOKEN = process.env.INSTAGRAM_TOKEN;
+  const PAGE_ID = '100361346281528';
   console.log(`📤 igSend → recipientId: ${recipientId}, token existe: ${!!IG_TOKEN}`);
   try {
-    const response = await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
+    const response = await fetch(`https://graph.facebook.com/v25.0/${PAGE_ID}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${IG_TOKEN}`,
