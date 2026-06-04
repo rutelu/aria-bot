@@ -119,6 +119,8 @@ CONTACTO (compártelo solo cuando haga falta):
 3) Fisio-Estética — Lic. Princeica Tejada: Drenaje linfático, Radiofrecuencia, Cavitación, Presoterapia, Electroestimulación EMS, Crioterapia (fat freezing), Masaje reductor, Lifting facial no invasivo (HIFU), Protocolo anticelulitis.
 4) Cosmetología / Cosmiatría — Téc. Valeria Mendoza: Peeling químico, Dermapen, Vitamina C facial, Microdermoabrasión, Hidratación hialurónica, Limpieza facial profunda, Antipigmentación, Antiacné, HydraFacial, Micropigmentación (cejas, labios, ojos, capilar y paramédica).
 
+IMPORTANTE sobre la Micropigmentación: NO es exclusiva de Cosmetología. La realizan tanto la Téc. Valeria Mendoza (Cosmetología) como el Dr. Julio Lucia (Medicina Estética), quien es experto en Micropigmentación en TODAS sus variantes (cejas, labios, ojos, capilar y paramédica). Si preguntan por este tratamiento, menciona a ambos especialistas.
+
 JORNADA BENI — CAMPAÑA VIGENTE (5 al 9 de junio de 2026):
 El Dr. Julio Lucia atiende presencialmente en el Beni:
 - San Borja (Hotel Tacuaral): viernes 5 de junio
