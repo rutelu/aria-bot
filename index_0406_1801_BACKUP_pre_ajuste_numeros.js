@@ -256,28 +256,17 @@ function buildBeniSection(cfg) {
   if (cfg.horas && cfg.horas.length) s += 'Horarios disponibles: ' + cfg.horas.join(', ') + ' (turnos de 60 min).\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
 
-  // Atención principal y derivación a secundarios (solo si la persona lo necesita)
-  s += '\nATENCIÓN: TÚ (Valeria) eres la atención PRINCIPAL y respondes TODO; no derives por defecto. Si la persona necesita hablar con alguien del equipo, usa estas reglas por sub-sede:\n';
+  // Atención principal y derivación a secundarios (solo si insiste)
+  s += '\nATENCIÓN: TÚ (Valeria) eres la atención PRINCIPAL y respondes TODO; no derives por defecto. SOLO si la persona INSISTE en hablar con un encargado o con el especialista, comparte los contactos secundarios EN ORDEN (opción 1 primero):\n';
   (cfg.subsedes || []).forEach(function(sub) {
     const tels = sub.telefonos || [];
     if (!tels.length) return;
-    let encargada = null, especialista = null;
-    tels.forEach(function(t) {
+    const partes = tels.map(function(t, i) {
       const c = CONTACTOS_BENI[t] || {};
-      const rol = (c.rol || '').toLowerCase();
-      if (rol.indexOf('encargad') !== -1) encargada = { tel: t, nombre: c.nombre || 'la encargada' };
-      else if (rol.indexOf('especialista') !== -1) especialista = { tel: t, nombre: c.nombre || 'el especialista' };
-      else if (!especialista) especialista = { tel: t, nombre: c.nombre || 'el equipo' };
+      const quien = c.nombre ? (c.nombre + (c.rol ? ', ' + c.rol : '')) : '';
+      return 'opción ' + (i + 1) + ' ' + t + (quien ? ' (' + quien + ')' : '');
     });
-    if (encargada) {
-      s += '- ' + sub.nombre + ': da SOLO el número de la encargada ' + encargada.nombre + ' (' + encargada.tel + ').';
-      if (especialista) {
-        s += ' Comparte el del especialista ' + especialista.nombre + ' (' + especialista.tel + ') ÚNICAMENTE si la persona pregunta si hay alguien más, y aclara que con la encargada será atendido con más rapidez.';
-      }
-      s += '\n';
-    } else if (especialista) {
-      s += '- ' + sub.nombre + ': no hay encargada, así que el contacto (opción 1) es ' + especialista.nombre + ' (' + especialista.tel + ').\n';
-    }
+    s += '- ' + sub.nombre + ': ' + partes.join(' · ') + '\n';
   });
 
   // Precios durante la campaña
@@ -286,7 +275,7 @@ function buildBeniSection(cfg) {
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAL AGENDAR ofrece SIEMPRE las dos opciones y deja que la persona elija:\n';
   s += '(1) Te reservo yo ahora mismo aquí en el chat: tienes herramientas para consultar los cupos LIBRES y CREAR la reserva. Pide los 5 datos —localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono— de a poco y en frases cortas (no todo de golpe). Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.\n';
-  s += '(2) Recuérdale que también puede ver el calendario él mismo en la web y reservar ahí: en armonniza.com/beni mira en pantalla los días y horarios disponibles y elige el suyo (confirmación inmediata, sin pago online).';
+  s += '(2) O, si prefiere hacerlo por su cuenta, en la agenda de la campaña: armonniza.com/beni (elige localidad, día y horario; confirmación inmediata, sin pago online).';
   return s;
 }
 
