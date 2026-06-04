@@ -238,44 +238,19 @@ async function getBeniConfig() {
   return _beniCache.data;
 }
 
-// Mapa de contactos secundarios por número (nombre + rol). Valeria SOLO los da si la
-// persona insiste en hablar con un encargado/humano; en el orden del array de la sub-sede.
-const CONTACTOS_BENI = {
-  '+591 71147703': { nombre: 'Sra. Deydi Guiteras', rol: 'encargada de la sede' },
-  '+591 78922666': { nombre: 'Dr. Julio Lucia', rol: 'especialista' }
-};
-
 function buildBeniSection(cfg) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (ofrécela como gancho cuando sea relevante):\n';
-  s += 'El ' + (cfg.especialista || 'Dr. Julio Lucia') + ' atiende presencialmente en el Beni. Las sub-sedes son SOLO ESTAS DOS (no menciones ninguna otra localidad):\n';
+  s += 'El ' + (cfg.especialista || 'Dr. Julio Lucia') + ' atiende presencialmente en el Beni:\n';
   (cfg.subsedes || []).forEach(function(sub) {
     const dias = (cfg.dias || []).filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
-    s += '- ' + sub.nombre + ' (' + sub.direccion + ')' + (dias ? ': ' + dias : '') + '\n';
+    const tel = (sub.telefonos || []).join(' / ');
+    s += '- ' + sub.nombre + ' (' + sub.direccion + ')' + (dias ? ': ' + dias : '') + (tel ? ' · tel: ' + tel : '') + '\n';
   });
-  if (cfg.horas && cfg.horas.length) s += 'Horarios disponibles: ' + cfg.horas.join(', ') + ' (turnos de 60 min).\n';
+  if (cfg.horas && cfg.horas.length) s += 'Horarios: ' + cfg.horas.join(', ') + '.\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
-
-  // Atención principal y derivación a secundarios (solo si insiste)
-  s += '\nATENCIÓN: TÚ (Valeria) eres la atención PRINCIPAL y respondes TODO; no derives por defecto. SOLO si la persona INSISTE en hablar con un encargado o con el especialista, comparte los contactos secundarios EN ORDEN (opción 1 primero):\n';
-  (cfg.subsedes || []).forEach(function(sub) {
-    const tels = sub.telefonos || [];
-    if (!tels.length) return;
-    const partes = tels.map(function(t, i) {
-      const c = CONTACTOS_BENI[t] || {};
-      const quien = c.nombre ? (c.nombre + (c.rol ? ', ' + c.rol : '')) : '';
-      return 'opción ' + (i + 1) + ' ' + t + (quien ? ' (' + quien + ')' : '');
-    });
-    s += '- ' + sub.nombre + ': ' + partes.join(' · ') + '\n';
-  });
-
-  // Precios durante la campaña
-  s += '\nPRECIOS EN ESTA CAMPAÑA: NO hables de costos ni des cifras (ni siquiera la valoración de Bs 50). Si preguntan por precios, di con elegancia que nuestros precios son más accesibles que los de la competencia y que lo más importante es la calidad y los resultados; recuérdales que con la promo de la Jornada el segundo tratamiento lleva 50% de descuento.\n';
-
-  // Cómo agendar — SIEMPRE ofrecer las dos vías
-  s += '\nAL AGENDAR ofrece SIEMPRE las dos opciones y deja que la persona elija:\n';
-  s += '(1) Te reservo yo ahora mismo aquí en el chat: tienes herramientas para consultar los cupos LIBRES y CREAR la reserva. Pide los 5 datos —localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono— de a poco y en frases cortas (no todo de golpe). Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.\n';
-  s += '(2) O, si prefiere hacerlo por su cuenta, en la agenda de la campaña: armonniza.com/beni (elige localidad, día y horario; confirmación inmediata, sin pago online).';
+  s += 'Reserva en armonniza.com/beni (eliges localidad, día y horario; confirmación inmediata, sin pago online).';
+  s += '\n\nPUEDES AGENDAR TÚ MISMA: tienes herramientas para consultar los cupos LIBRES y para CREAR la reserva. Úsalas cuando la persona quiera reservar o pregunte por disponibilidad. Para confirmar una reserva necesitas 5 datos: localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono. Pide SOLO lo que falte, de a poco y en frases cortas (no todo de golpe). Antes de crear, asegúrate con la herramienta de que el horario esté libre; si está ocupado, ofrece otro. Tras crear la reserva, da una confirmación breve y cálida con localidad, día y hora.';
   return s;
 }
 
