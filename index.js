@@ -46,8 +46,8 @@ const BENI_SEED = {
   publicada: false,
   promo: 'Al reservar 2 tratamientos, el segundo lleva 50% de descuento. Válida para compartir entre 2 personas y aplica a cualquier tratamiento.',
   subsedes: [
-    { id: 'San Borja',    nombre: 'San Borja',    direccion: 'Hotel Kamahal' },
-    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa' }
+    { id: 'San Borja',    nombre: 'San Borja',    direccion: 'Hotel Kamahal',        telefonos: ['+591 78922666'] },
+    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 71147703', '+591 78922666'] }
   ],
   dias: [
     { fecha: '2026-06-06', label: 'Sábado 6 de junio',  subsede: 'San Borja' },
