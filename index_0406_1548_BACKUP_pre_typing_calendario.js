@@ -169,7 +169,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - NUNCA inventes precios. Lo único confirmado es la VALORACIÓN: Bs 50, 100% reembolsables en el tratamiento. Para cualquier otro costo, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 78922666.
 - Toda cirugía estética requiere consulta de valoración previa obligatoria.
 - Si no sabes algo con certeza, no improvises: ofrece agendar o derivar por WhatsApp +591 78922666.
-- LONGITUD DE RESPUESTA (regla clave): por defecto responde como en un chat real de WhatsApp: MUY breve, 1-2 oraciones (idealmente una). Nunca párrafos largos tipo folleto. Da lo esencial y, cuando el tema dé para más (un tratamiento, cómo es un procedimiento, qué incluye, cuidados, etc.), OFRECE ampliar con una pregunta corta del estilo "¿Quieres que te lo explique con más detalle?". Solo si la persona pide más detalle (o responde que sí) puedes dar una respuesta más larga y completa. Cierra invitando a agendar solo cuando sea natural, sin sonar insistente.
+- Máximo 3-4 oraciones por respuesta. Cierra invitando a agendar.
 
 CONTACTO (compártelo solo cuando haga falta):
 - Sitio web para agendar: www.armonniza.com
@@ -250,118 +250,7 @@ function buildBeniSection(cfg) {
   if (cfg.horas && cfg.horas.length) s += 'Horarios: ' + cfg.horas.join(', ') + '.\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
   s += 'Reserva en armonniza.com/beni (eliges localidad, día y horario; confirmación inmediata, sin pago online).';
-  s += '\n\nPUEDES AGENDAR TÚ MISMA: tienes herramientas para consultar los cupos LIBRES y para CREAR la reserva. Úsalas cuando la persona quiera reservar o pregunte por disponibilidad. Para confirmar una reserva necesitas 5 datos: localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono. Pide SOLO lo que falte, de a poco y en frases cortas (no todo de golpe). Antes de crear, asegúrate con la herramienta de que el horario esté libre; si está ocupado, ofrece otro. Tras crear la reserva, da una confirmación breve y cálida con localidad, día y hora.';
   return s;
-}
-
-// ══════════════════════════════════════════
-// HELPERS DE "ESCRIBIENDO…" (delay proporcional al largo)
-// ══════════════════════════════════════════
-function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
-
-function typingDelay(text) {
-  const palabras = (text || '').trim().split(/\s+/).filter(Boolean).length;
-  const ms = 600 + palabras * 90;            // ~90ms por palabra
-  return Math.max(800, Math.min(ms, 3500));   // entre 0.8s y 3.5s
-}
-
-// ══════════════════════════════════════════
-// HERRAMIENTAS DE CALENDARIO — JORNADA BENI (tool-use de Claude)
-// ══════════════════════════════════════════
-const BENI_TOOLS = [
-  {
-    name: 'consultar_disponibilidad_beni',
-    description: 'Consulta los días y horarios LIBRES de la Jornada Beni. Úsala cuando la persona pregunte por disponibilidad, qué días hay, o quiera reservar. Devuelve los cupos libres por sub-sede y fecha.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        subsede: { type: 'string', enum: ['San Borja', 'Rurrenabaque'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
-        fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Opcional; si se omite, devuelve todos los días de la campaña.' }
-      }
-    }
-  },
-  {
-    name: 'crear_reserva_beni',
-    description: 'Crea (confirma) una reserva en la Jornada Beni. Úsala SOLO cuando ya tengas los 5 datos: subsede, fecha, hora, nombre completo y teléfono, y el horario esté libre. Si el horario está ocupado devolverá error y deberás ofrecer otro.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        subsede: { type: 'string', enum: ['San Borja', 'Rurrenabaque'] },
-        fecha: { type: 'string', description: 'YYYY-MM-DD' },
-        hora: { type: 'string', description: 'HH:MM en 24h, ej 09:00, 16:00' },
-        nombre: { type: 'string', description: 'Nombre completo del paciente' },
-        telefono: { type: 'string', description: 'Teléfono / WhatsApp del paciente' },
-        tratamiento: { type: 'string', description: 'Tratamiento de interés. Opcional.' }
-      },
-      required: ['subsede', 'fecha', 'hora', 'nombre', 'telefono']
-    }
-  }
-];
-
-async function toolConsultarDisponibilidad(args, cfg) {
-  if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Beni aún no está publicada.' };
-  const horas = cfg.horas || [];
-  let dias = cfg.dias || [];
-  if (args.subsede) dias = dias.filter(function(d) { return d.subsede === args.subsede; });
-  if (args.fecha) dias = dias.filter(function(d) { return d.fecha === args.fecha; });
-  if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. Las localidades son San Borja y Rurrenabaque.' };
-
-  const result = [];
-  for (const d of dias) {
-    // Una sola condición de igualdad (fecha) → sin índice compuesto. El resto se filtra en código.
-    const snap = await db.collection('reservas_beni').where('fecha', '==', d.fecha).get();
-    const ocupadas = new Set();
-    snap.forEach(function(doc) {
-      const r = doc.data();
-      if (r.subsede === d.subsede && r.estado !== 'cancelada') ocupadas.add(r.hora);
-    });
-    const libres = horas.filter(function(h) { return !ocupadas.has(h); });
-    const sub = (cfg.subsedes || []).find(function(s) { return s.id === d.subsede; }) || {};
-    result.push({ subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libres });
-  }
-  return { disponibilidad: result, promo: cfg.promo };
-}
-
-async function toolCrearReserva(args, cfg, canal) {
-  if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Beni aún no está publicada.' };
-  const subsede = args.subsede, fecha = args.fecha, hora = args.hora;
-  const nombre = (args.nombre || '').trim(), telefono = (args.telefono || '').trim();
-  if (!subsede || !fecha || !hora || !nombre || !telefono) {
-    return { error: 'Faltan datos. Necesito localidad, día, hora, nombre completo y teléfono.' };
-  }
-  const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
-  const horaOk = (cfg.horas || []).includes(hora);
-  if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Beni. Ofrece un día y hora válidos de la campaña.' };
-
-  const snap = await db.collection('reservas_beni').where('fecha', '==', fecha).get();
-  let ocupado = false;
-  snap.forEach(function(doc) {
-    const r = doc.data();
-    if (r.subsede === subsede && r.hora === hora && r.estado !== 'cancelada') ocupado = true;
-  });
-  if (ocupado) return { error: 'Ese horario ya está ocupado. Ofrece otro horario libre del mismo día u otro día.' };
-
-  const docRef = await db.collection('reservas_beni').add({
-    subsede: subsede, fecha: fecha, hora: hora, nombre: nombre, telefono: telefono,
-    tratamiento: args.tratamiento || '',
-    estado: 'confirmada',
-    canal: canal || 'chat',
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
-  });
-  return { ok: true, id: docRef.id, mensaje: 'Reserva confirmada: ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
-}
-
-async function ejecutarTool(block, cfg, canal) {
-  try {
-    if (block.name === 'consultar_disponibilidad_beni') return await toolConsultarDisponibilidad(block.input || {}, cfg);
-    if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal);
-    return { error: 'herramienta desconocida' };
-  } catch (e) {
-    console.error('Tool error (' + block.name + '):', e.message);
-    return { error: 'No pude completar esa acción ahora mismo.' };
-  }
 }
 
 // ══════════════════════════════════════════
@@ -377,66 +266,33 @@ async function askValeria(userId, userMessage) {
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
     + buildBeniSection(beniCfg);
 
-  // Copia de trabajo del historial (los turnos de herramientas NO se persisten,
-  // solo el texto final, para mantener limpio conversationHistory).
-  const messages = getHistory(userId).map(function(m) { return { role: m.role, content: m.content }; });
-  const canal = (userId.split('_')[0]) || 'chat';
-  const toolsEnabled = !!db && beniCfg && beniCfg.publicada === true;
-
   try {
-    for (let iter = 0; iter < 4; iter++) {
-      const reqBody = {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 500,
         system: systemPrompt,
-        messages: messages
-      };
-      if (toolsEnabled) reqBody.tools = BENI_TOOLS;
+        messages: getHistory(userId)
+      })
+    });
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify(reqBody)
-      });
+    const data = await response.json();
 
-      const data = await response.json();
-
-      if (data.error) {
-        console.error('Claude API error:', data.error);
-        return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 78922666 y te atendemos de inmediato 😊';
-      }
-
-      // ¿Claude pide usar una herramienta? Ejecutarla y volver a llamar.
-      if (data.stop_reason === 'tool_use') {
-        messages.push({ role: 'assistant', content: data.content });
-        const toolResults = [];
-        for (const block of data.content) {
-          if (block.type === 'tool_use') {
-            const result = await ejecutarTool(block, beniCfg, canal);
-            console.log('🛠️ ' + block.name + ' →', JSON.stringify(result).substring(0, 160));
-            toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
-          }
-        }
-        messages.push({ role: 'user', content: toolResults });
-        continue;
-      }
-
-      // Respuesta de texto normal.
-      const reply = (data.content || [])
-        .filter(function(b) { return b.type === 'text'; })
-        .map(function(b) { return b.text; })
-        .join('\n').trim() || 'Con gusto te ayudo 😊';
-      addToHistory(userId, 'assistant', reply);
-      console.log(`🤖 Valeria → ${userId}: ${reply.substring(0, 100)}...`);
-      return reply;
+    if (data.error) {
+      console.error('Claude API error:', data.error);
+      return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 78922666 y te atendemos de inmediato 😊';
     }
 
-    // Si se agotó el bucle sin respuesta final.
-    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Beni 😊 ¿Para qué localidad sería, San Borja o Rurrenabaque?';
+    const reply = data.content[0].text;
+    addToHistory(userId, 'assistant', reply);
+    console.log(`🤖 Valeria → ${userId}: ${reply.substring(0, 100)}...`);
+    return reply;
 
   } catch (err) {
     console.error('Error Claude AI:', err);
@@ -453,11 +309,8 @@ bot.on('message', async (msg) => {
   if (!text) return;
 
   console.log(`📱 Telegram de ${chatId}: ${text}`);
-  const t0 = Date.now();
   bot.sendChatAction(chatId, 'typing');
   const reply = await askValeria(`tg_${chatId}`, text);
-  const espera = typingDelay(reply) - (Date.now() - t0);
-  if (espera > 0) { bot.sendChatAction(chatId, 'typing'); await sleep(espera); }
   bot.sendMessage(chatId, reply);
 });
 
@@ -480,21 +333,6 @@ async function waSend(to, text) {
   } catch (err) { console.error('Error WA:', err); }
 }
 
-// Indicador "escribiendo…" de WhatsApp Cloud API (usa el message_id entrante).
-// Defensivo: si la API lo rechaza, no afecta la respuesta.
-async function waTyping(messageId) {
-  if (!messageId) return;
-  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-  const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-  try {
-    await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId, typing_indicator: { type: 'text' } })
-    });
-  } catch (err) { console.error('Error WA typing:', err.message); }
-}
-
 // ══════════════════════════════════════════
 // MESSENGER — ENVÍO
 // ══════════════════════════════════════════
@@ -507,18 +345,6 @@ async function fbSend(recipientId, text) {
       body: JSON.stringify({ recipient: { id: recipientId }, message: { text } })
     });
   } catch (err) { console.error('Error Messenger:', err); }
-}
-
-// "escribiendo…" en Messenger (sender_action: typing_on / typing_off)
-async function fbAction(recipientId, action) {
-  const FB_TOKEN = process.env.MESSENGER_TOKEN;
-  try {
-    await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${FB_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipient: { id: recipientId }, sender_action: action })
-    });
-  } catch (err) { console.error('Error Messenger action:', err.message); }
 }
 
 // ══════════════════════════════════════════
@@ -536,19 +362,6 @@ async function igSend(recipientId, text) {
     const data = await response.json();
     if (data.error) console.error('IG API error:', data.error);
   } catch (err) { console.error('Error IG:', err); }
-}
-
-// "escribiendo…" en Instagram (sender_action: typing_on / typing_off)
-async function igAction(recipientId, action) {
-  const IG_TOKEN = process.env.INSTAGRAM_TOKEN;
-  const PAGE_ID = '100361346281528';
-  try {
-    await fetch(`https://graph.facebook.com/v25.0/${PAGE_ID}/messages`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${IG_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipient: { id: recipientId }, sender_action: action })
-    });
-  } catch (err) { console.error('Error IG action:', err.message); }
 }
 
 // ══════════════════════════════════════════
@@ -581,11 +394,7 @@ app.post('/webhook', async (req, res) => {
             if (from.includes('78118003')) return;
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
-            const t0 = Date.now();
-            await waTyping(message.id);
             const reply = await askValeria(`wa_${from}`, text);
-            const espera = typingDelay(reply) - (Date.now() - t0);
-            if (espera > 0) await sleep(espera);
             await waSend(from, reply);
           });
         }
@@ -603,11 +412,7 @@ app.post('/webhook', async (req, res) => {
           const userId = event.sender.id;
           const text = event.message.text || '';
           console.log(`💬 Messenger DM de ${userId}: ${text}`);
-          const t0 = Date.now();
-          await fbAction(userId, 'typing_on');
           const reply = await askValeria(`fb_${userId}`, text);
-          const espera = typingDelay(reply) - (Date.now() - t0);
-          if (espera > 0) await sleep(espera);
           await fbSend(userId, reply);
         }
       });
@@ -624,11 +429,7 @@ app.post('/webhook', async (req, res) => {
           const userId = event.sender.id;
           const text = event.message.text || '';
           console.log(`📸 Instagram DM de ${userId}: ${text}`);
-          const t0 = Date.now();
-          await igAction(userId, 'typing_on');
           const reply = await askValeria(`ig_${userId}`, text);
-          const espera = typingDelay(reply) - (Date.now() - t0);
-          if (espera > 0) await sleep(espera);
           await igSend(userId, reply);
         }
       });
