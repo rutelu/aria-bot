@@ -11,6 +11,66 @@ const PORT = process.env.PORT || 3000;
 
 const bot = new TelegramBot(TOKEN, { polling: false });
 
+// ══════════════════════════════════════════
+// FIREBASE ADMIN (agenda / Firestore) — defensivo
+// Si la llave falta o es inválida, NO tumba el bot: solo deshabilita la agenda.
+// ══════════════════════════════════════════
+const admin = require('firebase-admin');
+let db = null;
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({ credential: admin.credential.cert(svc) });
+    db = admin.firestore();
+    console.log('✅ Firebase conectado (proyecto: ' + (svc.project_id || '?') + ')');
+  } else {
+    console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT no definido — la agenda queda deshabilitada');
+  }
+} catch (e) {
+  db = null;
+  console.error('❌ Error iniciando Firebase Admin (agenda deshabilitada):', e.message);
+}
+
+// ── JORNADA BENI: documento único de configuración (fuente de verdad) ──
+// Se crea SOLO si no existe, para no pisar ediciones hechas desde la consola.
+const BENI_SEED = {
+  id: 'beni',
+  titulo: 'Jornada Beni',
+  especialista: 'Dr. Julio Lucia',
+  especialidad: 'Medicina Estética',
+  avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
+  publicada: false,
+  promo: 'Al reservar 2 tratamientos, el segundo lleva 50% de descuento. Válida para compartir entre 2 personas y aplica a cualquier tratamiento.',
+  subsedes: [
+    { id: 'San Borja',    nombre: 'San Borja',    direccion: 'Hotel Kamahal' },
+    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa' }
+  ],
+  dias: [
+    { fecha: '2026-06-06', label: 'Sábado 6 de junio',  subsede: 'San Borja' },
+    { fecha: '2026-06-07', label: 'Domingo 7 de junio', subsede: 'San Borja' },
+    { fecha: '2026-06-08', label: 'Lunes 8 de junio',   subsede: 'Rurrenabaque' },
+    { fecha: '2026-06-09', label: 'Martes 9 de junio',  subsede: 'Rurrenabaque' }
+  ],
+  horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
+};
+
+async function seedBeniConfig() {
+  if (!db) return;
+  try {
+    const ref = db.collection('config').doc('jornada_beni');
+    const snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set(BENI_SEED);
+      console.log('🌱 config/jornada_beni creado con el cronograma corregido');
+    } else {
+      console.log('ℹ️ config/jornada_beni ya existe (no se sobrescribe)');
+    }
+  } catch (err) {
+    console.error('Error creando config/jornada_beni:', err.message);
+  }
+}
+seedBeniConfig();
+
 app.post(`/bot${TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
   res.sendStatus(200);
@@ -351,6 +411,22 @@ app.post(`/bot${TOKEN}`, (req, res) => {
 });
 
 app.get('/', (req, res) => res.send('🤖 Valeria Bot — ARMONNIZA Bolivia — Activo ✅'));
+
+// Verificación de conexión a Firebase (sin secretos)
+app.get('/firebase-status', (req, res) => {
+  res.json({ connected: !!db });
+});
+
+// Lectura de la config de la Jornada Beni (datos públicos de campaña)
+app.get('/beni-config', async (req, res) => {
+  if (!db) return res.status(503).json({ error: 'Firebase no conectado' });
+  try {
+    const snap = await db.collection('config').doc('jornada_beni').get();
+    res.json(snap.exists ? snap.data() : { error: 'documento no existe' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get('/privacy', (req, res) => {
   res.send('<h1>Política de Privacidad - ARMONNIZA</h1><p>ARMONNIZA recopila datos de contacto únicamente para gestionar citas y consultas médico-estéticas. No compartimos información con terceros.</p>');
