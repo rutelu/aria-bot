@@ -323,10 +323,6 @@ const BENI_TOOLS = [
   }
 ];
 
-// Mismo esquema de ID que la web (beni.html): beni_FECHA_HHMM. Como cada fecha
-// pertenece a una sola sub-sede, fecha+hora identifica el cupo sin ambigüedad.
-function beniSlotId(fecha, hora) { return 'beni_' + fecha + '_' + String(hora).replace(':', ''); }
-
 async function toolConsultarDisponibilidad(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Beni aún no está publicada.' };
@@ -336,18 +332,19 @@ async function toolConsultarDisponibilidad(args, cfg) {
   if (args.fecha) dias = dias.filter(function(d) { return d.fecha === args.fecha; });
   if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. Las localidades son San Borja y Rurrenabaque.' };
 
-  // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
-  const ocupados = new Set();
-  try {
-    const snap = await db.collection('cupos_ocupados').where('jornadaId', '==', 'beni').get();
-    snap.forEach(function(doc) { ocupados.add(doc.id); });
-  } catch (e) { console.error('cupos_ocupados read:', e.message); }
-
-  const result = dias.map(function(d) {
-    const libres = horas.filter(function(h) { return !ocupados.has(beniSlotId(d.fecha, h)); });
+  const result = [];
+  for (const d of dias) {
+    // Una sola condición de igualdad (fecha) → sin índice compuesto. El resto se filtra en código.
+    const snap = await db.collection('reservas_beni').where('fecha', '==', d.fecha).get();
+    const ocupadas = new Set();
+    snap.forEach(function(doc) {
+      const r = doc.data();
+      if (r.subsede === d.subsede && r.estado !== 'cancelada') ocupadas.add(r.hora);
+    });
+    const libres = horas.filter(function(h) { return !ocupadas.has(h); });
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === d.subsede; }) || {};
-    return { subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libres };
-  });
+    result.push({ subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libres });
+  }
   return { disponibilidad: result, promo: cfg.promo };
 }
 
@@ -363,30 +360,22 @@ async function toolCrearReserva(args, cfg, canal) {
   const horaOk = (cfg.horas || []).includes(hora);
   if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Beni. Ofrece un día y hora válidos de la campaña.' };
 
-  const slotId = beniSlotId(fecha, hora);
-  // ¿Cupo ya ocupado? (misma fuente que la web → evita doble reserva)
-  try {
-    const cupo = await db.collection('cupos_ocupados').doc(slotId).get();
-    if (cupo.exists) return { error: 'Ese horario ya está ocupado. Ofrece otro horario libre del mismo día u otro día.' };
-  } catch (e) { console.error('cupo check:', e.message); }
+  const snap = await db.collection('reservas_beni').where('fecha', '==', fecha).get();
+  let ocupado = false;
+  snap.forEach(function(doc) {
+    const r = doc.data();
+    if (r.subsede === subsede && r.hora === hora && r.estado !== 'cancelada') ocupado = true;
+  });
+  if (ocupado) return { error: 'Ese horario ya está ocupado. Ofrece otro horario libre del mismo día u otro día.' };
 
-  const sub = (cfg.subsedes || []).find(function(s) { return s.id === subsede; }) || {};
-  const lugar = sub.direccion ? (subsede + ' — ' + sub.direccion) : subsede;
-
-  // Batch: bloquea el cupo Y crea la reserva con el MISMO id que la web (beni_FECHA_HHMM).
-  const batch = db.batch();
-  batch.set(db.collection('cupos_ocupados').doc(slotId), { jornadaId: 'beni', fecha: fecha, hora: hora, ocupado: true });
-  batch.set(db.collection('reservas_beni').doc(slotId), {
-    jornadaId: 'beni', fecha: fecha, hora: hora,
-    lugar: lugar, subsede: subsede,
-    especialista: cfg.especialista || 'Dr. Julio Lucia', especialidad: cfg.especialidad || '',
-    nombre: nombre, telefono: telefono, email: '', notas: args.tratamiento || '',
-    estado: 'confirmada', canal: canal || 'chat',
+  const docRef = await db.collection('reservas_beni').add({
+    subsede: subsede, fecha: fecha, hora: hora, nombre: nombre, telefono: telefono,
+    tratamiento: args.tratamiento || '',
+    estado: 'confirmada',
+    canal: canal || 'chat',
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
-  await batch.commit();
-
-  return { ok: true, id: slotId, mensaje: 'Reserva confirmada: ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
+  return { ok: true, id: docRef.id, mensaje: 'Reserva confirmada: ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
 }
 
 async function ejecutarTool(block, cfg, canal) {
