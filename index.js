@@ -17,6 +17,9 @@ const bot = new TelegramBot(TOKEN, { polling: false });
 // ══════════════════════════════════════════
 const admin = require('firebase-admin');
 let db = null;
+let fbVarPresent = !!process.env.FIREBASE_SERVICE_ACCOUNT;
+let fbVarLen = (process.env.FIREBASE_SERVICE_ACCOUNT || '').length;
+let fbInitError = null;
 try {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -28,6 +31,7 @@ try {
   }
 } catch (e) {
   db = null;
+  fbInitError = e.message;
   console.error('❌ Error iniciando Firebase Admin (agenda deshabilitada):', e.message);
 }
 
@@ -414,7 +418,7 @@ app.get('/', (req, res) => res.send('🤖 Valeria Bot — ARMONNIZA Bolivia — 
 
 // Verificación de conexión a Firebase (sin secretos)
 app.get('/firebase-status', (req, res) => {
-  res.json({ connected: !!db });
+  res.json({ connected: !!db, varPresent: fbVarPresent, varLen: fbVarLen, error: fbInitError });
 });
 
 // Lectura de la config de la Jornada Beni (datos públicos de campaña)
