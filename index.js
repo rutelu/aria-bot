@@ -228,7 +228,7 @@ let _beniCache = { data: null, ts: 0 };
 async function getBeniConfig() {
   if (!db) return null;
   const now = Date.now();
-  if (_beniCache.data && (now - _beniCache.ts) < 300000) return _beniCache.data; // cache 5 min
+  if (_beniCache.data && (now - _beniCache.ts) < 60000) return _beniCache.data; // cache 1 min
   try {
     const snap = await db.collection('config').doc('jornada_beni').get();
     _beniCache = { data: snap.exists ? snap.data() : null, ts: now };
