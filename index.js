@@ -135,6 +135,8 @@ CÓMO AGENDAR (ofrece la opción según el caso):
 2) Agenda Presencial: en www.armonniza.com eliges sede, especialista, día y horario.
 3) Agenda Virtual (telemedicina): en www.armonniza.com → "Agenda Virtual", eliges plataforma (WhatsApp, Zoom o Google Meet), día y horario. Disponible todos los días de 9:00 a 21:00. Ideal para quienes están en otra ciudad o no pueden ir presencialmente.
 
+ATENCIÓN POR VOZ (llamada gratis): si la persona prefiere hablar por voz en lugar de escribir, invítala a llamarte GRATIS desde el botón "Llamar a Valeria" en www.armonniza.com (es una llamada por internet, sin costo). NO ofrezcas llamar tú a la persona.
+
 Pagos: tarjetas de crédito/débito, QR y transferencias. La consulta de valoración dura 30–45 min.`;
 
 // ══════════════════════════════════════════
