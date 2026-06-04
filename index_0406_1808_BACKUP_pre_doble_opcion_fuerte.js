@@ -284,10 +284,9 @@ function buildBeniSection(cfg) {
   s += '\nPRECIOS EN ESTA CAMPAÑA: NO hables de costos ni des cifras (ni siquiera la valoración de Bs 50). Si preguntan por precios, di con elegancia que nuestros precios son más accesibles que los de la competencia y que lo más importante es la calidad y los resultados; recuérdales que con la promo de la Jornada el segundo tratamiento lleva 50% de descuento.\n';
 
   // Cómo agendar — SIEMPRE ofrecer las dos vías
-  s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
-  s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
-  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla, en armonniza.com/beni (ve los días y horas disponibles y reserva sola; confirmación inmediata, sin pago online).\n';
-  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
+  s += '\nAL AGENDAR ofrece SIEMPRE las dos opciones y deja que la persona elija:\n';
+  s += '(1) Te reservo yo ahora mismo aquí en el chat: tienes herramientas para consultar los cupos LIBRES y CREAR la reserva. Pide los 5 datos —localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono— de a poco y en frases cortas (no todo de golpe). Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.\n';
+  s += '(2) Recuérdale que también puede ver el calendario él mismo en la web y reservar ahí: en armonniza.com/beni mira en pantalla los días y horarios disponibles y elige el suyo (confirmación inmediata, sin pago online).';
   return s;
 }
 
