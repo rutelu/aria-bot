@@ -185,19 +185,10 @@ CONTACTO (compártelo solo cuando haga falta):
 
 IMPORTANTE sobre la Micropigmentación: NO es exclusiva de Cosmetología. La realizan tanto la Téc. Valeria Mendoza (Cosmetología) como el Dr. Julio Lucia (Medicina Estética), quien es experto en Micropigmentación en TODAS sus variantes (cejas, labios, ojos, capilar y paramédica). Si preguntan por este tratamiento, menciona a ambos especialistas.
 
-JORNADA BENI — CAMPAÑA VIGENTE (5 al 9 de junio de 2026):
-El Dr. Julio Lucia atiende presencialmente en el Beni:
-- San Borja (Hotel Tacuaral): viernes 5 de junio
-- Rurrenabaque (Body Face Center Spa): sábado 6 y domingo 7
-- Reyes (Daniela Roca): lunes 8 y martes 9
-Horarios (turnos de 60 min): mañana 09:00–12:00, tarde 15:00–19:00.
-Promo: al reservar 2 tratamientos, el segundo lleva 50% de descuento. Válida para compartir entre 2 personas y aplica a cualquier tratamiento. Úsala como gancho.
-Reserva en armonniza.com/beni (eliges localidad, día y horario; confirmación inmediata, sin pago online).
-
 CÓMO AGENDAR (ofrece la opción según el caso):
-1) Jornada Beni: armonniza.com/beni
-2) Agenda Presencial: en www.armonniza.com eliges sede, especialista, día y horario.
-3) Agenda Virtual (telemedicina): en www.armonniza.com → "Agenda Virtual", eliges plataforma (WhatsApp, Zoom o Google Meet), día y horario. Disponible todos los días de 9:00 a 21:00. Ideal para quienes están en otra ciudad o no pueden ir presencialmente.
+1) Agenda Presencial: en www.armonniza.com eliges sede, especialista, día y horario.
+2) Agenda Virtual (telemedicina): en www.armonniza.com → "Agenda Virtual", eliges plataforma (WhatsApp, Zoom o Google Meet), día y horario. Disponible todos los días de 9:00 a 21:00. Ideal para quienes están en otra ciudad o no pueden ir presencialmente.
+(Si hay una Jornada en el Beni activa, su información actualizada aparecerá al final de estas instrucciones; en ese caso ofrécela como gancho y dirige a armonniza.com/beni.)
 
 ATENCIÓN POR VOZ (llamada gratis): si la persona prefiere hablar por voz en lugar de escribir, invítala a llamarte GRATIS desde el botón "Llamar a Valeria" en www.armonniza.com (es una llamada por internet, sin costo). NO ofrezcas llamar tú a la persona.
 
@@ -224,12 +215,56 @@ function addToHistory(userId, role, content) {
 }
 
 // ══════════════════════════════════════════
+// JORNADA BENI — info dinámica para Valeria (lee config/jornada_beni)
+// ══════════════════════════════════════════
+function fechaBoliviaTexto() {
+  const ahora = new Date(Date.now() - 4 * 60 * 60 * 1000); // Bolivia UTC-4
+  const dias = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  const f = ahora.getUTCFullYear() + '-' + String(ahora.getUTCMonth()+1).padStart(2,'0') + '-' + String(ahora.getUTCDate()).padStart(2,'0');
+  return dias[ahora.getUTCDay()] + ' ' + f;
+}
+
+let _beniCache = { data: null, ts: 0 };
+async function getBeniConfig() {
+  if (!db) return null;
+  const now = Date.now();
+  if (_beniCache.data && (now - _beniCache.ts) < 300000) return _beniCache.data; // cache 5 min
+  try {
+    const snap = await db.collection('config').doc('jornada_beni').get();
+    _beniCache = { data: snap.exists ? snap.data() : null, ts: now };
+  } catch (e) {
+    console.error('getBeniConfig error:', e.message);
+  }
+  return _beniCache.data;
+}
+
+function buildBeniSection(cfg) {
+  if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
+  let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (ofrécela como gancho cuando sea relevante):\n';
+  s += 'El ' + (cfg.especialista || 'Dr. Julio Lucia') + ' atiende presencialmente en el Beni:\n';
+  (cfg.subsedes || []).forEach(function(sub) {
+    const dias = (cfg.dias || []).filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
+    const tel = (sub.telefonos || []).join(' / ');
+    s += '- ' + sub.nombre + ' (' + sub.direccion + ')' + (dias ? ': ' + dias : '') + (tel ? ' · tel: ' + tel : '') + '\n';
+  });
+  if (cfg.horas && cfg.horas.length) s += 'Horarios: ' + cfg.horas.join(', ') + '.\n';
+  if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
+  s += 'Reserva en armonniza.com/beni (eliges localidad, día y horario; confirmación inmediata, sin pago online).';
+  return s;
+}
+
+// ══════════════════════════════════════════
 // FUNCIÓN PRINCIPAL CLAUDE AI
 // ══════════════════════════════════════════
 async function askValeria(userId, userMessage) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
   addToHistory(userId, 'user', userMessage);
+
+  const beniCfg = await getBeniConfig();
+  const systemPrompt = SYSTEM_PROMPT
+    + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
+    + buildBeniSection(beniCfg);
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -242,7 +277,7 @@ async function askValeria(userId, userMessage) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 500,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages: getHistory(userId)
       })
     });
@@ -251,7 +286,7 @@ async function askValeria(userId, userMessage) {
 
     if (data.error) {
       console.error('Claude API error:', data.error);
-      return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 78118003 y te atendemos de inmediato 😊';
+      return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 78922666 y te atendemos de inmediato 😊';
     }
 
     const reply = data.content[0].text;
@@ -261,7 +296,7 @@ async function askValeria(userId, userMessage) {
 
   } catch (err) {
     console.error('Error Claude AI:', err);
-    return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 78118003 😊';
+    return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 78922666 😊';
   }
 }
 
