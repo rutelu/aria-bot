@@ -834,4 +834,33 @@ app.get('/run-recordatorios', async (req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
 });
 
+// Prueba directa de la plantilla: GET /test-recordatorio?to=59171234567
+// Envía la plantilla con datos de ejemplo y devuelve la respuesta de Meta (para ver errores).
+app.get('/test-recordatorio', async (req, res) => {
+  const to = normalizarTelefono(req.query.to || '');
+  if (!to || to.length < 8) return res.status(400).json({ error: 'falta o es inválido ?to=NUMERO (ej: 59171234567)' });
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+  try {
+    const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to: to, type: 'template',
+        template: {
+          name: WA_TEMPLATE_RECORDATORIO, language: { code: WA_TEMPLATE_LANG },
+          components: [{ type: 'body', parameters: [
+            { type: 'text', text: 'Ana' },
+            { type: 'text', text: 'sábado 6 de junio' },
+            { type: 'text', text: '10:00' },
+            { type: 'text', text: 'San Borja — Hotel Kamahal' }
+          ] }]
+        }
+      })
+    });
+    const data = await resp.json();
+    res.json({ sentTo: to, lang: WA_TEMPLATE_LANG, template: WA_TEMPLATE_RECORDATORIO, response: data });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.listen(PORT, () => console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`));
