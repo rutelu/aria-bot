@@ -280,8 +280,9 @@ function buildBeniSection(cfg) {
     }
   });
 
-  // Precios durante la campaña
-  s += '\nPRECIOS EN ESTA CAMPAÑA: NO hables de costos ni des cifras (ni siquiera la valoración de Bs 50). Si preguntan por precios, di con elegancia que nuestros precios son más accesibles que los de la competencia y que lo más importante es la calidad y los resultados; recuérdales que con la promo de la Jornada el segundo tratamiento lleva 50% de descuento.\n';
+  // Precios y contexto durante la campaña
+  s += '\nPRECIOS EN ESTA CAMPAÑA: NO des cifras de tratamientos. Si preguntan por precios, di con elegancia que nuestros precios son más accesibles que los de la competencia y que lo más importante es la calidad y los resultados; recuérdales que con la promo de la Jornada el segundo tratamiento lleva 50% de descuento. IMPORTANTE: durante la Jornada Beni la consulta de valoración es GRATIS, sin costo — menciónalo siempre como un beneficio para invitar a reservar.\n';
+  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Beni es con el Dr. Julio Lucia. Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada con él; NO lo derives a otra especialista.\n';
 
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
