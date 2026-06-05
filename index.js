@@ -864,4 +864,27 @@ app.get('/test-recordatorio', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ⚠️ TEMPORAL — fija/crea la contraseña de un usuario admin (Firebase Auth).
+// Protegido con clave 'k'. BORRAR este endpoint después de usarlo una vez.
+app.get('/admin-set-pass', async (req, res) => {
+  if ((req.query.k || '') !== 'arm0nn1za-setup-7k2x9') return res.status(403).json({ error: 'no autorizado' });
+  try {
+    if (!admin || !admin.auth) return res.status(503).json({ error: 'admin no disponible' });
+    const email = String(req.query.email || '').trim().toLowerCase();
+    const pass = String(req.query.pass || '');
+    if (!email || pass.length < 6) return res.status(400).json({ error: 'email y pass (>=6 caracteres) requeridos' });
+    try {
+      const user = await admin.auth().getUserByEmail(email);
+      await admin.auth().updateUser(user.uid, { password: pass });
+      return res.json({ ok: true, accion: 'password actualizada', email: email, uid: user.uid });
+    } catch (e) {
+      if (e.code === 'auth/user-not-found') {
+        const u = await admin.auth().createUser({ email: email, password: pass });
+        return res.json({ ok: true, accion: 'usuario creado', email: email, uid: u.uid });
+      }
+      return res.status(500).json({ error: e.message, code: e.code });
+    }
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.listen(PORT, () => console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`));
