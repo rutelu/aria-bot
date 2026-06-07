@@ -237,6 +237,16 @@ function logMensaje(userId, rol, texto) {
   } catch (e) { console.error('logMensaje:', e.message); }
 }
 
+// Guarda el NOMBRE del contacto (perfil de WhatsApp / Telegram) junto al número.
+function setChatNombre(userId, nombre) {
+  if (!db || !nombre) return;
+  try {
+    db.collection('valeria_chats').doc(String(userId)).set(
+      { nombre: String(nombre).substring(0, 80) }, { merge: true }
+    ).catch(function(e){ console.error('setChatNombre:', e.message); });
+  } catch (e) { console.error('setChatNombre:', e.message); }
+}
+
 // ══════════════════════════════════════════
 // JORNADA BENI — info dinámica para Valeria (lee config/jornada_beni)
 // ══════════════════════════════════════════
@@ -310,7 +320,7 @@ function buildBeniSection(cfg) {
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
-  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "podés agendar vos misma acá 👉 https://armonniza.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola, con confirmación inmediata y sin pago online.\n';
+  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "podés agendar vos misma acá 👉 armonniza.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola, con confirmación inmediata y sin pago online.\n';
   s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
   return s;
 }
@@ -525,6 +535,7 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = (msg.text || '').trim();
   if (!text) return;
+  setChatNombre(`tg_${chatId}`, [msg.from && msg.from.first_name, msg.from && msg.from.last_name].filter(Boolean).join(' '));
 
   console.log(`📱 Telegram de ${chatId}: ${text}`);
   const t0 = Date.now();
@@ -649,12 +660,14 @@ app.post('/webhook', async (req, res) => {
     body.entry?.forEach(entry => {
       entry.changes?.forEach(change => {
         const messages = change.value?.messages;
+        const nombreWa = change.value?.contacts?.[0]?.profile?.name;
         if (messages) {
           messages.forEach(async (message) => {
             const from = message.from;
             if (from.includes('78118003')) return;
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
+            setChatNombre(`wa_${from}`, nombreWa);
             const t0 = Date.now();
             await waTyping(message.id);
             const reply = await askValeria(`wa_${from}`, text);
