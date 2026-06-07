@@ -275,13 +275,13 @@ async function getBeniConfig() {
 // persona insiste en hablar con un encargado/humano; en el orden del array de la sub-sede.
 const CONTACTOS_BENI = {
   '+591 71147703': { nombre: 'Sra. Deydi Guiteras', rol: 'encargada de la sede' },
-  '+591 78922666': { nombre: 'Dr. Julio Lucia', rol: 'especialista' }
+  '+591 78922666': { nombre: 'el especialista de Armonniza', rol: 'especialista' }
 };
 
 function buildBeniSection(cfg) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (ofrécela como gancho cuando sea relevante):\n';
-  s += 'El ' + (cfg.especialista || 'Dr. Julio Lucia') + ' atiende presencialmente en el Beni. Las sub-sedes son SOLO ESTAS DOS (no menciones ninguna otra localidad):\n';
+  s += 'Nuestro especialista en medicina estética atiende presencialmente en el Beni (NO menciones su nombre propio; preséntalo como "el especialista de Armonniza"). Las sub-sedes son SOLO ESTAS DOS (no menciones ninguna otra localidad):\n';
   (cfg.subsedes || []).forEach(function(sub) {
     const dias = (cfg.dias || []).filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
     s += '- ' + sub.nombre + ' (' + sub.direccion + ')' + (dias ? ': ' + dias : '') + '\n';
@@ -305,7 +305,7 @@ function buildBeniSection(cfg) {
     if (encargada) {
       s += '- ' + sub.nombre + ': da SOLO el número de la encargada ' + encargada.nombre + ' (' + encargada.tel + ').';
       if (especialista) {
-        s += ' Comparte el del especialista ' + especialista.nombre + ' (' + especialista.tel + ') ÚNICAMENTE si la persona pregunta si hay alguien más, y aclara que con la encargada será atendido con más rapidez.';
+        s += ' Comparte el del especialista de Armonniza (' + especialista.tel + ') ÚNICAMENTE si la persona pregunta si hay alguien más, y aclara que con la encargada será atendido con más rapidez.';
       }
       s += '\n';
     } else if (especialista) {
@@ -315,7 +315,7 @@ function buildBeniSection(cfg) {
 
   // Precios y contexto durante la campaña
   s += '\nPRECIOS EN ESTA CAMPAÑA: NO des cifras de tratamientos. Si preguntan por precios, di con elegancia que nuestros precios son más accesibles que los de la competencia y que lo más importante es la calidad y los resultados; recuérdales que con la promo de la Jornada el segundo tratamiento lleva 50% de descuento. IMPORTANTE: durante la Jornada Beni la consulta de valoración es GRATIS, sin costo — menciónalo siempre como un beneficio para invitar a reservar.\n';
-  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Beni es con el Dr. Julio Lucia. Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada con él; NO lo derives a otra especialista.\n';
+  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Beni es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Armonniza"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
 
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
