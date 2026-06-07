@@ -310,7 +310,7 @@ function buildBeniSection(cfg) {
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
-  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla, en armonniza.com/beni (ve los días y horas disponibles y reserva sola; confirmación inmediata, sin pago online).\n';
+  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "podés agendar vos misma acá 👉 https://armonniza.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola, con confirmación inmediata y sin pago online.\n';
   s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
   return s;
 }
