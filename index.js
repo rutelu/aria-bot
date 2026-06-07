@@ -214,6 +214,29 @@ function addToHistory(userId, role, content) {
   }
 }
 
+// ── Registro de conversaciones para el panel "Seguimiento Valeria" (Firestore) ──
+// Fire-and-forget: nunca bloquea ni rompe la respuesta del bot (errores solo a consola).
+function logMensaje(userId, rol, texto) {
+  if (!db || !texto) return;
+  try {
+    const parts = String(userId).split('_');
+    const canal = parts[0] || 'chat';
+    const contacto = parts.slice(1).join('_') || String(userId);
+    const chatRef = db.collection('valeria_chats').doc(String(userId));
+    chatRef.set({
+      canal: canal,
+      contacto: contacto,
+      ultimoTexto: String(texto).substring(0, 500),
+      ultimoRol: rol,
+      ultimaActividad: admin.firestore.FieldValue.serverTimestamp(),
+      totalMensajes: admin.firestore.FieldValue.increment(1)
+    }, { merge: true }).catch(function(e){ console.error('logMensaje set:', e.message); });
+    chatRef.collection('mensajes').add({
+      rol: rol, texto: String(texto), ts: admin.firestore.FieldValue.serverTimestamp()
+    }).catch(function(e){ console.error('logMensaje add:', e.message); });
+  } catch (e) { console.error('logMensaje:', e.message); }
+}
+
 // ══════════════════════════════════════════
 // JORNADA BENI — info dinámica para Valeria (lee config/jornada_beni)
 // ══════════════════════════════════════════
@@ -420,6 +443,7 @@ async function askValeria(userId, userMessage) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
   addToHistory(userId, 'user', userMessage);
+  logMensaje(userId, 'user', userMessage);
 
   const beniCfg = await getBeniConfig();
   const systemPrompt = SYSTEM_PROMPT
@@ -480,6 +504,7 @@ async function askValeria(userId, userMessage) {
         .map(function(b) { return b.text; })
         .join('\n').trim() || 'Con gusto te ayudo 😊';
       addToHistory(userId, 'assistant', reply);
+      logMensaje(userId, 'valeria', reply);
       console.log(`🤖 Valeria → ${userId}: ${reply.substring(0, 100)}...`);
       return reply;
     }
