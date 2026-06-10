@@ -87,7 +87,7 @@ const AGENDA_URL = 'www.armonniza.com';
 const ESPECIALIDADES = {
   medicina: {
     nombre: '💉 Medicina Estética',
-    doctor: 'Dr. Julio Lucia',
+    doctor: 'Especialista en Medicina Estética',
     tratamientos: [
       'Botox Facial (Toxina Botulínica) — Desde Bs 350',
       'Rellenos con Ácido Hialurónico — Desde Bs 450',
@@ -141,7 +141,7 @@ const PROMOCIONES = [
 const HORARIOS = [
   'Lic. Princeica Tejada — Lun a Vie: 09:00 AM – 06:00 PM',
   'Téc. Valeria Mendoza — Mar, Jue, Sáb: 09:00 AM – 05:00 PM',
-  'Dr. Julio Lucia — Consultar disponibilidad',
+  'Especialista en Medicina Estética — Consultar disponibilidad',
   'Dr. Claudio Tejada — Consultar disponibilidad',
 ];
 
@@ -176,12 +176,12 @@ CONTACTO (compártelo solo cuando haga falta):
 - No entregues ningún otro número de WhatsApp; menos el número por el que la persona ya te escribe.
 
 ÁREAS Y TRATAMIENTOS (sin precios; solo orienta):
-1) Medicina Estética — Dr. Julio Lucia: Toxina Botulínica (Botox), Ácido Hialurónico, Bioestimuladores de colágeno, Hilos Tensores PDO, Mesoterapia, Skinbooster, PRP facial, Fat Dissolving, Hidrolipoclasia (reduce grasa sin cirugía), Rinomodelación (nariz sin cirugía).
+1) Medicina Estética (a cargo de nuestro especialista en Medicina Estética; NO menciones nombre propio): Toxina Botulínica (Botox), Ácido Hialurónico, Bioestimuladores de colágeno, Hilos Tensores PDO, Mesoterapia, Skinbooster, PRP facial, Fat Dissolving, Hidrolipoclasia (reduce grasa sin cirugía), Rinomodelación (nariz sin cirugía).
 2) Cirugía Estética — Dr. Claudio Tejada (toda cirugía requiere valoración previa): Rinoplastia, Mamoplastia, Mastopexia, Blefaroplastia, Lifting facial, Liposucción, Abdominoplastia, Otoplastia, Mentoplastia, Lipoescultura HD/BBL, Bichectomía.
 3) Fisio-Estética — Lic. Princeica Tejada: Drenaje linfático, Radiofrecuencia, Cavitación, Presoterapia, Electroestimulación EMS, Crioterapia (fat freezing), Masaje reductor, Lifting facial no invasivo (HIFU), Protocolo anticelulitis.
 4) Cosmetología / Cosmiatría — Téc. Valeria Mendoza: Peeling químico, Dermapen, Vitamina C facial, Microdermoabrasión, Hidratación hialurónica, Limpieza facial profunda, Antipigmentación, Antiacné, HydraFacial, Micropigmentación (cejas, labios, ojos, capilar y paramédica).
 
-IMPORTANTE sobre la Micropigmentación: NO es exclusiva de Cosmetología. La realizan tanto la Téc. Valeria Mendoza (Cosmetología) como el Dr. Julio Lucia (Medicina Estética), quien es experto en Micropigmentación en TODAS sus variantes (cejas, labios, ojos, capilar y paramédica). Si preguntan por este tratamiento, menciona a ambos especialistas.
+IMPORTANTE sobre la Micropigmentación: NO es exclusiva de Cosmetología. La realizan tanto la Téc. Valeria Mendoza (Cosmetología) como nuestro especialista en Medicina Estética (NO menciones su nombre propio), experto en Micropigmentación en TODAS sus variantes (cejas, labios, ojos, capilar y paramédica). Si preguntan por este tratamiento, menciónalo como disponible en ARMONNIZA.
 
 CÓMO AGENDAR (ofrece la opción según el caso):
 1) Agenda Presencial: en www.armonniza.com eliges sede, especialista, día y horario.
@@ -423,7 +423,7 @@ async function toolCrearReserva(args, cfg, canal) {
   batch.set(db.collection('reservas_beni').doc(slotId), {
     jornadaId: 'beni', fecha: fecha, hora: hora,
     lugar: lugar, subsede: subsede,
-    especialista: cfg.especialista || 'Dr. Julio Lucia', especialidad: cfg.especialidad || '',
+    especialista: cfg.especialista || 'Equipo Armonniza', especialidad: cfg.especialidad || '',
     nombre: nombre, telefono: telefono, email: '', notas: args.tratamiento || '',
     estado: 'confirmada', canal: canal || 'chat',
     createdAt: admin.firestore.FieldValue.serverTimestamp()
