@@ -40,20 +40,18 @@ try {
 const BENI_SEED = {
   id: 'beni',
   titulo: 'Jornada Beni',
-  especialista: 'Dr. Julio Lucia',
-  especialidad: 'Medicina Estética',
+  especialista: 'Equipo Armonniza',
+  especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
-  publicada: false,
-  promo: 'Al reservar 2 tratamientos, el segundo lleva 50% de descuento. Válida para compartir entre 2 personas y aplica a cualquier tratamiento.',
+  publicada: true,
+  campaignVersion: 'recomendado-sanborja-2026-06',
+  promo: 'Traé un recomendado y ganás 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona y aplica a cualquier tratamiento. (El 40% es por traer un recomendado; no se reparte entre dos por una sola recomendación.)',
   subsedes: [
-    { id: 'San Borja',    nombre: 'San Borja',    direccion: 'Hotel Kamahal',        telefonos: ['+591 78922666'] },
-    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 71147703', '+591 78922666'] }
+    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 78922666'] }
   ],
   dias: [
-    { fecha: '2026-06-06', label: 'Sábado 6 de junio',  subsede: 'San Borja' },
-    { fecha: '2026-06-07', label: 'Domingo 7 de junio', subsede: 'San Borja' },
-    { fecha: '2026-06-08', label: 'Lunes 8 de junio',   subsede: 'Rurrenabaque' },
-    { fecha: '2026-06-09', label: 'Martes 9 de junio',  subsede: 'Rurrenabaque' }
+    { fecha: '2026-06-12', label: 'Viernes 12 de junio', subsede: 'San Borja' },
+    { fecha: '2026-06-13', label: 'Sábado 13 de junio',  subsede: 'San Borja' }
   ],
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
 };
@@ -63,14 +61,14 @@ async function seedBeniConfig() {
   try {
     const ref = db.collection('config').doc('jornada_beni');
     const snap = await ref.get();
-    if (!snap.exists) {
+    if (!snap.exists || snap.data().campaignVersion !== BENI_SEED.campaignVersion) {
       await ref.set(BENI_SEED);
-      console.log('🌱 config/jornada_beni creado con el cronograma corregido');
+      console.log('🌱 config/jornada_beni actualizado a la campaña ' + BENI_SEED.campaignVersion);
     } else {
-      console.log('ℹ️ config/jornada_beni ya existe (no se sobrescribe)');
+      console.log('ℹ️ config/jornada_beni ya está en la versión ' + BENI_SEED.campaignVersion);
     }
   } catch (err) {
-    console.error('Error creando config/jornada_beni:', err.message);
+    console.error('Error actualizando config/jornada_beni:', err.message);
   }
 }
 seedBeniConfig();
@@ -281,7 +279,7 @@ const CONTACTOS_BENI = {
 function buildBeniSection(cfg) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (ofrécela como gancho cuando sea relevante):\n';
-  s += 'Nuestro especialista en medicina estética atiende presencialmente en el Beni (NO menciones su nombre propio; preséntalo como "el especialista de Armonniza"). Las sub-sedes son SOLO ESTAS DOS (no menciones ninguna otra localidad):\n';
+  s += 'Nuestro especialista en medicina estética atiende presencialmente en el Beni (NO menciones su nombre propio; preséntalo como "el especialista de Armonniza"). Las sub-sedes activas son SOLO las siguientes (no menciones ninguna otra localidad):\n';
   (cfg.subsedes || []).forEach(function(sub) {
     const dias = (cfg.dias || []).filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
     s += '- ' + sub.nombre + ' (' + sub.direccion + ')' + (dias ? ': ' + dias : '') + '\n';
@@ -314,14 +312,14 @@ function buildBeniSection(cfg) {
   });
 
   // Precios y contexto durante la campaña
-  s += '\nPRECIOS EN ESTA CAMPAÑA: NO des cifras de tratamientos. Si preguntan por precios, di con elegancia que nuestros precios son más accesibles que los de la competencia y que lo más importante es la calidad y los resultados; recuérdales que con la promo de la Jornada el segundo tratamiento lleva 50% de descuento. IMPORTANTE: durante la Jornada Beni la consulta de valoración es GRATIS, sin costo — menciónalo siempre como un beneficio para invitar a reservar.\n';
+  s += '\nPRECIOS EN ESTA CAMPAÑA: NO des cifras de tratamientos. Si preguntan por precios, di con elegancia que nuestros precios son más accesibles que los de la competencia y que lo más importante es la calidad y los resultados; recuérdales la PROMO DEL RECOMENDADO: traer un recomendado da 40% de descuento en tu tratamiento (las mismas condiciones para cada persona). IMPORTANTE: durante la Jornada Beni la consulta de valoración es GRATIS, sin costo — menciónalo siempre como un beneficio para invitar a reservar.\n';
   s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Beni es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Armonniza"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
 
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
   s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "podés agendar vos misma acá 👉 armonniza.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola, con confirmación inmediata y sin pago online.\n';
-  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad (San Borja o Rurrenabaque), día, hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
+  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —día (viernes 12 o sábado 13 en San Borja), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
   return s;
 }
 
@@ -346,7 +344,7 @@ const BENI_TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['San Borja', 'Rurrenabaque'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
+        subsede: { type: 'string', enum: ['San Borja'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
         fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Opcional; si se omite, devuelve todos los días de la campaña.' }
       }
     }
@@ -357,7 +355,7 @@ const BENI_TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['San Borja', 'Rurrenabaque'] },
+        subsede: { type: 'string', enum: ['San Borja'] },
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM en 24h, ej 09:00, 16:00' },
         nombre: { type: 'string', description: 'Nombre completo del paciente' },
@@ -380,7 +378,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
   let dias = cfg.dias || [];
   if (args.subsede) dias = dias.filter(function(d) { return d.subsede === args.subsede; });
   if (args.fecha) dias = dias.filter(function(d) { return d.fecha === args.fecha; });
-  if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. Las localidades son San Borja y Rurrenabaque.' };
+  if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. La sede activa es San Borja (viernes 12 y sábado 13 de junio).' };
 
   // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
   const ocupados = new Set();
@@ -520,7 +518,7 @@ async function askValeria(userId, userMessage) {
     }
 
     // Si se agotó el bucle sin respuesta final.
-    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Beni 😊 ¿Para qué localidad sería, San Borja o Rurrenabaque?';
+    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Beni 😊 Es en San Borja (Hotel Kamahal). ¿Preferís el viernes 12 o el sábado 13 de junio?';
 
   } catch (err) {
     console.error('Error Claude AI:', err);
@@ -890,7 +888,7 @@ app.get('/test-recordatorio', async (req, res) => {
           name: WA_TEMPLATE_RECORDATORIO, language: { code: WA_TEMPLATE_LANG },
           components: [{ type: 'body', parameters: [
             { type: 'text', text: 'Ana' },
-            { type: 'text', text: 'sábado 6 de junio' },
+            { type: 'text', text: 'viernes 12 de junio' },
             { type: 'text', text: '10:00' },
             { type: 'text', text: 'San Borja — Hotel Kamahal' }
           ] }]
