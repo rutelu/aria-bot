@@ -44,14 +44,16 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'recomendado-sanborja-2026-06',
+  campaignVersion: 'tour-yacuma-2026-06',
   promo: 'Traé un recomendado y ganás 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona y aplica a cualquier tratamiento. (El 40% es por traer un recomendado; no se reparte entre dos por una sola recomendación.)',
   subsedes: [
-    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 78922666'] }
+    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 78922666'] },
+    { id: 'Santa Rosa', nombre: 'Santa Rosa', direccion: 'Lugar por confirmar', telefonos: ['+591 78922666'] }
   ],
   dias: [
-    { fecha: '2026-06-12', label: 'Viernes 12 de junio', subsede: 'San Borja' },
-    { fecha: '2026-06-13', label: 'Sábado 13 de junio',  subsede: 'San Borja' }
+    { fecha: '2026-06-15', label: 'Lunes 15 de junio',  subsede: 'San Borja' },
+    { fecha: '2026-06-16', label: 'Martes 16 de junio', subsede: 'San Borja' },
+    { fecha: '2026-06-18', label: 'Jueves 18 de junio', subsede: 'Santa Rosa' }
   ],
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
 };
@@ -319,7 +321,7 @@ function buildBeniSection(cfg) {
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
   s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "podés agendar vos misma acá 👉 armonniza.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola, con confirmación inmediata y sin pago online.\n';
-  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —día (viernes 12 o sábado 13 en San Borja), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
+  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad y día (San Borja el lunes 15 o martes 16; Santa Rosa el jueves 18), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
   return s;
 }
 
@@ -344,7 +346,7 @@ const BENI_TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['San Borja'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
+        subsede: { type: 'string', enum: ['San Borja', 'Santa Rosa'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
         fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Opcional; si se omite, devuelve todos los días de la campaña.' }
       }
     }
@@ -355,7 +357,7 @@ const BENI_TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['San Borja'] },
+        subsede: { type: 'string', enum: ['San Borja', 'Santa Rosa'] },
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM en 24h, ej 09:00, 16:00' },
         nombre: { type: 'string', description: 'Nombre completo del paciente' },
@@ -378,7 +380,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
   let dias = cfg.dias || [];
   if (args.subsede) dias = dias.filter(function(d) { return d.subsede === args.subsede; });
   if (args.fecha) dias = dias.filter(function(d) { return d.fecha === args.fecha; });
-  if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. La sede activa es San Borja (viernes 12 y sábado 13 de junio).' };
+  if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. Las sedes activas son San Borja (lunes 15 y martes 16 de junio) y Santa Rosa (jueves 18 de junio).' };
 
   // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
   const ocupados = new Set();
@@ -518,7 +520,7 @@ async function askValeria(userId, userMessage) {
     }
 
     // Si se agotó el bucle sin respuesta final.
-    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Beni 😊 Es en San Borja (Hotel Kamahal). ¿Preferís el viernes 12 o el sábado 13 de junio?';
+    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Beni 😊 Atendemos en San Borja (Hotel Kamahal) el lunes 15 y martes 16, y en Santa Rosa el jueves 18 de junio. ¿Qué localidad y día te quedan mejor?';
 
   } catch (err) {
     console.error('Error Claude AI:', err);
@@ -888,7 +890,7 @@ app.get('/test-recordatorio', async (req, res) => {
           name: WA_TEMPLATE_RECORDATORIO, language: { code: WA_TEMPLATE_LANG },
           components: [{ type: 'body', parameters: [
             { type: 'text', text: 'Ana' },
-            { type: 'text', text: 'viernes 12 de junio' },
+            { type: 'text', text: 'lunes 15 de junio' },
             { type: 'text', text: '10:00' },
             { type: 'text', text: 'San Borja — Hotel Kamahal' }
           ] }]
