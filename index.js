@@ -47,8 +47,8 @@ const BENI_SEED = {
   campaignVersion: 'tour-yacuma-2026-06',
   promo: 'Traé un recomendado y ganás 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona y aplica a cualquier tratamiento. (El 40% es por traer un recomendado; no se reparte entre dos por una sola recomendación.)',
   subsedes: [
-    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 78922666'] },
-    { id: 'Santa Rosa', nombre: 'Santa Rosa', direccion: 'Lugar por confirmar', telefonos: ['+591 78922666'] }
+    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
+    { id: 'Santa Rosa', nombre: 'Santa Rosa', direccion: 'Lugar por confirmar', telefonos: ['+591 76951552'] }
   ],
   dias: [
     { fecha: '2026-06-15', label: 'Lunes 15 de junio',  subsede: 'San Borja' },
@@ -74,6 +74,7 @@ async function seedBeniConfig() {
   }
 }
 seedBeniConfig();
+procesarOutbox();
 
 app.post(`/bot${TOKEN}`, (req, res) => {
   bot.processUpdate(req.body);
@@ -166,15 +167,15 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - NO le repitas a la persona el número de WhatsApp por el que ya te está escribiendo (es redundante). Tu llamado a la acción principal es invitar a agendar por la web.
 - Solo hablas de ARMONNIZA: tratamientos, especialistas, sedes, la Jornada Beni y el agendamiento. Si preguntan otra cosa, redirige con amabilidad.
 - NUNCA das diagnósticos médicos ni prometes resultados garantizados. Para eso, ofreces agendar una consulta de valoración.
-- NUNCA inventes precios. Lo único confirmado es la VALORACIÓN: Bs 50, 100% reembolsables en el tratamiento. Para cualquier otro costo, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 78922666.
+- NUNCA inventes precios. Lo único confirmado es la VALORACIÓN: Bs 50, 100% reembolsables en el tratamiento. Para cualquier otro costo, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
 - Toda cirugía estética requiere consulta de valoración previa obligatoria.
-- Si no sabes algo con certeza, no improvises: ofrece agendar o derivar por WhatsApp +591 78922666.
+- Si no sabes algo con certeza, no improvises: ofrece agendar o derivar por WhatsApp +591 76951552.
 - LONGITUD DE RESPUESTA (regla clave): por defecto responde como en un chat real de WhatsApp: MUY breve, 1-2 oraciones (idealmente una). Nunca párrafos largos tipo folleto. Da lo esencial y, cuando el tema dé para más (un tratamiento, cómo es un procedimiento, qué incluye, cuidados, etc.), OFRECE ampliar con una pregunta corta del estilo "¿Quieres que te lo explique con más detalle?". Solo si la persona pide más detalle (o responde que sí) puedes dar una respuesta más larga y completa. Cierra invitando a agendar solo cuando sea natural, sin sonar insistente.
 
 CONTACTO (compártelo solo cuando haga falta):
 - Sitio web para agendar: www.armonniza.com
 - Reservas Jornada Beni: armonniza.com/beni
-- WhatsApp del equipo: +591 78922666 — dalo SOLO si la persona necesita algo que tú no puedes resolver o pide ayuda adicional. Preséntalo como "ahí también te atiende el equipo de ARMONNIZA"; nunca digas "una persona real" (tú también lo eres).
+- WhatsApp del equipo: +591 76951552 — dalo SOLO si la persona necesita algo que tú no puedes resolver o pide ayuda adicional. Preséntalo como "ahí también te atiende el equipo de ARMONNIZA"; nunca digas "una persona real" (tú también lo eres).
 - No entregues ningún otro número de WhatsApp; menos el número por el que la persona ya te escribe.
 
 ÁREAS Y TRATAMIENTOS (sin precios; solo orienta):
@@ -247,6 +248,46 @@ function setChatNombre(userId, nombre) {
   } catch (e) { console.error('setChatNombre:', e.message); }
 }
 
+// ── HANDOFF HUMANO: pausa por chat + outbox de mensajes salientes ──
+// Si valeria_chats/{id}.pausada === true, el bot NO responde (atiende un humano).
+async function chatPausado(userId) {
+  if (!db) return false;
+  try {
+    const s = await db.collection('valeria_chats').doc(String(userId)).get();
+    return s.exists && s.data().pausada === true;
+  } catch (e) { console.error('chatPausado:', e.message); return false; }
+}
+
+// Escucha los mensajes que un humano escribe desde el panel (colección valeria_outbox)
+// y los envía por el canal correcto. El token vive SOLO acá (servidor), nunca en el navegador.
+function procesarOutbox() {
+  if (!db) return;
+  db.collection('valeria_outbox').where('enviado', '==', false)
+    .onSnapshot(function(snap) {
+      snap.forEach(async function(docu) {
+        const o = docu.data() || {};
+        const chatId = String(o.chatId || '');
+        const texto = String(o.texto || '').trim();
+        try {
+          if (!chatId || !texto) { await docu.ref.update({ enviado: true, error: 'datos incompletos' }); return; }
+          const canal = chatId.split('_')[0];
+          const contacto = chatId.split('_').slice(1).join('_');
+          if (canal === 'wa') await waSend(contacto, texto);
+          else if (canal === 'fb') await fbSend(contacto, texto);
+          else if (canal === 'ig') await igSend(contacto, texto);
+          else if (canal === 'tg') await bot.sendMessage(contacto, texto);
+          else { await docu.ref.update({ enviado: true, error: 'canal no soportado: ' + canal }); return; }
+          logMensaje(chatId, 'humano', texto);
+          await docu.ref.update({ enviado: true, enviadoAt: admin.firestore.FieldValue.serverTimestamp() });
+          console.log('👤→ humano respondió a ' + chatId);
+        } catch (e) {
+          console.error('procesarOutbox:', e.message);
+          try { await docu.ref.update({ enviado: true, error: String(e.message).substring(0, 200) }); } catch (_) {}
+        }
+      });
+    }, function(err) { console.error('procesarOutbox snapshot:', err.message); });
+}
+
 // ══════════════════════════════════════════
 // JORNADA BENI — info dinámica para Valeria (lee config/jornada_beni)
 // ══════════════════════════════════════════
@@ -275,7 +316,7 @@ async function getBeniConfig() {
 // persona insiste en hablar con un encargado/humano; en el orden del array de la sub-sede.
 const CONTACTOS_BENI = {
   '+591 71147703': { nombre: 'Sra. Deydi Guiteras', rol: 'encargada de la sede' },
-  '+591 78922666': { nombre: 'el especialista de Armonniza', rol: 'especialista' }
+  '+591 76951552': { nombre: 'el especialista de Armonniza', rol: 'especialista' }
 };
 
 function buildBeniSection(cfg) {
@@ -455,6 +496,12 @@ async function askValeria(userId, userMessage) {
   addToHistory(userId, 'user', userMessage);
   logMensaje(userId, 'user', userMessage);
 
+  // Handoff: si un humano tomó este chat (pausada), el bot no responde.
+  if (await chatPausado(userId)) {
+    console.log('⏸️ Valeria pausada (humano atendiendo): ' + userId);
+    return null;
+  }
+
   const beniCfg = await getBeniConfig();
   const systemPrompt = SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
@@ -490,7 +537,7 @@ async function askValeria(userId, userMessage) {
 
       if (data.error) {
         console.error('Claude API error:', data.error);
-        return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 78922666 y te atendemos de inmediato 😊';
+        return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 76951552 y te atendemos de inmediato 😊';
       }
 
       // ¿Claude pide usar una herramienta? Ejecutarla y volver a llamar.
@@ -524,7 +571,7 @@ async function askValeria(userId, userMessage) {
 
   } catch (err) {
     console.error('Error Claude AI:', err);
-    return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 78922666 😊';
+    return 'Hola! Soy Valeria de ARMONNIZA 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 76951552 😊';
   }
 }
 
@@ -542,8 +589,10 @@ bot.on('message', async (msg) => {
   bot.sendChatAction(chatId, 'typing');
   const reply = await askValeria(`tg_${chatId}`, text);
   const espera = typingDelay(reply) - (Date.now() - t0);
-  if (espera > 0) { bot.sendChatAction(chatId, 'typing'); await sleep(espera); }
-  bot.sendMessage(chatId, reply);
+  if (reply) {
+    if (espera > 0) { bot.sendChatAction(chatId, 'typing'); await sleep(espera); }
+    bot.sendMessage(chatId, reply);
+  }
 });
 
 bot.on('callback_query', (query) => {
@@ -671,9 +720,11 @@ app.post('/webhook', async (req, res) => {
             const t0 = Date.now();
             await waTyping(message.id);
             const reply = await askValeria(`wa_${from}`, text);
-            const espera = typingDelay(reply) - (Date.now() - t0);
-            if (espera > 0) await sleep(espera);
-            await waSend(from, reply);
+            if (reply) {
+              const espera = typingDelay(reply) - (Date.now() - t0);
+              if (espera > 0) await sleep(espera);
+              await waSend(from, reply);
+            }
           });
         }
       });
@@ -693,9 +744,11 @@ app.post('/webhook', async (req, res) => {
           const t0 = Date.now();
           await fbAction(userId, 'typing_on');
           const reply = await askValeria(`fb_${userId}`, text);
-          const espera = typingDelay(reply) - (Date.now() - t0);
-          if (espera > 0) await sleep(espera);
-          await fbSend(userId, reply);
+          if (reply) {
+            const espera = typingDelay(reply) - (Date.now() - t0);
+            if (espera > 0) await sleep(espera);
+            await fbSend(userId, reply);
+          }
         }
       });
     });
@@ -714,9 +767,11 @@ app.post('/webhook', async (req, res) => {
           const t0 = Date.now();
           await igAction(userId, 'typing_on');
           const reply = await askValeria(`ig_${userId}`, text);
-          const espera = typingDelay(reply) - (Date.now() - t0);
-          if (espera > 0) await sleep(espera);
-          await igSend(userId, reply);
+          if (reply) {
+            const espera = typingDelay(reply) - (Date.now() - t0);
+            if (espera > 0) await sleep(espera);
+            await igSend(userId, reply);
+          }
         }
       });
     });
