@@ -426,16 +426,33 @@ const BENI_TOOLS = [
 // pertenece a una sola sub-sede, fecha+hora identifica el cupo sin ambigüedad.
 function beniSlotId(fecha, hora) { return 'beni_' + fecha + '_' + String(hora).replace(':', ''); }
 
-// Normaliza la hora que diga el modelo ("4 pm", "16", "9:00", "9") → "HH:MM".
-function normalizarHora(h) {
+// Normaliza la hora que diga el modelo ("4 pm", "4 de la tarde", "16", "9") → "HH:MM".
+// Si recibe la lista de horas válidas, ajusta mañana/tarde automáticamente.
+function normalizarHora(h, horasValidas) {
   var s = String(h || '').toLowerCase().trim();
-  var pm = /p\s*\.?\s*m/.test(s), am = /a\s*\.?\s*m/.test(s);
+  var tarde = /tarde|noche|p\s*\.?\s*m/.test(s);
+  var manana = /ma(ñ|n)ana|a\s*\.?\s*m/.test(s);
   var m = s.match(/(\d{1,2})(?::?(\d{2}))?/);
   if (!m) return String(h || '');
   var hh = parseInt(m[1], 10), mm = m[2] || '00';
-  if (pm && hh < 12) hh += 12;
-  if (am && hh === 12) hh = 0;
-  return ('0' + hh).slice(-2) + ':' + mm;
+  if (tarde && hh < 12) hh += 12;
+  if (manana && hh === 12) hh = 0;
+  var cand = ('0' + hh).slice(-2) + ':' + mm;
+  if (horasValidas && horasValidas.length) {
+    if (horasValidas.indexOf(cand) !== -1) return cand;
+    var alt = ('0' + ((hh + 12) % 24)).slice(-2) + ':' + mm;  // ej: "4" sin franja → prueba 16:00
+    if (horasValidas.indexOf(alt) !== -1) return alt;
+  }
+  return cand;
+}
+// Resuelve la localidad sin importar mayúsculas/acentos ("san borja" → "San Borja").
+function resolverSubsede(sub, cfg) {
+  var norm = function(x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); };
+  var s = norm(sub);
+  if (!s) return sub;
+  var ids = (cfg.subsedes || []).map(function(x) { return x.id; });
+  var hit = ids.find(function(id) { return norm(id) === s || norm(id).replace(/\s/g, '') === s.replace(/\s/g, ''); });
+  return hit || sub;
 }
 // Resuelve la fecha que diga el modelo ("lunes 15", "15", "2026-6-15") → "YYYY-MM-DD" de la campaña.
 function resolverFecha(fechaArg, subsede, cfg) {
@@ -456,7 +473,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
   if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Beni aún no está publicada.' };
   const horas = cfg.horas || [];
   let dias = cfg.dias || [];
-  if (args.subsede) dias = dias.filter(function(d) { return d.subsede === args.subsede; });
+  if (args.subsede) { var ss = resolverSubsede(args.subsede, cfg); dias = dias.filter(function(d) { return d.subsede === ss; }); }
   if (args.fecha) { var fr = resolverFecha(args.fecha, args.subsede, cfg); if (dias.some(function(d) { return d.fecha === fr; })) dias = dias.filter(function(d) { return d.fecha === fr; }); }
   if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. Las sedes activas son San Borja (lunes 15 y martes 16 de junio) y Santa Rosa (jueves 18 de junio).' };
 
@@ -478,9 +495,9 @@ async function toolConsultarDisponibilidad(args, cfg) {
 async function toolCrearReserva(args, cfg, canal) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Beni aún no está publicada.' };
-  const subsede = args.subsede;
+  const subsede = resolverSubsede(args.subsede, cfg);
   const fecha = resolverFecha(args.fecha, subsede, cfg);
-  const hora = normalizarHora(args.hora);
+  const hora = normalizarHora(args.hora, cfg.horas);
   const nombre = (args.nombre || '').trim(), telefono = (args.telefono || '').trim();
   if (!subsede || !fecha || !hora || !nombre || !telefono) {
     return { error: 'Faltan datos. Necesito localidad, día, hora, nombre completo y teléfono.' };
