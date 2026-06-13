@@ -997,4 +997,20 @@ app.post('/vapi/tools', async (req, res) => {
   }
 });
 
+// Endpoints REST simples para el tipo "Solicitud de API" de Vapi (parámetros en el body, respuesta directa).
+app.post('/beni/disponibilidad', async (req, res) => {
+  try {
+    const cfg = await getBeniConfig();
+    const r = await toolConsultarDisponibilidad(req.body || {}, cfg);
+    res.json(r);
+  } catch (e) { console.error('/beni/disponibilidad:', e.message); res.status(200).json({ error: 'No pude consultar la agenda ahora.' }); }
+});
+app.post('/beni/reservar', async (req, res) => {
+  try {
+    const cfg = await getBeniConfig();
+    const r = await toolCrearReserva(req.body || {}, cfg, 'voz');
+    res.json(r);
+  } catch (e) { console.error('/beni/reservar:', e.message); res.status(200).json({ error: 'No pude crear la reserva ahora.' }); }
+});
+
 app.listen(PORT, () => console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`));
