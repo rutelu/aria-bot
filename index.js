@@ -1000,16 +1000,20 @@ app.post('/vapi/tools', async (req, res) => {
 
 // Endpoints REST simples para el tipo "Solicitud de API" de Vapi (parámetros en el body, respuesta directa).
 app.post('/beni/disponibilidad', async (req, res) => {
+  console.log('📞 [Vapi disponibilidad] body:', JSON.stringify(req.body || {}));
   try {
     const cfg = await getBeniConfig();
     const r = await toolConsultarDisponibilidad(req.body || {}, cfg);
+    console.log('📞 [Vapi disponibilidad] resp:', JSON.stringify(r).substring(0, 200));
     res.json(r);
   } catch (e) { console.error('/beni/disponibilidad:', e.message); res.status(200).json({ error: 'No pude consultar la agenda ahora.' }); }
 });
 app.post('/beni/reservar', async (req, res) => {
+  console.log('📞 [Vapi reservar] body:', JSON.stringify(req.body || {}));
   try {
     const cfg = await getBeniConfig();
     const r = await toolCrearReserva(req.body || {}, cfg, 'voz');
+    console.log('📞 [Vapi reservar] resp:', JSON.stringify(r).substring(0, 200));
     res.json(r);
   } catch (e) { console.error('/beni/reservar:', e.message); res.status(200).json({ error: 'No pude crear la reserva ahora.' }); }
 });
