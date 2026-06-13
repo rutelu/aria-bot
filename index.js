@@ -968,4 +968,33 @@ app.get('/test-recordatorio', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ══════════════════════════════════════════
+// HERRAMIENTAS PARA LA VOZ (Vapi) — agenda en vivo (misma base que el chat)
+// Vapi llama a este endpoint cuando Valeria (voz) usa una herramienta.
+// ══════════════════════════════════════════
+app.post('/vapi/tools', async (req, res) => {
+  try {
+    const msg = (req.body && req.body.message) || {};
+    const calls = msg.toolCallList || msg.toolCalls || [];
+    const cfg = await getBeniConfig();
+    const results = [];
+    for (const c of calls) {
+      const id = c.id || (c.toolCall && c.toolCall.id) || '';
+      const name = c.name || (c.function && c.function.name) || '';
+      let args = c.arguments || (c.function && c.function.arguments) || {};
+      if (typeof args === 'string') { try { args = JSON.parse(args); } catch (e) { args = {}; } }
+      let result;
+      if (name === 'consultar_disponibilidad_beni') result = await toolConsultarDisponibilidad(args, cfg);
+      else if (name === 'crear_reserva_beni') result = await toolCrearReserva(args, cfg, 'voz');
+      else result = { error: 'herramienta desconocida: ' + name };
+      console.log('🛠️ [Vapi] ' + name + ' →', JSON.stringify(result).substring(0, 160));
+      results.push({ toolCallId: id, result: JSON.stringify(result) });
+    }
+    res.json({ results: results });
+  } catch (e) {
+    console.error('/vapi/tools:', e.message);
+    res.status(200).json({ results: [] });
+  }
+});
+
 app.listen(PORT, () => console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`));
