@@ -567,7 +567,7 @@ async function notificarHumano(userId, motivo) {
     + 'Canal: ' + canalNombre + (nombre ? ' — ' + nombre : '') + '\n'
     + 'Contacto: ' + contacto + '\n'
     + 'Motivo: ' + (motivo || 'el cliente pidió atención personal') + '\n'
-    + 'Respondé desde: https://www.armonniza.com/valeria-seguimiento';
+    + 'Abrí el chat: https://www.armonniza.com/valeria-seguimiento?chat=' + encodeURIComponent(userId);
   // marca el chat para que el panel lo resalte
   try { if (db) await db.collection('valeria_chats').doc(userId).set({ necesitaHumano: true, motivoHumano: motivo || '', humanoTs: Date.now() }, { merge: true }); } catch (e) { console.error('flag humano:', e.message); }
   // Telegram (confiable hoy)
