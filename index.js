@@ -44,7 +44,7 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'tour-yacuma-2026-06b',
+  campaignVersion: 'tour-yacuma-2026-06c-rurre',
   promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
   subsedes: [
     { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
