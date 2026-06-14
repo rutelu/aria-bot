@@ -853,6 +853,24 @@ app.get('/firebase-status', (req, res) => {
   res.json({ connected: !!db, varPresent: fbVarPresent, varLen: fbVarLen, error: fbInitError });
 });
 
+// Diagnóstico: ¿está activa la WhatsApp Cloud API? (sin exponer el token)
+app.get('/wa-check', async (req, res) => {
+  const TOKEN_WA = process.env.WHATSAPP_TOKEN;
+  const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+  const out = { tokenPresent: !!TOKEN_WA, phoneIdPresent: !!PHONE_ID };
+  if (!TOKEN_WA || !PHONE_ID) { out.activa = false; out.motivo = 'Faltan variables WHATSAPP_TOKEN / WHATSAPP_PHONE_ID'; return res.json(out); }
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${PHONE_ID}?fields=verified_name,display_phone_number,quality_rating,code_verification_status,name_status`, {
+      headers: { 'Authorization': `Bearer ${TOKEN_WA}` }
+    });
+    const data = await r.json();
+    out.httpStatus = r.status;
+    if (r.ok) { out.activa = true; out.numero = data.display_phone_number; out.nombre = data.verified_name; out.calidad = data.quality_rating; out.verificacion = data.code_verification_status; out.nameStatus = data.name_status; }
+    else { out.activa = false; out.error = (data.error && data.error.message) || 'token o phone_id inválidos'; }
+  } catch (e) { out.activa = false; out.error = e.message; }
+  res.json(out);
+});
+
 // Lectura de la config de la Jornada Beni (datos públicos de campaña)
 app.get('/beni-config', async (req, res) => {
   if (!db) return res.status(503).json({ error: 'Firebase no conectado' });
