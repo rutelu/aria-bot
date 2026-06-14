@@ -172,6 +172,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - Toda cirugía estética requiere consulta de valoración previa obligatoria.
 - Si no sabes algo con certeza, no improvises: ofrece agendar o derivar por WhatsApp +591 76951552.
 - LONGITUD DE RESPUESTA (regla clave): por defecto responde como en un chat real de WhatsApp: MUY breve, 1-2 oraciones (idealmente una). Nunca párrafos largos tipo folleto. Da lo esencial y, cuando el tema dé para más (un tratamiento, cómo es un procedimiento, qué incluye, cuidados, etc.), OFRECE ampliar con una pregunta corta del estilo "¿Quieres que te lo explique con más detalle?". Solo si la persona pide más detalle (o responde que sí) puedes dar una respuesta más larga y completa. Cierra invitando a agendar solo cuando sea natural, sin sonar insistente. NO repitas información que ya diste antes en la misma conversación (fechas, sedes, precios): si ya lo mencionaste, no lo vuelvas a recitar.
+- MEMORIA DEL CHAT (MUY IMPORTANTE — no pierdas el hilo): recuerda TODO lo que la persona ya te dijo en esta conversación (su nombre, teléfono, localidad, día y hora elegidos, el tratamiento que le interesa, etc.). NUNCA vuelvas a preguntar un dato que ya te dieron ni repitas una pregunta ya respondida. Si ya tienes algunos datos para reservar, pide SOLO lo que falta. Jamás reinicies la conversación ni "empieces de cero": continúa siempre desde donde quedaron.
 
 CONTACTO (compártelo solo cuando haga falta):
 - Sitio web para agendar: www.armonniza.com
@@ -224,9 +225,29 @@ function getHistory(userId) {
 function addToHistory(userId, role, content) {
   const history = getHistory(userId);
   history.push({ role, content });
-  if (history.length > 20) {
-    conversationHistory[userId] = history.slice(-20);
+  if (history.length > 24) {
+    conversationHistory[userId] = history.slice(-24);
   }
+}
+
+// Si la memoria del proceso está vacía (ej. tras un reinicio de Railway), reconstruye
+// el hilo desde Firestore para que Valeria NO pierda el contexto ni vuelva a preguntar.
+async function cargarHistorialSiVacio(userId) {
+  if (!db) return;
+  if (conversationHistory[userId] && conversationHistory[userId].length) return;
+  try {
+    const snap = await db.collection('valeria_chats').doc(String(userId))
+      .collection('mensajes').orderBy('ts', 'desc').limit(24).get();
+    if (snap.empty) return;
+    const arr = [];
+    snap.forEach(function(doc) {
+      const m = doc.data();
+      if (!m.texto) return;
+      arr.push({ role: m.rol === 'user' ? 'user' : 'assistant', content: String(m.texto) });
+    });
+    arr.reverse(); // de más antiguo a más reciente
+    conversationHistory[userId] = arr;
+  } catch (e) { console.error('cargarHistorialSiVacio:', e.message); }
 }
 
 // ── Registro de conversaciones para el panel "Seguimiento Valeria" (Firestore) ──
@@ -596,6 +617,7 @@ async function ejecutarTool(block, cfg, canal, userId) {
 async function askValeria(userId, userMessage) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
+  await cargarHistorialSiVacio(userId);
   addToHistory(userId, 'user', userMessage);
   logMensaje(userId, 'user', userMessage);
 
@@ -612,7 +634,17 @@ async function askValeria(userId, userMessage) {
 
   // Copia de trabajo del historial (los turnos de herramientas NO se persisten,
   // solo el texto final, para mantener limpio conversationHistory).
-  const messages = getHistory(userId).map(function(m) { return { role: m.role, content: m.content }; });
+  // Construye los turnos garantizando que ALTERNEN (requisito del modelo) y empiecen en "user".
+  const messages = [];
+  getHistory(userId).forEach(function(m) {
+    const role = m.role === 'user' ? 'user' : 'assistant';
+    if (messages.length && messages[messages.length - 1].role === role) {
+      messages[messages.length - 1].content += '\n' + m.content; // colapsa turnos del mismo rol
+    } else {
+      messages.push({ role: role, content: m.content });
+    }
+  });
+  while (messages.length && messages[0].role !== 'user') messages.shift(); // debe empezar con user
   const canal = (userId.split('_')[0]) || 'chat';
   const toolsEnabled = !!db && beniCfg && beniCfg.publicada === true;
 
