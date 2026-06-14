@@ -205,7 +205,9 @@ CÓMO AGENDAR (ofrece la opción según el caso):
 
 ATENCIÓN POR VOZ (llamada gratis): si la persona prefiere hablar por voz en lugar de escribir, invítala a llamarte GRATIS desde el botón "Llamar a Valeria" en www.armonniza.com (es una llamada por internet, sin costo). NO ofrezcas llamar tú a la persona.
 
-Pagos: tarjetas de crédito/débito, QR y transferencias. La consulta de valoración dura 30–45 min.`;
+Pagos: tarjetas de crédito/débito, QR y transferencias. La consulta de valoración dura 30–45 min.
+
+AVISAR A UN HUMANO (MUY IMPORTANTE): en el INSTANTE en que el cliente pida hablar con una persona/encargado/humano real, exprese una queja o enojo, o surja algo que no puedas resolver, usa de INMEDIATO la herramienta avisar_a_humano (con un motivo breve). No demores ni sigas dando vueltas: el aviso debe salir al toque. Recién después, dile al cliente de forma cálida que ya avisaste a alguien del equipo que lo atenderá enseguida.`;
 
 // ══════════════════════════════════════════
 // HISTORIAL DE CONVERSACIONES
@@ -419,6 +421,17 @@ const BENI_TOOLS = [
       },
       required: ['subsede', 'fecha', 'hora', 'nombre', 'telefono']
     }
+  },
+  {
+    name: 'avisar_a_humano',
+    description: 'Avisa de INMEDIATO a una persona del equipo de Armonniza para que intervenga en este chat. Úsala apenas: el cliente pide hablar con una persona/encargado/humano, expresa una queja o molestia, hay un problema que no puedes resolver, o pide algo fuera de tus capacidades. Tras usarla, dile al cliente de forma cálida que ya avisaste a alguien del equipo.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        motivo: { type: 'string', description: 'Motivo breve por el que se necesita un humano (ej: "pide hablar con encargado", "queja por demora", "consulta médica compleja").' }
+      },
+      required: ['motivo']
+    }
   }
 ];
 
@@ -532,10 +545,44 @@ async function toolCrearReserva(args, cfg, canal) {
   return { ok: true, id: slotId, mensaje: 'Reserva confirmada: ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
 }
 
-async function ejecutarTool(block, cfg, canal) {
+// ── AVISO A HUMANO (handoff proactivo): Telegram + WhatsApp ──
+const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '59178922666';
+const ADMIN_PIN = process.env.ADMIN_PIN || 'armonniza591';
+
+async function getAdminTelegram() {
+  if (db) {
+    try { const s = await db.collection('config').doc('handoff').get(); if (s.exists && s.data().telegramAdminChatId) return s.data().telegramAdminChatId; } catch (e) {}
+  }
+  return process.env.ADMIN_TELEGRAM_CHAT_ID || null;
+}
+
+// Avisa AL INSTANTE a Julio (Telegram + WhatsApp) que un chat necesita atención humana.
+async function notificarHumano(userId, motivo) {
+  const canal = String(userId).split('_')[0];
+  const contacto = String(userId).split('_').slice(1).join('_');
+  const canalNombre = canal === 'tg' ? 'Telegram' : canal === 'wa' ? 'WhatsApp' : canal === 'fb' ? 'Facebook' : canal;
+  let nombre = '';
+  try { if (db) { const s = await db.collection('valeria_chats').doc(userId).get(); if (s.exists) nombre = s.data().nombre || ''; } } catch (e) {}
+  const aviso = '🔔 Valeria necesita un humano\n'
+    + 'Canal: ' + canalNombre + (nombre ? ' — ' + nombre : '') + '\n'
+    + 'Contacto: ' + contacto + '\n'
+    + 'Motivo: ' + (motivo || 'el cliente pidió atención personal') + '\n'
+    + 'Respondé desde: https://www.armonniza.com/valeria-seguimiento';
+  // marca el chat para que el panel lo resalte
+  try { if (db) await db.collection('valeria_chats').doc(userId).set({ necesitaHumano: true, motivoHumano: motivo || '', humanoTs: Date.now() }, { merge: true }); } catch (e) { console.error('flag humano:', e.message); }
+  // Telegram (confiable hoy)
+  try { const adm = await getAdminTelegram(); if (adm) await bot.sendMessage(adm, aviso); else console.log('⚠️ aviso humano: sin admin de Telegram registrado (/admin)'); } catch (e) { console.error('aviso TG:', e.message); }
+  // WhatsApp (libre; si no hay ventana de 24h Meta lo rechaza, por eso conviene plantilla)
+  try { await waSend(ADMIN_WHATSAPP, aviso); } catch (e) { console.error('aviso WA:', e.message); }
+  console.log('🔔 Aviso humano enviado para ' + userId + ' (' + motivo + ')');
+  return { ok: true, mensaje: 'Listo, ya avisé a una persona del equipo para que te atienda enseguida.' };
+}
+
+async function ejecutarTool(block, cfg, canal, userId) {
   try {
     if (block.name === 'consultar_disponibilidad_beni') return await toolConsultarDisponibilidad(block.input || {}, cfg);
     if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal);
+    if (block.name === 'avisar_a_humano') return await notificarHumano(userId, (block.input && block.input.motivo) || '');
     return { error: 'herramienta desconocida' };
   } catch (e) {
     console.error('Tool error (' + block.name + '):', e.message);
@@ -602,7 +649,7 @@ async function askValeria(userId, userMessage) {
         const toolResults = [];
         for (const block of data.content) {
           if (block.type === 'tool_use') {
-            const result = await ejecutarTool(block, beniCfg, canal);
+            const result = await ejecutarTool(block, beniCfg, canal, userId);
             console.log('🛠️ ' + block.name + ' →', JSON.stringify(result).substring(0, 160));
             toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
           }
@@ -638,6 +685,19 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = (msg.text || '').trim();
   if (!text) return;
+
+  // Registro del admin que recibirá los avisos de handoff: "/admin <PIN>"
+  if (text.toLowerCase().startsWith('/admin')) {
+    const pin = text.split(/\s+/)[1] || '';
+    if (pin === ADMIN_PIN) {
+      try { if (db) await db.collection('config').doc('handoff').set({ telegramAdminChatId: chatId }, { merge: true }); } catch (e) { console.error('reg admin:', e.message); }
+      bot.sendMessage(chatId, '✅ Listo. Vas a recibir acá los avisos cuando Valeria necesite que intervengas.');
+    } else {
+      bot.sendMessage(chatId, '🔒 PIN incorrecto. Usá: /admin TU_PIN');
+    }
+    return;
+  }
+
   setChatNombre(`tg_${chatId}`, [msg.from && msg.from.first_name, msg.from && msg.from.last_name].filter(Boolean).join(' '));
 
   console.log(`📱 Telegram de ${chatId}: ${text}`);
