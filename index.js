@@ -259,12 +259,16 @@ async function resetHistorial(userId) {
   conversationHistory[String(userId)] = [];
   if (!db) return;
   try {
-    const snap = await db.collection('valeria_chats').doc(String(userId)).collection('mensajes').get();
-    if (snap.empty) return;
-    const batch = db.batch();
-    snap.forEach(function(doc) { batch.delete(doc.ref); });
-    await batch.commit();
-    console.log('🧹 Historial reiniciado para ' + userId + ' (' + snap.size + ' mensajes)');
+    const chatRef = db.collection('valeria_chats').doc(String(userId));
+    // Borra también el ORIGEN guardado: si no, un "Hola" suelto seguiría enganchando con la Jornada.
+    await chatRef.set({ origen: admin.firestore.FieldValue.delete() }, { merge: true }).catch(function(){});
+    const snap = await chatRef.collection('mensajes').get();
+    if (!snap.empty) {
+      const batch = db.batch();
+      snap.forEach(function(doc) { batch.delete(doc.ref); });
+      await batch.commit();
+    }
+    console.log('🧹 Historial + origen reiniciados para ' + userId + ' (' + snap.size + ' mensajes)');
   } catch (e) { console.error('resetHistorial:', e.message); }
 }
 
