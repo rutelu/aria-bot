@@ -253,6 +253,21 @@ async function cargarHistorialSiVacio(userId) {
   } catch (e) { console.error('cargarHistorialSiVacio:', e.message); }
 }
 
+// Reinicia el historial de un chat (memoria + Firestore). Se usa cuando un lead llega
+// desde un anuncio (clic nuevo) para que la conversación empiece FRESCA y enfocada.
+async function resetHistorial(userId) {
+  conversationHistory[String(userId)] = [];
+  if (!db) return;
+  try {
+    const snap = await db.collection('valeria_chats').doc(String(userId)).collection('mensajes').get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.forEach(function(doc) { batch.delete(doc.ref); });
+    await batch.commit();
+    console.log('🧹 Historial reiniciado para ' + userId + ' (' + snap.size + ' mensajes)');
+  } catch (e) { console.error('resetHistorial:', e.message); }
+}
+
 // ── Registro de conversaciones para el panel "Seguimiento Valeria" (Firestore) ──
 // Fire-and-forget: nunca bloquea ni rompe la respuesta del bot (errores solo a consola).
 function logMensaje(userId, rol, texto) {
@@ -898,6 +913,7 @@ app.post('/webhook', async (req, res) => {
                 + (refz.body ? ' — ' + String(refz.body).substring(0, 200) : '');
               setChatOrigen(`wa_${from}`, origenDesc);
               console.log(`📢 WhatsApp referral (anuncio): ${origenDesc.substring(0, 140)}`);
+              await resetHistorial(`wa_${from}`); // lead nuevo del anuncio → conversación fresca
             }
             const t0 = Date.now();
             await waTyping(message.id);
