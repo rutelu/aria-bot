@@ -44,7 +44,7 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'tour-yacuma-2026-06c-rurre',
+  campaignVersion: 'tour-yacuma-2026-06d-mie17',
   promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
   subsedes: [
     { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
@@ -54,6 +54,7 @@ const BENI_SEED = {
   dias: [
     { fecha: '2026-06-15', label: 'Lunes 15 de junio',  subsede: 'San Borja' },
     { fecha: '2026-06-16', label: 'Martes 16 de junio', subsede: 'San Borja' },
+    { fecha: '2026-06-17', label: 'Miércoles 17 de junio', subsede: 'San Borja' },
     { fecha: '2026-06-18', label: 'Jueves 18 de junio', subsede: 'Santa Rosa' },
     { fecha: '2026-06-19', label: 'Viernes 19 de junio', subsede: 'Rurrenabaque' },
     { fecha: '2026-06-20', label: 'Sábado 20 de junio',  subsede: 'Rurrenabaque' }
