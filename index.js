@@ -634,7 +634,7 @@ async function ejecutarTool(block, cfg, canal, userId) {
 // ══════════════════════════════════════════
 // FUNCIÓN PRINCIPAL CLAUDE AI
 // ══════════════════════════════════════════
-async function askValeria(userId, userMessage) {
+async function askValeria(userId, userMessage, origenDirecto) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
   await cargarHistorialSiVacio(userId);
@@ -648,11 +648,14 @@ async function askValeria(userId, userMessage) {
   }
 
   const beniCfg = await getBeniConfig();
-  const origen = await getChatOrigen(userId);
-  const systemPrompt = SYSTEM_PROMPT
+  const origen = origenDirecto || await getChatOrigen(userId);
+  const reglasCriticas = 'REGLAS CRITICAS (cumplelas SIEMPRE, por encima de todo lo demas):\n'
+    + '1) BREVEDAD: responde como en un chat real de WhatsApp, MUY breve (1-2 oraciones, idealmente una). PROHIBIDO dar listas largas, enumerar todos los tratamientos o escribir parrafos tipo folleto. Da solo lo esencial y, si el tema da para mas, ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Solo te extiendes si la persona pide detalle.\n'
+    + (origen ? ('2) ORIGEN DEL CONTACTO: esta persona te escribe desde el ' + origen + '. En tu PRIMERA respuesta saludala reconociendo con calidez que viene de la Jornada Beni y, de forma breve, ofrecele la jornada (su localidad/fecha vigente, el 40% de descuento por traer un recomendado y la valoracion GRATIS) e invitala a reservar su cupo. Responde su pregunta puntual pero SIEMPRE engancha con la Jornada Beni. No vuelvas a saludar si ya lo hiciste en esta conversacion.\n') : '');
+  const systemPrompt = reglasCriticas
+    + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
-    + buildBeniSection(beniCfg)
-    + (origen ? ('\n\n[ORIGEN DE ESTE CONTACTO — MUY IMPORTANTE]: esta persona te escribió tras hacer clic en un ' + origen + '. Trátala como un contacto CALIENTE de la Jornada Beni: si aún no la saludaste en esta conversación, salúdala con calidez reconociendo que te escribe desde nuestra Jornada Beni e INTRODUCE de entrada la campaña (las sedes y fechas vigentes, el 40% de descuento por traer un recomendado y la valoración GRATIS), orientándola con naturalidad a reservar su cupo. Responde su pregunta puntual, pero engánchala siempre con la Jornada Beni. No suenes insistente ni vuelvas a saludar si ya lo hiciste.') : '');
+    + buildBeniSection(beniCfg);
 
   // Copia de trabajo del historial (los turnos de herramientas NO se persisten,
   // solo el texto final, para mantener limpio conversationHistory).
@@ -887,17 +890,18 @@ app.post('/webhook', async (req, res) => {
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             setChatNombre(`wa_${from}`, nombreWa);
-            const ref = message.referral;
-            if (ref && (ref.source_type === 'ad' || ref.headline || ref.body)) {
-              const desc = 'anuncio en Facebook/Instagram/WhatsApp'
-                + (ref.headline ? ' titulado "' + ref.headline + '"' : '')
-                + (ref.body ? ' — ' + String(ref.body).substring(0, 200) : '');
-              setChatOrigen(`wa_${from}`, desc);
-              console.log(`📢 WhatsApp referral (anuncio): ${desc.substring(0, 140)}`);
+            let origenDesc = null;
+            const refz = message.referral;
+            if (refz && (refz.source_type === 'ad' || refz.headline || refz.body)) {
+              origenDesc = 'anuncio en Facebook/Instagram/WhatsApp'
+                + (refz.headline ? ' titulado "' + refz.headline + '"' : '')
+                + (refz.body ? ' — ' + String(refz.body).substring(0, 200) : '');
+              setChatOrigen(`wa_${from}`, origenDesc);
+              console.log(`📢 WhatsApp referral (anuncio): ${origenDesc.substring(0, 140)}`);
             }
             const t0 = Date.now();
             await waTyping(message.id);
-            const reply = await askValeria(`wa_${from}`, text);
+            const reply = await askValeria(`wa_${from}`, text, origenDesc);
             if (reply) {
               const espera = typingDelay(reply) - (Date.now() - t0);
               if (espera > 0) await sleep(espera);
