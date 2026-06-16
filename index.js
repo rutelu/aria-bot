@@ -665,8 +665,9 @@ async function askValeria(userId, userMessage, origenDirecto) {
 
   const beniCfg = await getBeniConfig();
   const origen = origenDirecto || await getChatOrigen(userId);
+  console.log('🧠 ' + userId + ' hist=' + getHistory(userId).length + ' primerMsg=' + esPrimerMensaje + ' origen=' + (origen ? 'SI' : 'no'));
   const reglasCriticas = 'REGLAS CRITICAS (cumplelas SIEMPRE, por encima de todo lo demas):\n'
-    + '1) BREVEDAD: responde como en un chat real de WhatsApp, MUY breve (1-2 oraciones, idealmente una). PROHIBIDO dar listas largas, enumerar todos los tratamientos o escribir parrafos tipo folleto. Da solo lo esencial y, si el tema da para mas, ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Solo te extiendes si la persona pide detalle.\n'
+    + '1) BREVEDAD Y CALIDEZ: responde como en un chat real de WhatsApp: breve pero CALIDA y amable (1-3 oraciones), NUNCA cortante ni seca. Evita listas largas o parrafos tipo folleto; da lo esencial con calidez y, si el tema da para mas, ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Te extiendes solo si la persona pide detalle.\n'
     + '2) CONTINUIDAD: si ya venian conversando, NO vuelvas a saludar ni a presentarte; CONTINUA el hilo recordando lo que ya hablaron (su nombre, lo que le interesa, su localidad y dia si ya los dio). Saluda y preséntate SOLO en el PRIMER mensaje de la conversacion.\n'
     + (origen ? (esPrimerMensaje
         ? '3) ORIGEN: esta persona te escribe POR PRIMERA VEZ desde el ' + origen + '. Saludala con calidez reconociendo que viene de la Jornada Beni y, breve, ofrecele la jornada (su localidad/fecha vigente, el 40% de descuento por traer un recomendado y la valoracion GRATIS) e invitala a reservar su cupo.\n'
