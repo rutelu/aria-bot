@@ -286,6 +286,23 @@ function setChatNombre(userId, nombre) {
   } catch (e) { console.error('setChatNombre:', e.message); }
 }
 
+// Guarda el ORIGEN del contacto (ej. el anuncio de campaña en el que hizo clic para escribir).
+function setChatOrigen(userId, origen) {
+  if (!db || !origen) return;
+  try {
+    db.collection('valeria_chats').doc(String(userId)).set(
+      { origen: String(origen).substring(0, 300) }, { merge: true }
+    ).catch(function(e){ console.error('setChatOrigen:', e.message); });
+  } catch (e) { console.error('setChatOrigen:', e.message); }
+}
+async function getChatOrigen(userId) {
+  if (!db) return null;
+  try {
+    const s = await db.collection('valeria_chats').doc(String(userId)).get();
+    return (s.exists && s.data().origen) ? s.data().origen : null;
+  } catch (e) { console.error('getChatOrigen:', e.message); return null; }
+}
+
 // ── HANDOFF HUMANO: pausa por chat + outbox de mensajes salientes ──
 // Si valeria_chats/{id}.pausada === true, el bot NO responde (atiende un humano).
 async function chatPausado(userId) {
@@ -631,9 +648,11 @@ async function askValeria(userId, userMessage) {
   }
 
   const beniCfg = await getBeniConfig();
+  const origen = await getChatOrigen(userId);
   const systemPrompt = SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
-    + buildBeniSection(beniCfg);
+    + buildBeniSection(beniCfg)
+    + (origen ? ('\n\n[ORIGEN DE ESTE CONTACTO — MUY IMPORTANTE]: esta persona te escribió tras hacer clic en un ' + origen + '. Trátala como un contacto CALIENTE de la Jornada Beni: si aún no la saludaste en esta conversación, salúdala con calidez reconociendo que te escribe desde nuestra Jornada Beni e INTRODUCE de entrada la campaña (las sedes y fechas vigentes, el 40% de descuento por traer un recomendado y la valoración GRATIS), orientándola con naturalidad a reservar su cupo. Responde su pregunta puntual, pero engánchala siempre con la Jornada Beni. No suenes insistente ni vuelvas a saludar si ya lo hiciste.') : '');
 
   // Copia de trabajo del historial (los turnos de herramientas NO se persisten,
   // solo el texto final, para mantener limpio conversationHistory).
@@ -868,6 +887,14 @@ app.post('/webhook', async (req, res) => {
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             setChatNombre(`wa_${from}`, nombreWa);
+            const ref = message.referral;
+            if (ref && (ref.source_type === 'ad' || ref.headline || ref.body)) {
+              const desc = 'anuncio en Facebook/Instagram/WhatsApp'
+                + (ref.headline ? ' titulado "' + ref.headline + '"' : '')
+                + (ref.body ? ' — ' + String(ref.body).substring(0, 200) : '');
+              setChatOrigen(`wa_${from}`, desc);
+              console.log(`📢 WhatsApp referral (anuncio): ${desc.substring(0, 140)}`);
+            }
             const t0 = Date.now();
             await waTyping(message.id);
             const reply = await askValeria(`wa_${from}`, text);
