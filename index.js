@@ -664,15 +664,18 @@ async function askValeria(userId, userMessage, origenDirecto) {
   }
 
   const beniCfg = await getBeniConfig();
+  const origenFresco = !!origenDirecto; // el referral del anuncio llegó EN ESTE mensaje (clic reciente)
   const origen = origenDirecto || await getChatOrigen(userId);
-  console.log('🧠 ' + userId + ' hist=' + getHistory(userId).length + ' primerMsg=' + esPrimerMensaje + ' origen=' + (origen ? 'SI' : 'no'));
+  // Enganchar fuerte con la Jornada si es el primer mensaje O si acaba de hacer clic en el anuncio (aunque ya haya historial)
+  const enganchaFuerte = origen && (esPrimerMensaje || origenFresco);
+  console.log('🧠 ' + userId + ' hist=' + getHistory(userId).length + ' primerMsg=' + esPrimerMensaje + ' origen=' + (origen ? 'SI' : 'no') + ' fresco=' + origenFresco);
   const reglasCriticas = 'REGLAS CRITICAS (cumplelas SIEMPRE, por encima de todo lo demas):\n'
     + '1) BREVEDAD Y CALIDEZ: responde como en un chat real de WhatsApp: breve pero CALIDA y amable (1-3 oraciones), NUNCA cortante ni seca. Evita listas largas o parrafos tipo folleto; da lo esencial con calidez y, si el tema da para mas, ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Te extiendes solo si la persona pide detalle.\n'
     + '2) PRESENTACION (PRIMER mensaje): en el PRIMER mensaje de la conversacion SIEMPRE presentate por tu nombre, asi: empieza con "¡Hola! Soy Valeria, del equipo de Armonniza" y a continuacion, calida y breve, pregunta en que la puedes ayudar (o engancha con la Jornada si corresponde por el origen). NUNCA respondas el primer mensaje con un saludo generico tipo "¡Hola! ¿En que te ayudo?" sin decir tu nombre.\n'
     + '2b) CONTINUIDAD (mensajes siguientes): si ya venian conversando, NO vuelvas a saludar ni a presentarte; CONTINUA el hilo recordando lo que ya hablaron (su nombre, lo que le interesa, su localidad y dia si ya los dio).\n'
-    + (origen ? (esPrimerMensaje
-        ? '3) ORIGEN: esta persona te escribe POR PRIMERA VEZ desde el ' + origen + '. Saludala con calidez reconociendo que viene de la Jornada Beni y, breve, ofrecele la jornada (su localidad/fecha vigente, el 40% de descuento por traer un recomendado y la valoracion GRATIS) e invitala a reservar su cupo.\n'
-        : '3) ORIGEN: esta persona vino de la Jornada Beni (anuncio) pero YA estan conversando: NO la vuelvas a saludar; continua el hilo y engancha con la Jornada Beni solo cuando sea natural.\n')
+    + (origen ? (enganchaFuerte
+        ? '3) ORIGEN (lead caliente del anuncio): esta persona viene de la Jornada Beni (' + origen + ') y acaba de mostrar interes. Engancha SIEMPRE con la Jornada: reconoce con calidez que viene de la Jornada Beni y, breve, ofrecele la jornada (su localidad/fecha vigente, el 40% de descuento por traer un recomendado y la valoracion GRATIS) e invitala a reservar su cupo. NUNCA respondas generico tipo "¿sobre que tratamiento quieres saber?" — ya sabes que viene por la Jornada Beni.\n'
+        : '3) ORIGEN: esta persona vino de la Jornada Beni (anuncio) y YA venian conversando: NO la vuelvas a saludar; continua el hilo y engancha con la Jornada Beni cuando sea natural.\n')
        : '');
   const systemPrompt = reglasCriticas
     + '\n' + SYSTEM_PROMPT
