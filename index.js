@@ -376,7 +376,7 @@ const CONTACTOS_BENI = {
 
 function buildBeniSection(cfg) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
-  let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (identifícala y ofrécela de forma DISCRETA y PROFESIONAL cuando la persona pregunte por ella, llegue por la campaña o muestre interés en un tratamiento; no insistas):\n';
+  let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (PRIORIDAD): mientras la campaña esté activa, engancha SIEMPRE con la Jornada Beni apenas la persona pregunte por tratamientos, precios o información, o muestre cualquier interés (aunque no mencione el Beni). Responde su consulta de forma breve y, a continuación, ofrece la Jornada con calidez y profesionalismo: destaca la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. No seas pesada ni repitas lo ya dicho, pero NO dejes pasar la oportunidad de ofrecer la jornada:\n';
   s += 'Nuestro especialista en medicina estética atiende presencialmente en el Beni (NO menciones su nombre propio; preséntalo como "el especialista de Armonniza"). Las sub-sedes activas son SOLO las siguientes (no menciones ninguna otra localidad):\n';
   (cfg.subsedes || []).forEach(function(sub) {
     const dias = (cfg.dias || []).filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
