@@ -207,9 +207,10 @@ CÓMO AGENDAR (ofrece la opción según el caso):
 2) Agenda Virtual (telemedicina): en www.armonniza.com → "Agenda Virtual", eliges plataforma (WhatsApp, Zoom o Google Meet), día y horario. Disponible todos los días de 9:00 a 21:00. Ideal para quienes están en otra ciudad o no pueden ir presencialmente.
 (Si hay una Jornada en el Beni activa, su información actualizada aparecerá al final de estas instrucciones; en ese caso ofrécela como gancho y dirige a armonniza.com/beni.)
 
-OFRECE PROACTIVAMENTE LLAMADA Y WEB (cuando corresponda, sin insistir): dentro de la conversación, cuando sea natural y útil, ofrece dos caminos cómodos, además de seguir ayudando por chat:
-1) HABLAR POR VOZ (llamada GRATIS): invítala a hablar por voz conmigo (Valeria) desde el botón "Llamar a Valeria" en www.armonniza.com — es una llamada por internet, sin costo. Ofrécela sobre todo cuando la persona tiene varias dudas, prefiere que le expliquen hablando, o se le complica escribir (ej. "Si te queda más cómodo, también puedes hablar conmigo por voz gratis desde el botón 'Llamar a Valeria' en www.armonniza.com 😊"). NO ofrezcas llamar tú a la persona.
-2) DERIVAR A LA PÁGINA CORRECTA (para ver todo y reservar): si la persona viene de la Jornada Beni o pregunta por ella, dirígela a armonniza.com/beni (ahí ve fechas, sedes y reserva su cupo). En cualquier otro caso, dirígela a www.armonniza.com (sitio general, para ver tratamientos y agendar). Ofrécelo como una ayuda ("ahí puedes ver todo y reservar"), no en cada mensaje ni de forma insistente.
+OFRECE PROACTIVAMENTE LLAMADA Y WEB (cuando corresponda, sin insistir): dentro de la conversación, cuando sea natural y útil, ofrece hablar por voz conmigo (Valeria) o ver el calendario para reservar, además de seguir ayudando por chat.
+- HABLAR POR VOZ (llamada GRATIS): invítala a hablar por voz conmigo, es una llamada por internet sin costo. Ofrécela sobre todo cuando la persona tiene varias dudas, prefiere que le expliquen hablando, o dice que escribir cansa o le incomoda.
+- CÓMO ENVÍO EL BOTÓN: cuando quieras ofrecer la llamada (o dirigirla a reservar/ver el calendario), escribe tu mensaje breve y cálido invitándola, y al FINAL, en una línea aparte, agrega EXACTAMENTE uno de estos marcadores (nada más en esa línea): "[[LLAMAR:beni]]" si la conversación es sobre la Jornada Beni, o "[[LLAMAR:web]]" en cualquier otro caso. El sistema convierte ese marcador en un BOTÓN que abre la página correcta (la de la Jornada Beni o el sitio general), donde la persona encuentra el botón "Llamar" para hablar conmigo por voz, el calendario para agendar y el botón de WhatsApp para volver. NUNCA expliques el marcador ni lo menciones; solo agrégalo al final. No lo pongas en cada mensaje, solo cuando ofrezcas la llamada o invites a reservar.
+- Ejemplo: "¡Claro! Si escribir cansa, podemos hablar por voz, es gratis 😊 Toca el botón y conversamos:\n[[LLAMAR:beni]]"
 
 Pagos: tarjetas de crédito/débito, QR y transferencias. La consulta de valoración dura 30–45 min.
 
@@ -800,10 +801,12 @@ bot.on('message', async (msg) => {
   const t0 = Date.now();
   bot.sendChatAction(chatId, 'typing');
   const reply = await askValeria(`tg_${chatId}`, text);
-  const espera = typingDelay(reply) - (Date.now() - t0);
   if (reply) {
+    const { texto, url } = extraerMarcadorLlamada(reply);
+    const msg = url ? (texto + '\n👉 ' + url) : texto;
+    const espera = typingDelay(msg) - (Date.now() - t0);
     if (espera > 0) { bot.sendChatAction(chatId, 'typing'); await sleep(espera); }
-    bot.sendMessage(chatId, reply);
+    bot.sendMessage(chatId, msg);
   }
 });
 
@@ -824,6 +827,46 @@ async function waSend(to, text) {
       body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text } })
     });
   } catch (err) { console.error('Error WA:', err); }
+}
+
+// Botón "Llamar a Valeria" (WhatsApp interactive cta_url): abre la página correcta donde
+// están el botón Llamar, el calendario para agendar y el botón de WhatsApp para volver.
+async function waSendCallButton(to, url, bodyText) {
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+  try {
+    const r = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to, type: 'interactive',
+        interactive: {
+          type: 'cta_url',
+          body: { text: bodyText || 'Toca para hablar conmigo por voz, gratis 👇' },
+          action: { name: 'cta_url', parameters: { display_text: 'Llamar a Valeria 📞', url: url } }
+        }
+      })
+    });
+    const data = await r.json().catch(function(){ return {}; });
+    if (data && data.error) {
+      // Fallback: si la API rechaza el botón, manda el enlace como texto para no perder la acción.
+      console.error('waSendCallButton error:', JSON.stringify(data.error).substring(0, 200));
+      await waSend(to, '📞 Para hablar conmigo por voz (gratis), entra aquí y toca "Llamar": ' + url);
+    }
+  } catch (err) {
+    console.error('Error waSendCallButton:', err);
+    await waSend(to, '📞 Para hablar conmigo por voz (gratis), entra aquí y toca "Llamar": ' + url);
+  }
+}
+
+// Extrae el marcador [[LLAMAR:beni|web]] del texto de Valeria. Devuelve el texto ya limpio
+// y la URL destino (o null si no hay marcador).
+function extraerMarcadorLlamada(text) {
+  if (!text) return { texto: text, url: null };
+  const m = text.match(/\[\[\s*LLAMAR\s*:\s*(beni|web)\s*\]\]/i);
+  const url = m ? (m[1].toLowerCase() === 'beni' ? 'https://www.armonniza.com/beni' : 'https://www.armonniza.com') : null;
+  const texto = text.replace(/\[\[\s*LLAMAR\s*:\s*(beni|web)\s*\]\]/ig, '').trim();
+  return { texto: texto, url: url };
 }
 
 // Indicador "escribiendo…" de WhatsApp Cloud API (usa el message_id entrante).
@@ -948,9 +991,11 @@ app.post('/webhook', async (req, res) => {
             await waTyping(message.id);
             const reply = await askValeria(`wa_${from}`, text, origenDesc);
             if (reply) {
-              const espera = typingDelay(reply) - (Date.now() - t0);
+              const { texto, url } = extraerMarcadorLlamada(reply);
+              const espera = typingDelay(texto || reply) - (Date.now() - t0);
               if (espera > 0) await sleep(espera);
-              await waSend(from, reply);
+              if (texto) await waSend(from, texto);
+              if (url) await waSendCallButton(from, url); // botón "Llamar a Valeria"
             }
           });
         }
@@ -972,9 +1017,11 @@ app.post('/webhook', async (req, res) => {
           await fbAction(userId, 'typing_on');
           const reply = await askValeria(`fb_${userId}`, text);
           if (reply) {
-            const espera = typingDelay(reply) - (Date.now() - t0);
+            const { texto, url } = extraerMarcadorLlamada(reply);
+            const msg = url ? (texto + '\n👉 ' + url) : texto;
+            const espera = typingDelay(msg) - (Date.now() - t0);
             if (espera > 0) await sleep(espera);
-            await fbSend(userId, reply);
+            await fbSend(userId, msg);
           }
         }
       });
@@ -995,9 +1042,11 @@ app.post('/webhook', async (req, res) => {
           await igAction(userId, 'typing_on');
           const reply = await askValeria(`ig_${userId}`, text);
           if (reply) {
-            const espera = typingDelay(reply) - (Date.now() - t0);
+            const { texto, url } = extraerMarcadorLlamada(reply);
+            const msg = url ? (texto + '\n👉 ' + url) : texto;
+            const espera = typingDelay(msg) - (Date.now() - t0);
             if (espera > 0) await sleep(espera);
-            await igSend(userId, reply);
+            await igSend(userId, msg);
           }
         }
       });
