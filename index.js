@@ -653,6 +653,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
   await cargarHistorialSiVacio(userId);
+  const esPrimerMensaje = getHistory(userId).length === 0;
   addToHistory(userId, 'user', userMessage);
   logMensaje(userId, 'user', userMessage);
 
@@ -666,7 +667,11 @@ async function askValeria(userId, userMessage, origenDirecto) {
   const origen = origenDirecto || await getChatOrigen(userId);
   const reglasCriticas = 'REGLAS CRITICAS (cumplelas SIEMPRE, por encima de todo lo demas):\n'
     + '1) BREVEDAD: responde como en un chat real de WhatsApp, MUY breve (1-2 oraciones, idealmente una). PROHIBIDO dar listas largas, enumerar todos los tratamientos o escribir parrafos tipo folleto. Da solo lo esencial y, si el tema da para mas, ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Solo te extiendes si la persona pide detalle.\n'
-    + (origen ? ('2) ORIGEN DEL CONTACTO: esta persona te escribe desde el ' + origen + '. En tu PRIMERA respuesta saludala reconociendo con calidez que viene de la Jornada Beni y, de forma breve, ofrecele la jornada (su localidad/fecha vigente, el 40% de descuento por traer un recomendado y la valoracion GRATIS) e invitala a reservar su cupo. Responde su pregunta puntual pero SIEMPRE engancha con la Jornada Beni. No vuelvas a saludar si ya lo hiciste en esta conversacion.\n') : '');
+    + '2) CONTINUIDAD: si ya venian conversando, NO vuelvas a saludar ni a presentarte; CONTINUA el hilo recordando lo que ya hablaron (su nombre, lo que le interesa, su localidad y dia si ya los dio). Saluda y preséntate SOLO en el PRIMER mensaje de la conversacion.\n'
+    + (origen ? (esPrimerMensaje
+        ? '3) ORIGEN: esta persona te escribe POR PRIMERA VEZ desde el ' + origen + '. Saludala con calidez reconociendo que viene de la Jornada Beni y, breve, ofrecele la jornada (su localidad/fecha vigente, el 40% de descuento por traer un recomendado y la valoracion GRATIS) e invitala a reservar su cupo.\n'
+        : '3) ORIGEN: esta persona vino de la Jornada Beni (anuncio) pero YA estan conversando: NO la vuelvas a saludar; continua el hilo y engancha con la Jornada Beni solo cuando sea natural.\n')
+       : '');
   const systemPrompt = reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
@@ -913,7 +918,6 @@ app.post('/webhook', async (req, res) => {
                 + (refz.body ? ' — ' + String(refz.body).substring(0, 200) : '');
               setChatOrigen(`wa_${from}`, origenDesc);
               console.log(`📢 WhatsApp referral (anuncio): ${origenDesc.substring(0, 140)}`);
-              await resetHistorial(`wa_${from}`); // lead nuevo del anuncio → conversación fresca
             }
             const t0 = Date.now();
             await waTyping(message.id);
