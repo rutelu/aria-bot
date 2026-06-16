@@ -781,6 +781,13 @@ bot.on('message', async (msg) => {
     return;
   }
 
+  // Comando de prueba: "/reset" borra el historial para probar la presentación fresca.
+  if (text.trim().toLowerCase() === '/reset') {
+    await resetHistorial(`tg_${chatId}`);
+    bot.sendMessage(chatId, '🧹 Listo, borré nuestra conversación. Escribime de nuevo y empezamos de cero 😊');
+    return;
+  }
+
   setChatNombre(`tg_${chatId}`, [msg.from && msg.from.first_name, msg.from && msg.from.last_name].filter(Boolean).join(' '));
 
   console.log(`📱 Telegram de ${chatId}: ${text}`);
@@ -916,6 +923,12 @@ app.post('/webhook', async (req, res) => {
             const text = message.text?.body || '';
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             setChatNombre(`wa_${from}`, nombreWa);
+            // Comando de prueba: "/reset" borra el historial de este número para probar la presentación fresca.
+            if (text.trim().toLowerCase() === '/reset') {
+              await resetHistorial(`wa_${from}`);
+              await waSend(from, '🧹 Listo, borré nuestra conversación. Escríbeme de nuevo y empezamos de cero 😊');
+              return;
+            }
             let origenDesc = null;
             const refz = message.referral;
             if (refz && (refz.source_type === 'ad' || refz.headline || refz.body)) {
