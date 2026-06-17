@@ -381,6 +381,11 @@ function diasVigentes(cfg) {
   const hoy = fechaBoliviaISO();
   return (cfg && cfg.dias ? cfg.dias : []).filter(function(d) { return d.fecha >= hoy; });
 }
+// Hora actual de Bolivia en formato "HH:MM" (para no ofrecer horas que ya pasaron hoy).
+function horaBoliviaHHMM() {
+  const ahora = new Date(Date.now() - 4 * 60 * 60 * 1000);
+  return String(ahora.getUTCHours()).padStart(2,'0') + ':' + String(ahora.getUTCMinutes()).padStart(2,'0');
+}
 
 let _beniCache = { data: null, ts: 0 };
 async function getBeniConfig() {
@@ -575,12 +580,18 @@ async function toolConsultarDisponibilidad(args, cfg) {
     snap.forEach(function(doc) { ocupados.add(doc.id); });
   } catch (e) { console.error('cupos_ocupados read:', e.message); }
 
+  const hoyISO = fechaBoliviaISO();
+  const ahoraHHMM = horaBoliviaHHMM();
   const result = dias.map(function(d) {
-    const libres = horas.filter(function(h) { return !ocupados.has(beniSlotId(d.fecha, h)); });
+    let libres = horas.filter(function(h) { return !ocupados.has(beniSlotId(d.fecha, h)); });
+    // Si el día es HOY, no ofrecer horas que ya pasaron (deja un margen: el turno debe empezar después de la hora actual).
+    if (d.fecha === hoyISO) libres = libres.filter(function(h) { return h > ahoraHHMM; });
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === d.subsede; }) || {};
     return { subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libres };
   });
-  return { disponibilidad: result, promo: cfg.promo };
+  // Quita días de hoy que ya no tienen horas disponibles (todas pasaron).
+  const resultFiltrado = result.filter(function(r) { return r.horas_libres.length > 0; });
+  return { disponibilidad: resultFiltrado, promo: cfg.promo };
 }
 
 async function toolCrearReserva(args, cfg, canal) {
@@ -596,6 +607,10 @@ async function toolCrearReserva(args, cfg, canal) {
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
   const horaOk = (cfg.horas || []).includes(hora);
   if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Beni. Ofrece un día y hora válidos de la campaña.' };
+  // No permitir reservar una fecha/hora que ya pasó.
+  if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM())) {
+    return { error: 'Ese horario ya pasó. Ofrece un día y hora vigentes (de hoy en adelante).' };
+  }
 
   const slotId = beniSlotId(fecha, hora);
   // ¿Cupo ya ocupado? (misma fuente que la web → evita doble reserva)
