@@ -44,17 +44,13 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'tour-yacuma-2026-06d-mie17',
+  campaignVersion: 'tour-yacuma-2026-06f-finde',
   promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
   subsedes: [
-    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
     { id: 'Santa Rosa', nombre: 'Santa Rosa', direccion: 'Lugar por confirmar', telefonos: ['+591 76951552'] },
     { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 76951552'] }
   ],
   dias: [
-    { fecha: '2026-06-15', label: 'Lunes 15 de junio',  subsede: 'San Borja' },
-    { fecha: '2026-06-16', label: 'Martes 16 de junio', subsede: 'San Borja' },
-    { fecha: '2026-06-17', label: 'Miércoles 17 de junio', subsede: 'San Borja' },
     { fecha: '2026-06-18', label: 'Jueves 18 de junio', subsede: 'Santa Rosa' },
     { fecha: '2026-06-19', label: 'Viernes 19 de junio', subsede: 'Rurrenabaque' },
     { fecha: '2026-06-20', label: 'Sábado 20 de junio',  subsede: 'Rurrenabaque' }
@@ -375,6 +371,16 @@ function fechaBoliviaTexto() {
   const f = ahora.getUTCFullYear() + '-' + String(ahora.getUTCMonth()+1).padStart(2,'0') + '-' + String(ahora.getUTCDate()).padStart(2,'0');
   return dias[ahora.getUTCDay()] + ' ' + f;
 }
+// Fecha de hoy en Bolivia en formato YYYY-MM-DD (para no ofrecer días que ya pasaron).
+function fechaBoliviaISO() {
+  const ahora = new Date(Date.now() - 4 * 60 * 60 * 1000);
+  return ahora.getUTCFullYear() + '-' + String(ahora.getUTCMonth()+1).padStart(2,'0') + '-' + String(ahora.getUTCDate()).padStart(2,'0');
+}
+// Devuelve solo los días de la campaña que son HOY o futuros (no ofrecer fechas pasadas).
+function diasVigentes(cfg) {
+  const hoy = fechaBoliviaISO();
+  return (cfg && cfg.dias ? cfg.dias : []).filter(function(d) { return d.fecha >= hoy; });
+}
 
 let _beniCache = { data: null, ts: 0 };
 async function getBeniConfig() {
@@ -400,10 +406,13 @@ const CONTACTOS_BENI = {
 function buildBeniSection(cfg) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (PRIORIDAD): mientras la campaña esté activa, engancha SIEMPRE con la Jornada Beni apenas la persona pregunte por tratamientos, precios o información, o muestre cualquier interés (aunque no mencione el Beni). Responde su consulta de forma breve y, a continuación, ofrece la Jornada con calidez y profesionalismo: destaca la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. No seas pesada ni repitas lo ya dicho, pero NO dejes pasar la oportunidad de ofrecer la jornada:\n';
-  s += 'Nuestro especialista en medicina estética atiende presencialmente en el Beni (NO menciones su nombre propio; preséntalo como "el especialista de Armonniza"). Las sub-sedes activas son SOLO las siguientes (no menciones ninguna otra localidad):\n';
+  s += 'Nuestro especialista en medicina estética atiende presencialmente en el Beni (NO menciones su nombre propio; preséntalo como "el especialista de Armonniza").\n';
+  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. Ofrece e identifica ÚNICAMENTE los días que faltan (de HOY en adelante); NUNCA ofrezcas ni menciones días que ya pasaron. Cuando hables de un día, di siempre el día de la semana CON su fecha y su localidad exactos (ej. "el jueves 18 en Santa Rosa"). Las sedes y días que AÚN quedan disponibles son SOLO estos (no menciones ninguna otra localidad ni día):\n';
+  var _vigentes = diasVigentes(cfg);
   (cfg.subsedes || []).forEach(function(sub) {
-    const dias = (cfg.dias || []).filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
-    s += '- ' + sub.nombre + ' (' + sub.direccion + ')' + (dias ? ': ' + dias : '') + '\n';
+    const dias = _vigentes.filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
+    if (!dias) return; // no listar sedes cuyos días ya pasaron
+    s += '- ' + sub.nombre + ' (' + sub.direccion + '): ' + dias + '\n';
   });
   if (cfg.horas && cfg.horas.length) s += 'Horarios disponibles: ' + cfg.horas.join(', ') + ' (turnos de 60 min).\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
@@ -442,7 +451,7 @@ function buildBeniSection(cfg) {
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
   s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "podés agendar vos misma acá 👉 armonniza.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola, con confirmación inmediata y sin pago online.\n';
-  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad y día (San Borja el lunes 15 o martes 16; Santa Rosa el jueves 18; Rurrenabaque el viernes 19 o sábado 20), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
+  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad y día (usa SOLO las fechas vigentes que se listan arriba), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
   return s;
 }
 
@@ -467,7 +476,7 @@ const BENI_TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['San Borja', 'Santa Rosa', 'Rurrenabaque'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
+        subsede: { type: 'string', enum: ['Santa Rosa', 'Rurrenabaque'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
         fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Opcional; si se omite, devuelve todos los días de la campaña.' }
       }
     }
@@ -478,7 +487,7 @@ const BENI_TOOLS = [
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['San Borja', 'Santa Rosa', 'Rurrenabaque'] },
+        subsede: { type: 'string', enum: ['Santa Rosa', 'Rurrenabaque'] },
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM en 24h, ej 09:00, 16:00' },
         nombre: { type: 'string', description: 'Nombre completo del paciente' },
@@ -551,10 +560,13 @@ async function toolConsultarDisponibilidad(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Beni aún no está publicada.' };
   const horas = cfg.horas || [];
-  let dias = cfg.dias || [];
+  let dias = diasVigentes(cfg); // solo días de hoy en adelante (no ofrecer fechas pasadas)
   if (args.subsede) { var ss = resolverSubsede(args.subsede, cfg); dias = dias.filter(function(d) { return d.subsede === ss; }); }
   if (args.fecha) { var fr = resolverFecha(args.fecha, args.subsede, cfg); if (dias.some(function(d) { return d.fecha === fr; })) dias = dias.filter(function(d) { return d.fecha === fr; }); }
-  if (!dias.length) return { disponibilidad: [], nota: 'No hay jornadas para ese criterio. Las sedes activas son San Borja (lunes 15 y martes 16 de junio) y Santa Rosa (jueves 18 de junio).' };
+  if (!dias.length) {
+    const vig = diasVigentes(cfg).map(function(d){ return d.label + ' en ' + d.subsede; }).join('; ');
+    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La Jornada Beni ya finalizó; no quedan fechas disponibles.' };
+  }
 
   // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
   const ocupados = new Set();
@@ -763,7 +775,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
     }
 
     // Si se agotó el bucle sin respuesta final.
-    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Beni 😊 Atendemos en San Borja (Hotel Kamahal) el lunes 15 y martes 16, y en Santa Rosa el jueves 18 de junio. ¿Qué localidad y día te quedan mejor?';
+    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Beni 😊 Atendemos en Santa Rosa el jueves 18 y en Rurrenabaque el viernes 19 y sábado 20 de junio. ¿Qué localidad y día te quedan mejor?';
 
   } catch (err) {
     console.error('Error Claude AI:', err);
