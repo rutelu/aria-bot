@@ -44,7 +44,8 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'tour-yacuma-2026-06g-hist',
+  campaignVersion: 'tour-yacuma-2026-06h-preval',
+  prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
   subsedes: [
     { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
@@ -468,6 +469,9 @@ function buildBeniSection(cfg) {
   s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Beni es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Armonniza"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
   s += '\nQUÉ INCLUYE LA JORNADA BENI (MUY IMPORTANTE): la Jornada Beni cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
   s += 'FUERA DE ESTA CAMPAÑA (cirugías y otros tratamientos no contemplados): si preguntan por CIRUGÍAS estéticas (rinoplastia, lipo, mamoplastia, etc.) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en ARMONNIZA SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Beni, y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías estéticas. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo.\n';
+  if (cfg.prevaloraciones === true) {
+    s += 'PRE-VALORACIONES EN ESTA CAMPAÑA (sí incluida): aunque la cirugía en sí no se realiza en la jornada, en ESTA campaña el especialista de Armonniza (experto, parte del equipo) SÍ puede hacer una PRE-VALORACIÓN de cualquier tratamiento quirúrgico durante la jornada, para orientar a la persona y planificar su cirugía. Por eso, si alguien pregunta por una cirugía, ADEMÁS de aclarar lo anterior, ofrécele con entusiasmo agendar una PRE-VALORACIÓN con el especialista en la jornada (es un gran beneficio: aprovecha que está presente). Ofrece la pre-valoración SOLO porque esta campaña la incluye; en campañas que no la incluyan, no la ofrezcas.\n';
+  }
 
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
@@ -1347,4 +1351,39 @@ app.post('/beni/reservar', async (req, res) => {
   } catch (e) { console.error('/beni/reservar:', e.message); res.status(200).json({ error: 'No pude crear la reserva ahora.' }); }
 });
 
-app.listen(PORT, () => console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`));
+// ── NOTIFICACIÓN DE NUEVAS RESERVAS (web + Valeria) al equipo ──
+// reservas_beni la usan TANTO la web como Valeria (chat/voz), así que un solo watcher las capta todas.
+function notificarNuevaReserva(r) {
+  if (!r) return;
+  const txt = '🗓️ NUEVA RESERVA — Jornada Beni\n'
+    + '👤 ' + (r.nombre || '(sin nombre)') + '\n'
+    + '📞 ' + (r.telefono || '-') + '\n'
+    + '📍 ' + (r.subsede || r.lugar || '-') + '\n'
+    + '📅 ' + (r.fecha || '-') + ' · ' + (r.hora || '-') + '\n'
+    + (r.notas ? ('💬 ' + r.notas + '\n') : '')
+    + '🔗 Por: ' + (r.canal === 'voz' ? 'llamada de voz' : (r.canal && r.canal !== 'chat' ? r.canal : 'web/chat'));
+  // WhatsApp al equipo (78922666). Nota: si no hay ventana de 24h, Meta puede rechazarlo.
+  waSend(ADMIN_WHATSAPP, txt).catch(function(e){ console.error('notif reserva WA:', e.message); });
+  // Telegram (respaldo confiable si el admin está registrado con /admin)
+  getAdminTelegram().then(function(adm){ if (adm) bot.sendMessage(adm, txt).catch(function(){}); }).catch(function(){});
+  console.log('🗓️ Notificada nueva reserva: ' + (r.nombre || '?') + ' ' + (r.fecha || '') + ' ' + (r.hora || ''));
+}
+
+function iniciarWatcherReservas() {
+  if (!db) { console.warn('⚠️ Watcher de reservas inactivo (sin Firestore)'); return; }
+  let init = false;
+  db.collection('reservas_beni').onSnapshot(function(snap) {
+    snap.docChanges().forEach(function(ch) {
+      if (ch.type !== 'added') return;
+      if (!init) return; // ignora las reservas que ya existían al arrancar (evita spam al reiniciar)
+      notificarNuevaReserva(ch.doc.data());
+    });
+    init = true;
+  }, function(err) { console.error('watcher reservas_beni:', err.message); });
+  console.log('👀 Watcher de reservas activo → avisa a WhatsApp ' + ADMIN_WHATSAPP + ' + Telegram');
+}
+
+app.listen(PORT, () => {
+  console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`);
+  iniciarWatcherReservas();
+});
