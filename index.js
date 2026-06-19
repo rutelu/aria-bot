@@ -485,7 +485,8 @@ function buildBeniSection(cfg) {
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
   s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "podés agendar vos misma acá 👉 armonniza.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola, con confirmación inmediata y sin pago online.\n';
-  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad y día (usa SOLO las fechas vigentes que se listan arriba), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.';
+  s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad y día (usa SOLO las fechas vigentes que se listan arriba), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.\n';
+  s += 'REAGENDAR / CANCELAR: si la persona quiere cambiar o cancelar su cita (o el equipo te lo indica por instrucción especial), primero UBICA su reserva: usa buscar_reserva_beni con su teléfono, o pídele la fecha y hora actuales. CONFIRMA con ella cuál es la reserva antes de tocar nada. Para cancelar usa cancelar_reserva_beni; para mover, reagendar_reserva_beni (el nuevo horario debe estar libre y vigente). NUNCA canceles ni reagendes sin confirmar primero con la persona. Después, confírmale el cambio con calidez.';
   return s;
 }
 
@@ -540,6 +541,44 @@ const BENI_TOOLS = [
         motivo: { type: 'string', description: 'Motivo breve por el que se necesita un humano (ej: "pide hablar con encargado", "queja por demora", "consulta médica compleja").' }
       },
       required: ['motivo']
+    }
+  },
+  {
+    name: 'buscar_reserva_beni',
+    description: 'Busca las reservas CONFIRMADAS de un paciente por su teléfono. Úsala cuando alguien quiera cancelar o reagendar y necesites ubicar su cita actual.',
+    input_schema: {
+      type: 'object',
+      properties: { telefono: { type: 'string', description: 'Teléfono / WhatsApp del paciente' } },
+      required: ['telefono']
+    }
+  },
+  {
+    name: 'cancelar_reserva_beni',
+    description: 'Cancela una reserva existente y libera el cupo. Úsala SOLO después de confirmar con la persona qué reserva cancelar (fecha y hora exactas).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        subsede: { type: 'string', description: 'Localidad de la reserva (opcional)' },
+        fecha: { type: 'string', description: 'YYYY-MM-DD de la reserva a cancelar' },
+        hora: { type: 'string', description: 'HH:MM de la reserva a cancelar' }
+      },
+      required: ['fecha', 'hora']
+    }
+  },
+  {
+    name: 'reagendar_reserva_beni',
+    description: 'Mueve una reserva existente a una nueva fecha/hora (libera el cupo viejo y ocupa el nuevo). Úsala SOLO tras confirmar con la persona su cita actual y la nueva. El nuevo horario debe estar libre y vigente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        subsede: { type: 'string', description: 'Localidad actual de la reserva (opcional)' },
+        fecha_actual: { type: 'string', description: 'YYYY-MM-DD de la reserva actual' },
+        hora_actual: { type: 'string', description: 'HH:MM de la reserva actual' },
+        subsede_nueva: { type: 'string', description: 'Nueva localidad si cambia (opcional)' },
+        fecha_nueva: { type: 'string', description: 'YYYY-MM-DD nueva' },
+        hora_nueva: { type: 'string', description: 'HH:MM nueva' }
+      },
+      required: ['fecha_actual', 'hora_actual', 'fecha_nueva', 'hora_nueva']
     }
   }
 ];
@@ -667,6 +706,93 @@ async function toolCrearReserva(args, cfg, canal) {
   return { ok: true, id: slotId, mensaje: 'Reserva confirmada: ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
 }
 
+// ── REAGENDAR / CANCELAR reservas (Plan B) ──
+// Busca las reservas CONFIRMADAS de una persona por su teléfono (compara los últimos 8 dígitos).
+async function toolBuscarReserva(args) {
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  const tel = String(args.telefono || '').replace(/\D/g, '').slice(-8);
+  if (tel.length < 6) return { error: 'Necesito el teléfono del paciente para buscar su reserva.' };
+  try {
+    const snap = await db.collection('reservas_beni').where('jornadaId', '==', 'beni').get();
+    const out = [];
+    snap.forEach(function(doc) {
+      const r = doc.data();
+      if ((r.estado || 'confirmada') !== 'confirmada') return;
+      const rt = String(r.telefono || '').replace(/\D/g, '').slice(-8);
+      if (rt && rt === tel) out.push({ subsede: r.subsede, fecha: r.fecha, hora: r.hora, nombre: r.nombre });
+    });
+    return { reservas: out, nota: out.length ? '' : 'No encontré reservas confirmadas con ese teléfono.' };
+  } catch (e) { console.error('buscarReserva:', e.message); return { error: 'No pude buscar la reserva ahora.' }; }
+}
+
+// Cancela una reserva: libera el cupo y la marca como cancelada.
+async function toolCancelarReserva(args, cfg) {
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  const fecha = String(args.fecha || '').trim();
+  const hora = normalizarHora(args.hora, (cfg && cfg.horas) || null);
+  if (!fecha || !hora) return { error: 'Necesito la fecha y la hora exactas de la reserva a cancelar.' };
+  const slotId = beniSlotId(fecha, hora);
+  try {
+    const rdoc = await db.collection('reservas_beni').doc(slotId).get();
+    if (!rdoc.exists || (rdoc.data().estado && rdoc.data().estado !== 'confirmada')) {
+      return { error: 'No encontré una reserva activa para ' + fecha + ' ' + hora + '. Verifica los datos con la persona.' };
+    }
+    const r = rdoc.data();
+    const batch = db.batch();
+    batch.delete(db.collection('cupos_ocupados').doc(slotId)); // libera el cupo (la web lo verá libre)
+    batch.set(db.collection('reservas_beni').doc(slotId), { estado: 'cancelada', canceladaAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await batch.commit();
+    console.log('🗑️ Reserva cancelada: ' + slotId + ' (' + (r.nombre || '?') + ')');
+    return { ok: true, mensaje: 'Reserva cancelada: ' + (r.subsede || '') + ' ' + fecha + ' ' + hora + '. El cupo quedó libre.' };
+  } catch (e) { console.error('cancelarReserva:', e.message); return { error: 'No pude cancelar la reserva ahora.' }; }
+}
+
+// Reagenda una reserva: libera el cupo viejo y ocupa el nuevo (debe estar libre y vigente).
+async function toolReagendarReserva(args, cfg) {
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Beni no está publicada.' };
+  const fechaAct = String(args.fecha_actual || '').trim();
+  const horaAct = normalizarHora(args.hora_actual, cfg.horas);
+  const fechaNueva = resolverFecha(args.fecha_nueva, args.subsede_nueva, cfg);
+  const horaNueva = normalizarHora(args.hora_nueva, cfg.horas);
+  if (!fechaAct || !horaAct || !fechaNueva || !horaNueva) return { error: 'Necesito la fecha y hora ACTUALES y las NUEVAS para reagendar.' };
+  const oldSlot = beniSlotId(fechaAct, horaAct);
+  const newSlot = beniSlotId(fechaNueva, horaNueva);
+  if (oldSlot === newSlot) return { error: 'La nueva fecha/hora es igual a la actual.' };
+  try {
+    const oldDoc = await db.collection('reservas_beni').doc(oldSlot).get();
+    if (!oldDoc.exists || (oldDoc.data().estado && oldDoc.data().estado !== 'confirmada')) {
+      return { error: 'No encontré la reserva actual (' + fechaAct + ' ' + horaAct + '). Verifica con la persona.' };
+    }
+    const r = oldDoc.data();
+    const subsedeNueva = args.subsede_nueva ? resolverSubsede(args.subsede_nueva, cfg) : r.subsede;
+    const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsedeNueva && d.fecha === fechaNueva; });
+    const horaOk = (cfg.horas || []).includes(horaNueva);
+    if (!diaOk || !horaOk) return { error: 'El nuevo día/hora no es parte de la Jornada Beni vigente. Ofrece un día y hora válidos.' };
+    if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM())) {
+      return { error: 'El nuevo horario ya pasó. Ofrece uno de hoy en adelante.' };
+    }
+    const cupoNuevo = await db.collection('cupos_ocupados').doc(newSlot).get();
+    if (cupoNuevo.exists) return { error: 'El nuevo horario ya está ocupado. Ofrece otro libre.' };
+    const sub = (cfg.subsedes || []).find(function(s) { return s.id === subsedeNueva; }) || {};
+    const lugar = sub.direccion ? (subsedeNueva + ' — ' + sub.direccion) : subsedeNueva;
+    const batch = db.batch();
+    batch.delete(db.collection('cupos_ocupados').doc(oldSlot)); // libera viejo
+    batch.set(db.collection('reservas_beni').doc(oldSlot), { estado: 'reagendada', reagendadaAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.set(db.collection('cupos_ocupados').doc(newSlot), { jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, ocupado: true });
+    batch.set(db.collection('reservas_beni').doc(newSlot), {
+      jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, lugar: lugar, subsede: subsedeNueva,
+      especialista: cfg.especialista || 'Equipo Armonniza', especialidad: cfg.especialidad || '',
+      nombre: r.nombre || '', telefono: r.telefono || '', email: r.email || '', notas: r.notas || '',
+      estado: 'confirmada', canal: r.canal || 'chat', reagendadaDe: oldSlot,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    await batch.commit();
+    console.log('🔁 Reagendada: ' + oldSlot + ' → ' + newSlot + ' (' + (r.nombre || '?') + ')');
+    return { ok: true, mensaje: 'Reserva reagendada a ' + subsedeNueva + ' ' + fechaNueva + ' ' + horaNueva + ' (antes ' + fechaAct + ' ' + horaAct + ').' };
+  } catch (e) { console.error('reagendarReserva:', e.message); return { error: 'No pude reagendar la reserva ahora.' }; }
+}
+
 // ── AVISO A HUMANO (handoff proactivo): Telegram + WhatsApp ──
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '59178922666';
 const ADMIN_PIN = process.env.ADMIN_PIN || 'armonniza591';
@@ -704,6 +830,9 @@ async function ejecutarTool(block, cfg, canal, userId) {
   try {
     if (block.name === 'consultar_disponibilidad_beni') return await toolConsultarDisponibilidad(block.input || {}, cfg);
     if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal);
+    if (block.name === 'buscar_reserva_beni') return await toolBuscarReserva(block.input || {});
+    if (block.name === 'cancelar_reserva_beni') return await toolCancelarReserva(block.input || {}, cfg);
+    if (block.name === 'reagendar_reserva_beni') return await toolReagendarReserva(block.input || {}, cfg);
     if (block.name === 'avisar_a_humano') return await notificarHumano(userId, (block.input && block.input.motivo) || '');
     return { error: 'herramienta desconocida' };
   } catch (e) {
