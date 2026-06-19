@@ -327,6 +327,14 @@ async function getChatOrigen(userId) {
     return (s.exists && s.data().origen) ? s.data().origen : null;
   } catch (e) { console.error('getChatOrigen:', e.message); return null; }
 }
+// Instrucción especial que el equipo le deja a Valeria SOLO para este chat (reagendar, cancelar, etc.).
+async function getInstruccionEspecial(userId) {
+  if (!db) return null;
+  try {
+    const s = await db.collection('valeria_chats').doc(String(userId)).get();
+    return (s.exists && s.data().instruccionEspecial) ? String(s.data().instruccionEspecial) : null;
+  } catch (e) { console.error('getInstruccionEspecial:', e.message); return null; }
+}
 
 // ── HANDOFF HUMANO: pausa por chat + outbox de mensajes salientes ──
 // Si valeria_chats/{id}.pausada === true, el bot NO responde (atiende un humano).
@@ -724,6 +732,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
   const beniCfg = await getBeniConfig();
   const origenFresco = !!origenDirecto; // el referral del anuncio llegó EN ESTE mensaje (clic reciente)
   const origen = origenDirecto || await getChatOrigen(userId);
+  const instruccionEspecial = await getInstruccionEspecial(userId); // directiva del equipo SOLO para este chat
   // Enganchar fuerte con la Jornada si es el primer mensaje O si acaba de hacer clic en el anuncio (aunque ya haya historial)
   const enganchaFuerte = origen && (esPrimerMensaje || origenFresco);
   console.log('🧠 ' + userId + ' hist=' + getHistory(userId).length + ' primerMsg=' + esPrimerMensaje + ' origen=' + (origen ? 'SI' : 'no') + ' fresco=' + origenFresco);
@@ -736,10 +745,16 @@ async function askValeria(userId, userMessage, origenDirecto) {
         ? '3) ORIGEN (lead caliente del anuncio): esta persona viene de la Jornada Beni (' + origen + ') y acaba de mostrar interes. Engancha SIEMPRE con la Jornada: reconoce con calidez que viene de la Jornada Beni y, breve, ofrecele la jornada (su localidad/fecha vigente, el 40% de descuento por traer un recomendado y la valoracion GRATIS) e invitala a reservar su cupo. NUNCA respondas generico tipo "¿sobre que tratamiento quieres saber?" — ya sabes que viene por la Jornada Beni.\n'
         : '3) ORIGEN: esta persona vino de la Jornada Beni (anuncio) y YA venian conversando: NO la vuelvas a saludar; continua el hilo y engancha con la Jornada Beni cuando sea natural.\n')
        : '');
-  const systemPrompt = reglasCriticas
+  const bloqueInstruccion = instruccionEspecial
+    ? 'INSTRUCCION ESPECIAL DEL EQUIPO PARA ESTE CLIENTE (PRIORIDAD MAXIMA, por encima de TODO lo demas): '
+      + instruccionEspecial
+      + '. Cumplela en esta conversacion de forma natural y calida, sin mencionar nunca que es una instruccion interna ni que te la dio el equipo. Si choca con otras reglas, ESTA manda.\n\n'
+    : '';
+  const systemPrompt = bloqueInstruccion + reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
     + buildBeniSection(beniCfg);
+  if (instruccionEspecial) console.log('📝 Instrucción especial activa para ' + userId + ': ' + instruccionEspecial.substring(0, 80));
 
   // Copia de trabajo del historial (los turnos de herramientas NO se persisten,
   // solo el texto final, para mantener limpio conversationHistory).
