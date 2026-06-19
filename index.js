@@ -1494,6 +1494,31 @@ app.post('/beni/reservar', async (req, res) => {
     res.json(r);
   } catch (e) { console.error('/beni/reservar:', e.message); res.status(200).json({ error: 'No pude crear la reserva ahora.' }); }
 });
+app.post('/beni/buscar', async (req, res) => {
+  console.log('📞 [Vapi buscar] body:', JSON.stringify(req.body || {}));
+  try {
+    const r = await toolBuscarReserva(req.body || {});
+    res.json(r);
+  } catch (e) { console.error('/beni/buscar:', e.message); res.status(200).json({ error: 'No pude buscar la reserva ahora.' }); }
+});
+app.post('/beni/cancelar', async (req, res) => {
+  console.log('📞 [Vapi cancelar] body:', JSON.stringify(req.body || {}));
+  try {
+    const cfg = await getBeniConfig();
+    const r = await toolCancelarReserva(req.body || {}, cfg);
+    console.log('📞 [Vapi cancelar] resp:', JSON.stringify(r).substring(0, 200));
+    res.json(r);
+  } catch (e) { console.error('/beni/cancelar:', e.message); res.status(200).json({ error: 'No pude cancelar la reserva ahora.' }); }
+});
+app.post('/beni/reagendar', async (req, res) => {
+  console.log('📞 [Vapi reagendar] body:', JSON.stringify(req.body || {}));
+  try {
+    const cfg = await getBeniConfig();
+    const r = await toolReagendarReserva(req.body || {}, cfg);
+    console.log('📞 [Vapi reagendar] resp:', JSON.stringify(r).substring(0, 200));
+    res.json(r);
+  } catch (e) { console.error('/beni/reagendar:', e.message); res.status(200).json({ error: 'No pude reagendar la reserva ahora.' }); }
+});
 
 // ── NOTIFICACIÓN DE NUEVAS RESERVAS (web + Valeria) al equipo ──
 // reservas_beni la usan TANTO la web como Valeria (chat/voz), así que un solo watcher las capta todas.
