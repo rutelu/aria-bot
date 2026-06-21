@@ -44,7 +44,7 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'tour-yacuma-2026-06h-preval',
+  campaignVersion: 'tour-yacuma-2026-06i-sanborja22',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
   subsedes: [
@@ -58,7 +58,8 @@ const BENI_SEED = {
     { fecha: '2026-06-17', label: 'Miércoles 17 de junio', subsede: 'San Borja' },
     { fecha: '2026-06-18', label: 'Jueves 18 de junio', subsede: 'Santa Rosa' },
     { fecha: '2026-06-19', label: 'Viernes 19 de junio', subsede: 'Rurrenabaque' },
-    { fecha: '2026-06-20', label: 'Sábado 20 de junio',  subsede: 'Rurrenabaque' }
+    { fecha: '2026-06-20', label: 'Sábado 20 de junio',  subsede: 'Rurrenabaque' },
+    { fecha: '2026-06-22', label: 'Lunes 22 de junio',  subsede: 'San Borja' }
   ],
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
 };
