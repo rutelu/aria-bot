@@ -44,7 +44,7 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'tour-yacuma-2026-06i-sanborja22',
+  campaignVersion: 'tour-yacuma-2026-06j-extension',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
   subsedes: [
@@ -59,7 +59,7 @@ const BENI_SEED = {
     { fecha: '2026-06-18', label: 'Jueves 18 de junio', subsede: 'Santa Rosa' },
     { fecha: '2026-06-19', label: 'Viernes 19 de junio', subsede: 'Rurrenabaque' },
     { fecha: '2026-06-20', label: 'Sábado 20 de junio',  subsede: 'Rurrenabaque' },
-    { fecha: '2026-06-22', label: 'Lunes 22 de junio',  subsede: 'San Borja' }
+    { fecha: '2026-06-22', label: 'Lunes 22 de junio',  subsede: 'San Borja', nota: 'Es una EXTENSIÓN de la agenda: abrimos este día porque no se alcanzó a atender a todos los pacientes interesados en los días de campaña. Preséntalo con ese enfoque (un cupo especial de cierre para quienes quedaron pendientes), con calidez.' }
   ],
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
 };
@@ -427,17 +427,23 @@ function buildBeniSection(cfg) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   let s = '\n\nJORNADA BENI — CAMPAÑA ACTIVA (PRIORIDAD): mientras la campaña esté activa, engancha SIEMPRE con la Jornada Beni apenas la persona pregunte por tratamientos, precios o información, o muestre cualquier interés (aunque no mencione el Beni). Responde su consulta de forma breve y, a continuación, ofrece la Jornada con calidez y profesionalismo: destaca la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. No seas pesada ni repitas lo ya dicho, pero NO dejes pasar la oportunidad de ofrecer la jornada:\n';
   s += 'Nuestro especialista en medicina estética atiende presencialmente en el Beni (NO menciones su nombre propio; preséntalo como "el especialista de Armonniza").\n';
-  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. NUNCA ofrezcas ni agendes días ni horas que YA pasaron. Para reservar ofrece SOLO los días vigentes (de HOY en adelante). Di siempre el día de la semana CON su fecha y localidad exactos (ej. "el jueves 18 en Santa Rosa").\n';
   var _hoyISO = fechaBoliviaISO();
+  var _mananaISO = (function(){ var d = new Date(Date.now() - 4*60*60*1000); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); })();
+  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana lunes 22"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron; ofrece SOLO los días vigentes listados. Di siempre el día de la semana CON su fecha y localidad exactos.\n';
   var _vig = (cfg.dias || []).filter(function(d){ return d.fecha >= _hoyISO; });
   var _pas = (cfg.dias || []).filter(function(d){ return d.fecha < _hoyISO; });
   s += 'DÍAS DISPONIBLES PARA RESERVAR (los ÚNICOS que puedes ofrecer y agendar):\n';
   if (!_vig.length) s += '- (Ya no quedan fechas disponibles; la jornada finalizó.)\n';
   (cfg.subsedes || []).forEach(function(sub) {
-    const dias = _vig.filter(function(d){ return d.subsede === sub.id; }).map(function(d){ return d.label; }).join(', ');
+    const dias = _vig.filter(function(d){ return d.subsede === sub.id; }).map(function(d){
+      var marca = d.fecha === _hoyISO ? ' (ES HOY)' : (d.fecha === _mananaISO ? ' (ES MAÑANA)' : '');
+      return d.label + marca;
+    }).join(', ');
     if (!dias) return;
     s += '- ' + sub.nombre + ' (' + sub.direccion + '): ' + dias + '\n';
   });
+  var _notas = _vig.filter(function(d){ return d.nota; }).map(function(d){ return d.label + ' → ' + d.nota; });
+  if (_notas.length) s += 'ENFOQUE DE ESTOS DÍAS (preséntalo así, NO como simple "vacancia"): ' + _notas.join(' || ') + '\n';
   if (_pas.length) {
     s += 'HISTORIAL — fechas que YA pasaron (NO las ofrezcas NI agendes nunca; úsalas SOLO como referencia si la persona pregunta por fechas pasadas o para decir dónde ya estuvimos):\n';
     (cfg.subsedes || []).forEach(function(sub) {
