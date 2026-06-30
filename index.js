@@ -421,7 +421,7 @@ const CONTACTOS_BENI = {
   '+591 76951552': { nombre: 'el especialista de Harmonie Institute', rol: 'especialista' }
 };
 
-function buildBeniSection(cfg) {
+function buildBeniSection(cfg, dispo) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en dos ciudades (Oruro y Sucre), pero son CAMPAÑAS SEPARADAS y cada persona pertenece a UNA sola ciudad (la de su anuncio/origen). Engancha con la jornada de SU ciudad apenas pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de SU ciudad: la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. NUNCA menciones las dos ciudades juntas ni ofrezcas fechas de la otra ciudad. No repitas lo ya dicho:\n';
   s += 'Nuestro especialista en medicina estética atiende presencialmente en Oruro y Sucre (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie Institute").\n';
@@ -450,7 +450,14 @@ function buildBeniSection(cfg) {
       s += '- ' + sub.nombre + ' (' + sub.direccion + '): ' + dias + ' (ya realizado)\n';
     });
   }
-  if (cfg.horas && cfg.horas.length) s += 'Horarios disponibles: ' + cfg.horas.join(', ') + ' (turnos de 60 min).\n';
+  if (dispo && Array.isArray(dispo.disponibilidad) && dispo.disponibilidad.length) {
+    s += 'HORAS REALMENTE LIBRES AHORA (FUENTE DE VERDAD — ofrece SOLO estas horas; NUNCA ofrezcas una que no este en esta lista aunque la recuerdes de antes; y SIEMPRE confirma creando con crear_reserva_beni):\n';
+    dispo.disponibilidad.forEach(function(r){
+      s += '- ' + r.label + ' en ' + r.subsede + ': ' + ((r.horas_libres && r.horas_libres.length) ? r.horas_libres.join(', ') : 'SIN cupos libres') + ' (turnos de 60 min)\n';
+    });
+  } else {
+    s += 'HORAS LIBRES: por ahora no hay horas libres en los dias vigentes (o la jornada finalizo). NO ofrezcas ninguna hora; confirma con consultar_disponibilidad_beni.\n';
+  }
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
 
   // Atención principal y derivación a secundarios (solo si la persona lo necesita)
@@ -893,10 +900,14 @@ async function askValeria(userId, userMessage, origenDirecto) {
       + instruccionEspecial
       + '. Cumplela en esta conversacion de forma natural y calida, sin mencionar nunca que es una instruccion interna ni que te la dio el equipo. Si choca con otras reglas, ESTA manda.\n\n'
     : '';
+  // Disponibilidad REAL en vivo (horas libres por dia) para inyectar en el prompt:
+  // asi Valeria ve las horas verdaderamente libres y no las adivina de la lista completa.
+  let dispoBeni = null;
+  try { dispoBeni = await toolConsultarDisponibilidad(sedeOrigen ? { subsede: sedeOrigen } : {}, beniCfg); } catch (e) { console.error('dispo prompt:', e.message); }
   const systemPrompt = bloqueInstruccion + reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
-    + buildBeniSection(beniCfg);
+    + buildBeniSection(beniCfg, dispoBeni);
   if (instruccionEspecial) console.log('📝 Instrucción especial activa para ' + userId + ': ' + instruccionEspecial.substring(0, 80));
 
   // Copia de trabajo del historial (los turnos de herramientas NO se persisten,
