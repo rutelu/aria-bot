@@ -44,7 +44,7 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'oruro-sucre-2026-06',
+  campaignVersion: 'oruro-sucre-2026-06b',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
   subsedes: [
@@ -56,7 +56,8 @@ const BENI_SEED = {
     { fecha: '2026-06-28', label: 'Domingo 28 de junio', subsede: 'Oruro' },
     { fecha: '2026-06-29', label: 'Lunes 29 de junio', subsede: 'Sucre' },
     { fecha: '2026-06-30', label: 'Martes 30 de junio', subsede: 'Sucre' },
-    { fecha: '2026-07-01', label: 'Miércoles 1 de julio', subsede: 'Sucre' }
+    { fecha: '2026-07-01', label: 'Miércoles 1 de julio', subsede: 'Sucre' },
+    { fecha: '2026-07-02', label: 'Jueves 2 de julio', subsede: 'Sucre' }
   ],
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
 };
@@ -964,7 +965,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
     }
 
     // Si se agotó el bucle sin respuesta final.
-    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Oruro y Sucre 😊 Atendemos en Oruro el sábado 27 y domingo 28 de junio, y en Sucre el lunes 29, martes 30 de junio y miércoles 1 de julio. ¿Qué localidad y día te quedan mejor?';
+    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Oruro y Sucre 😊 Atendemos en Oruro el sábado 27 y domingo 28 de junio, y en Sucre el lunes 29, martes 30 de junio, miércoles 1 y jueves 2 de julio. ¿Qué localidad y día te quedan mejor?';
 
   } catch (err) {
     console.error('Error Claude AI:', err);
