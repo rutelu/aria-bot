@@ -883,7 +883,11 @@ async function askValeria(userId, userMessage, origenDirecto) {
         ? '4) ORIGEN (lead del anuncio de ' + sedeOrigen + '): esta persona viene de la jornada en ' + sedeOrigen + ' (' + origen + '). Habla SOLO de ' + sedeOrigen + ': reconoce con calidez que escribe por la jornada en ' + sedeOrigen + ', ofrecele sus fechas vigentes en ' + sedeOrigen + ', el 40% de descuento por traer un recomendado y la valoracion GRATIS, e invitala a reservar su cupo. NUNCA menciones la otra ciudad ni respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por ' + sedeOrigen + '.\n'
         : (origen
             ? '4) ORIGEN: viene de un anuncio de la jornada pero NO sabes de que ciudad. Si pregunta por fechas o por reservar, preguntale PRIMERO con calidez "¿Te gustaria atenderte en Oruro o en Sucre?" antes de dar dias. Nunca ofrezcas ambas ciudades como un combo.\n'
-            : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, pregunta primero en que ciudad (Oruro o Sucre) quiere atenderse.\n'));
+            : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, pregunta primero en que ciudad (Oruro o Sucre) quiere atenderse.\n'))
+    + '5) AGENDA — REGLA DE ORO (NUNCA la rompas): para fechas, horas y reservas usas SIEMPRE tus herramientas, JAMAS tu memoria ni la lista de dias de abajo para inventar horas. '
+      + '(a) ANTES de ofrecer cualquier hora, LLAMA a consultar_disponibilidad_beni y ofrece UNICAMENTE las horas que ESA herramienta devuelva como libres en esta misma conversacion; nunca supongas, inventes ni asumas que una hora esta libre. '
+      + '(b) Para reservar, LLAMA a crear_reserva_beni. SOLO puedes decir que la cita quedo agendada/confirmada si esa herramienta te respondio ok:true. Si respondio error (ocupado, ya paso, faltan datos), NO confirmes: disculpate en una frase y ofrece otra hora libre que la herramienta SI devuelva. '
+      + '(c) PROHIBIDO decir "te agende", "quedo reservado", "listo, confirmada" o parecido sin un ok:true real de crear_reserva_beni. Si tienes cualquier duda sobre disponibilidad, vuelve a consultar_disponibilidad_beni antes de responder.\n';
   const bloqueInstruccion = instruccionEspecial
     ? 'INSTRUCCION ESPECIAL DEL EQUIPO PARA ESTE CLIENTE (PRIORIDAD MAXIMA, por encima de TODO lo demas): '
       + instruccionEspecial
