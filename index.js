@@ -286,14 +286,17 @@ function logMensaje(userId, rol, texto) {
     const canal = parts[0] || 'chat';
     const contacto = parts.slice(1).join('_') || String(userId);
     const chatRef = db.collection('valeria_chats').doc(String(userId));
-    chatRef.set({
+    const _set = {
       canal: canal,
       contacto: contacto,
       ultimoTexto: String(texto).substring(0, 500),
       ultimoRol: rol,
       ultimaActividad: admin.firestore.FieldValue.serverTimestamp(),
       totalMensajes: admin.firestore.FieldValue.increment(1)
-    }, { merge: true }).catch(function(e){ console.error('logMensaje set:', e.message); });
+    };
+    // Marca cuándo escribió el CLIENTE por última vez (base para medir el silencio del seguimiento automático).
+    if (rol === 'user') _set.lastUserMsgAt = admin.firestore.FieldValue.serverTimestamp();
+    chatRef.set(_set, { merge: true }).catch(function(e){ console.error('logMensaje set:', e.message); });
     chatRef.collection('mensajes').add({
       rol: rol, texto: String(texto), ts: admin.firestore.FieldValue.serverTimestamp()
     }).catch(function(e){ console.error('logMensaje add:', e.message); });
@@ -961,6 +964,10 @@ async function askValeria(userId, userMessage, origenDirecto) {
           if (block.type === 'tool_use') {
             const result = await ejecutarTool(block, beniCfg, canal, userId);
             console.log('🛠️ ' + block.name + ' →', JSON.stringify(result).substring(0, 160));
+            // Si agendó en este chat, márcalo para NO mandarle seguimientos de "te quedó pendiente".
+            if (block.name === 'crear_reserva_beni' && result && result.ok && db) {
+              db.collection('valeria_chats').doc(String(userId)).set({ reservoOk: true }, { merge: true }).catch(function(){});
+            }
             toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
           }
         }
@@ -1430,16 +1437,97 @@ async function correrRecordatorios() {
   }
 }
 
+// ── SEGUIMIENTO AUTOMÁTICO: re-engancha conversaciones que el cliente dejó SIN agendar ──
+// Máx 2 mensajes (a la 1h y a las 8h de silencio), nunca más. Solo dentro de la ventana de 24h en WhatsApp.
+// Se ACTIVA con la variable de entorno SEGUIMIENTO_ACTIVO='true' en Railway (apagado por defecto).
+function _seguimientoSede(chat, cfg) {
+  const o = String((chat && chat.origen) || '').toLowerCase();
+  let sede = o.indexOf('sucre') !== -1 ? 'Sucre' : (o.indexOf('oruro') !== -1 ? 'Oruro' : '');
+  if (sede) { // solo menciona la sede si su jornada aún tiene días vigentes; si ya terminó, mensaje general
+    const hoy = fechaBoliviaISO();
+    const vig = ((cfg && cfg.dias) || []).some(function (d) { return d.subsede === sede && d.fecha >= hoy; });
+    if (!vig) sede = '';
+  }
+  return sede;
+}
+function _seguimientoMsg(n, chat, cfg) {
+  const sede = _seguimientoSede(chat, cfg);
+  const enSede = sede ? (' en ' + sede) : '';
+  const nombre = (chat && chat.nombre) ? (' ' + String(chat.nombre).split(' ')[0]) : '';
+  return n === 0
+    ? '¡Hola' + nombre + '! 😊 Quedé pendiente de ayudarte con tu cita' + enSede + '. ¿Retomamos? Tengo cupos y la valoración es gratis. ¿Te muestro los horarios?'
+    : '¡Hola de nuevo! Solo para avisarte que la promo de 40% por traer un recomendado sigue disponible' + enSede + '. Si quieres, te aparto un cupo hoy. 💛';
+}
+async function _enviarPorCanal(chatId, msg) {
+  const canal = chatId.split('_')[0];
+  const contacto = chatId.split('_').slice(1).join('_');
+  if (canal === 'wa') await waSend(contacto, msg);
+  else if (canal === 'fb') await fbSend(contacto, msg);
+  else if (canal === 'ig') await igSend(contacto, msg);
+  else if (canal === 'tg') await bot.sendMessage(contacto, msg);
+  else throw new Error('canal no soportado: ' + canal);
+}
+async function correrSeguimientos() {
+  if (!db) return;
+  if (process.env.SEGUIMIENTO_ACTIVO !== 'true') return; // apagado hasta activarlo en Railway
+  try {
+    const cfg = await getBeniConfig();
+    if (!cfg || cfg.publicada !== true) return; // solo durante campaña activa
+    const ahora = Date.now();
+    const H1 = 60 * 60 * 1000, H8 = 8 * 60 * 60 * 1000, H24 = 24 * 60 * 60 * 1000;
+    const snap = await db.collection('valeria_chats').where('ultimoRol', '==', 'valeria').get();
+    for (const doc of snap.docs) {
+      const c = doc.data() || {};
+      const userId = doc.id;
+      try {
+        if (c.reservoOk) continue;                                      // ya agendó
+        if (c.pausada === true || c.necesitaHumano === true) continue;  // lo atiende un humano
+        const count = c.seguimientoCount || 0;
+        if (count >= 2) continue;                                       // ya se enviaron los 2
+        const lastUser = (c.lastUserMsgAt && c.lastUserMsgAt.toMillis) ? c.lastUserMsgAt.toMillis() : null;
+        if (!lastUser) continue;
+        const silencio = ahora - lastUser;
+        const canal = (userId.split('_')[0]) || 'chat';
+        if (canal === 'wa' && silencio >= H24) continue;                // fuera de la ventana de 24h de WhatsApp
+        let enviar = (count === 0 && silencio >= H1) || (count === 1 && silencio >= H8);
+        if (!enviar) continue;
+        await _enviarPorCanal(userId, _seguimientoMsg(count, c, cfg));
+        logMensaje(userId, 'valeria', _seguimientoMsg(count, c, cfg));
+        await doc.ref.update({ seguimientoCount: count + 1, seguimientoLastAt: admin.firestore.FieldValue.serverTimestamp() });
+        console.log('🔁 Seguimiento ' + (count + 1) + ' → ' + userId);
+      } catch (e) { console.error('seguimiento ' + userId + ':', e.message); }
+    }
+  } catch (e) { console.error('correrSeguimientos:', e.message); }
+}
+
 // Arranca a los 30s y luego cada 20 minutos
 if (db) {
   setTimeout(correrRecordatorios, 30000);
   setInterval(correrRecordatorios, 20 * 60 * 1000);
+  setTimeout(correrSeguimientos, 60000);
+  setInterval(correrSeguimientos, 20 * 60 * 1000);
 }
 
 // Disparo manual para probar (no reenvía los ya marcados)
 app.get('/run-recordatorios', async (req, res) => {
   await correrRecordatorios();
   res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+// PRUEBA del seguimiento: GET /test-seguimiento?chat=wa_59176XXXXXXX&n=1  (n=1 primer mensaje, n=2 segundo)
+// Envía el mensaje de seguimiento a ese chat AHORA (ignora tiempos y el flag), para verificar entrega/texto.
+app.get('/test-seguimiento', async (req, res) => {
+  const chatId = String(req.query.chat || '').trim();
+  const n = req.query.n === '2' ? 1 : 0;
+  if (!chatId || chatId.indexOf('_') === -1) return res.status(400).json({ error: 'falta ?chat=CANAL_CONTACTO (ej: wa_59176951552 o tg_123456789)' });
+  try {
+    const cfg = await getBeniConfig();
+    let c = {};
+    try { const s = await db.collection('valeria_chats').doc(chatId).get(); if (s.exists) c = s.data() || {}; } catch (e) {}
+    const msg = _seguimientoMsg(n, c, cfg);
+    await _enviarPorCanal(chatId, msg);
+    res.json({ ok: true, chat: chatId, n: n + 1, enviado: msg });
+  } catch (e) { res.status(200).json({ error: e.message }); }
 });
 
 // Prueba directa de la plantilla: GET /test-recordatorio?to=59171234567
