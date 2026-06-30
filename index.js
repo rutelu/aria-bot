@@ -1293,19 +1293,6 @@ app.get('/firebase-status', (req, res) => {
   res.json({ connected: !!db, varPresent: fbVarPresent, varLen: fbVarLen, error: fbInitError });
 });
 
-// Diagnóstico TEMPORAL: prueba la API de Claude (no expone la key)
-app.get('/diag-claude', async (req, res) => {
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY || '', 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content: 'hola' }] })
-    });
-    const d = await r.json();
-    res.json({ httpStatus: r.status, keyPresent: !!process.env.ANTHROPIC_API_KEY, error: d.error || null, ok: !d.error });
-  } catch (e) { res.json({ exception: e.message }); }
-});
-
 // Diagnóstico: ¿está activa la WhatsApp Cloud API? (sin exponer el token)
 app.get('/wa-check', async (req, res) => {
   const TOKEN_WA = process.env.WHATSAPP_TOKEN;
