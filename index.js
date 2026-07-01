@@ -1544,23 +1544,6 @@ app.get('/run-recordatorios', async (req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
 });
 
-// DIAGNÓSTICO TEMPORAL: por qué un chat es/no es candidato al seguimiento. /diag-chat?chat=wa_59175801518
-app.get('/diag-chat', async (req, res) => {
-  const chatId = String(req.query.chat || '').trim();
-  if (!chatId) return res.status(400).json({ error: 'falta ?chat=ID' });
-  try {
-    const s = await db.collection('valeria_chats').doc(chatId).get();
-    if (!s.exists) return res.json({ existe: false });
-    const c = s.data() || {};
-    res.json({
-      existe: true, ultimoRol: c.ultimoRol || null, totalMensajes: c.totalMensajes || 0,
-      reservoOk: c.reservoOk || false, reservoCampaign: c.reservoCampaign || null,
-      noSeguir: c.noSeguir || false, pausada: c.pausada || false, necesitaHumano: c.necesitaHumano || false,
-      seguimientoCount: c.seguimientoCount || 0, tieneLastUserMsgAt: !!c.lastUserMsgAt, origen: (c.origen || '').slice(0, 60)
-    });
-  } catch (e) { res.status(200).json({ error: e.message }); }
-});
-
 // SIMULACIÓN (dry-run) del seguimiento: muestra a QUIÉNES les escribiría AHORA, SIN enviar nada. Para revisar antes de activar.
 app.get('/dry-seguimiento', async (req, res) => {
   try {
