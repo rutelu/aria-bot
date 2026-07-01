@@ -857,6 +857,10 @@ async function ejecutarTool(block, cfg, canal, userId) {
 }
 
 // ══════════════════════════════════════════
+// Detecta señales de cierre/aplazamiento del cliente → marca "no seguir" para NO insistir con el seguimiento.
+const _NO_SEGUIR_RE = /(no,?\s*gracias|no\s*por\s*ahora|no\s*ahora|m[aá]s\s*tarde|luego\s*(te|le)|despu[eé]s\s*(te|le|hablamos|vemos|paso|escribo|aviso|coordin|converso|me\s*comunico)|otro\s*d[ií]a|lo\s*pienso|lo\s*voy\s*a\s*pensar|d[eé]jame\s*pensar|te\s*aviso|yo\s*(te|le)\s*(escribo|aviso)|ya\s*agend|ya\s*reserv|ya\s*tengo\s*(cita|mi\s*cita)|no\s*me\s*escrib|no\s*insist|no\s*quiero|no\s*me\s*interesa)/i;
+function _detectarNoSeguir(texto) { return _NO_SEGUIR_RE.test(String(texto || '')); }
+
 // FUNCIÓN PRINCIPAL CLAUDE AI
 // ══════════════════════════════════════════
 async function askValeria(userId, userMessage, origenDirecto) {
@@ -866,6 +870,10 @@ async function askValeria(userId, userMessage, origenDirecto) {
   const esPrimerMensaje = getHistory(userId).length === 0;
   addToHistory(userId, 'user', userMessage);
   logMensaje(userId, 'user', userMessage);
+  // Auto-marca "no seguir" si el cliente da señales de cierre/aplazamiento (para NO insistir con el seguimiento automático).
+  if (db && _detectarNoSeguir(userMessage)) {
+    db.collection('valeria_chats').doc(String(userId)).set({ noSeguir: true }, { merge: true }).catch(function(){});
+  }
 
   // Handoff: si un humano tomó este chat (pausada), el bot no responde.
   if (await chatPausado(userId)) {
@@ -1468,38 +1476,56 @@ async function _enviarPorCanal(chatId, msg) {
   else if (canal === 'tg') await bot.sendMessage(contacto, msg);
   else throw new Error('canal no soportado: ' + canal);
 }
-async function correrSeguimientos() {
-  return; // ⛔ DESACTIVADO 30 jun 2026: criterios demasiado laxos (enviaba a chats cerrados / ya agendados). Rework pendiente antes de reactivar.
-  if (!db) return;
-  if (process.env.SEGUIMIENTO_ACTIVO !== 'true') return; // apagado hasta activarlo en Railway
+async function correrSeguimientos(dryRun) {
+  if (!db) return [];
+  if (!dryRun && process.env.SEGUIMIENTO_ACTIVO !== 'true') return []; // envío real solo si está activo; el dry-run corre igual
+  const candidatos = [];
   try {
     const cfg = await getBeniConfig();
-    if (!cfg || cfg.publicada !== true) return; // solo durante campaña activa
+    if (!cfg || cfg.publicada !== true) return candidatos; // solo durante campaña activa
     const ahora = Date.now();
     const H1 = 60 * 60 * 1000, H8 = 8 * 60 * 60 * 1000, H24 = 24 * 60 * 60 * 1000;
+    // Teléfonos (últimos 8 dígitos) que YA tienen reserva CONFIRMADA por CUALQUIER vía (web/voz/chat/antes).
+    const telsReservados = new Set();
+    try {
+      const rs = await db.collection('reservas_beni').where('jornadaId', '==', 'beni').get();
+      rs.forEach(function (doc) {
+        const r = doc.data() || {};
+        if ((r.estado || 'confirmada') !== 'confirmada') return;
+        const rt = String(r.telefono || '').replace(/\D/g, '').slice(-8);
+        if (rt) telsReservados.add(rt);
+      });
+    } catch (e) { console.error('seguimiento reservas read:', e.message); }
     const snap = await db.collection('valeria_chats').where('ultimoRol', '==', 'valeria').get();
     for (const doc of snap.docs) {
       const c = doc.data() || {};
       const userId = doc.id;
       try {
-        if (c.reservoOk) continue;                                      // ya agendó
-        if (c.pausada === true || c.necesitaHumano === true) continue;  // lo atiende un humano
+        // Salvaguardas: ya agendó por chat, marcado "no seguir", lo atiende un humano/pausado.
+        if (c.reservoOk || c.noSeguir === true || c.pausada === true || c.necesitaHumano === true) continue;
         const count = c.seguimientoCount || 0;
         if (count >= 2) continue;                                       // ya se enviaron los 2
+        if ((c.totalMensajes || 0) < 4) continue;                       // solo conversaciones con interés real (no un "hola" suelto)
         const lastUser = (c.lastUserMsgAt && c.lastUserMsgAt.toMillis) ? c.lastUserMsgAt.toMillis() : null;
         if (!lastUser) continue;
         const silencio = ahora - lastUser;
         const canal = (userId.split('_')[0]) || 'chat';
+        const contacto = userId.split('_').slice(1).join('_');
+        // Cruce contra reservas reales por teléfono (sirve para WhatsApp): si ya agendó por CUALQUIER vía, no lo molestes.
+        const tel8 = String(contacto).replace(/\D/g, '').slice(-8);
+        if (tel8 && tel8.length >= 6 && telsReservados.has(tel8)) continue;
         if (canal === 'wa' && silencio >= H24) continue;                // fuera de la ventana de 24h de WhatsApp
-        let enviar = (count === 0 && silencio >= H1) || (count === 1 && silencio >= H8);
-        if (!enviar) continue;
-        await _enviarPorCanal(userId, _seguimientoMsg(count, c, cfg));
-        logMensaje(userId, 'valeria', _seguimientoMsg(count, c, cfg));
+        if (!((count === 0 && silencio >= H1) || (count === 1 && silencio >= H8))) continue;
+        if (dryRun) { candidatos.push({ chat: userId, nombre: c.nombre || '', seguimientoNro: count + 1, silencioHrs: Math.round(silencio / 3600000 * 10) / 10, msgs: c.totalMensajes || 0, sede: _seguimientoSede(c, cfg) || '-' }); continue; }
+        const msg = _seguimientoMsg(count, c, cfg);
+        await _enviarPorCanal(userId, msg);
+        logMensaje(userId, 'valeria', msg);
         await doc.ref.update({ seguimientoCount: count + 1, seguimientoLastAt: admin.firestore.FieldValue.serverTimestamp() });
         console.log('🔁 Seguimiento ' + (count + 1) + ' → ' + userId);
       } catch (e) { console.error('seguimiento ' + userId + ':', e.message); }
     }
   } catch (e) { console.error('correrSeguimientos:', e.message); }
+  return candidatos;
 }
 
 // Arranca a los 30s y luego cada 20 minutos
@@ -1514,6 +1540,14 @@ if (db) {
 app.get('/run-recordatorios', async (req, res) => {
   await correrRecordatorios();
   res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+// SIMULACIÓN (dry-run) del seguimiento: muestra a QUIÉNES les escribiría AHORA, SIN enviar nada. Para revisar antes de activar.
+app.get('/dry-seguimiento', async (req, res) => {
+  try {
+    const list = await correrSeguimientos(true);
+    res.json({ total: list.length, activo: process.env.SEGUIMIENTO_ACTIVO === 'true', candidatos: list });
+  } catch (e) { res.status(200).json({ error: e.message }); }
 });
 
 // PRUEBA del seguimiento: GET /test-seguimiento?chat=wa_59176XXXXXXX&n=1  (n=1 primer mensaje, n=2 segundo)
