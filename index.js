@@ -1468,6 +1468,7 @@ async function _enviarPorCanal(chatId, msg) {
   else throw new Error('canal no soportado: ' + canal);
 }
 async function correrSeguimientos() {
+  return; // ⛔ DESACTIVADO 30 jun 2026: criterios demasiado laxos (enviaba a chats cerrados / ya agendados). Rework pendiente antes de reactivar.
   if (!db) return;
   if (process.env.SEGUIMIENTO_ACTIVO !== 'true') return; // apagado hasta activarlo en Railway
   try {
