@@ -975,7 +975,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
             console.log('🛠️ ' + block.name + ' →', JSON.stringify(result).substring(0, 160));
             // Si agendó en este chat, márcalo para NO mandarle seguimientos de "te quedó pendiente".
             if (block.name === 'crear_reserva_beni' && result && result.ok && db) {
-              db.collection('valeria_chats').doc(String(userId)).set({ reservoOk: true }, { merge: true }).catch(function(){});
+              db.collection('valeria_chats').doc(String(userId)).set({ reservoOk: true, reservoCampaign: (beniCfg && beniCfg.campaignVersion) || '' }, { merge: true }).catch(function(){});
             }
             toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) });
           }
@@ -1485,13 +1485,15 @@ async function correrSeguimientos(dryRun, ignoraTiempo) {
     if (!cfg || cfg.publicada !== true) return candidatos; // solo durante campaña activa
     const ahora = Date.now();
     const H1 = 60 * 60 * 1000, H8 = 8 * 60 * 60 * 1000, H24 = 24 * 60 * 60 * 1000;
-    // Teléfonos (últimos 8 dígitos) que YA tienen reserva CONFIRMADA por CUALQUIER vía (web/voz/chat/antes).
+    // Teléfonos con reserva CONFIRMADA en ESTA campaña (por fecha) — NO se cuentan reservas de campañas pasadas/otras sedes.
+    const fechasCampana = new Set(((cfg.dias) || []).map(function (d) { return d.fecha; }));
     const telsReservados = new Set();
     try {
       const rs = await db.collection('reservas_beni').where('jornadaId', '==', 'beni').get();
       rs.forEach(function (doc) {
         const r = doc.data() || {};
         if ((r.estado || 'confirmada') !== 'confirmada') return;
+        if (!fechasCampana.has(r.fecha)) return; // solo reservas de la campaña vigente (independiente de las pasadas)
         const rt = String(r.telefono || '').replace(/\D/g, '').slice(-8);
         if (rt) telsReservados.add(rt);
       });
@@ -1501,8 +1503,8 @@ async function correrSeguimientos(dryRun, ignoraTiempo) {
       const c = doc.data() || {};
       const userId = doc.id;
       try {
-        // Salvaguardas: ya agendó por chat, marcado "no seguir", lo atiende un humano/pausado.
-        if (c.reservoOk || c.noSeguir === true || c.pausada === true || c.necesitaHumano === true) continue;
+        // Salvaguardas: ya agendó por chat EN ESTA campaña, marcado "no seguir", lo atiende un humano/pausado.
+        if ((c.reservoOk && c.reservoCampaign === cfg.campaignVersion) || c.noSeguir === true || c.pausada === true || c.necesitaHumano === true) continue;
         const count = c.seguimientoCount || 0;
         if (count >= 2) continue;                                       // ya se enviaron los 2
         if ((c.totalMensajes || 0) < 4) continue;                       // solo conversaciones con interés real (no un "hola" suelto)
