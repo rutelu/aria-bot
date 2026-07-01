@@ -1476,7 +1476,7 @@ async function _enviarPorCanal(chatId, msg) {
   else if (canal === 'tg') await bot.sendMessage(contacto, msg);
   else throw new Error('canal no soportado: ' + canal);
 }
-async function correrSeguimientos(dryRun) {
+async function correrSeguimientos(dryRun, ignoraTiempo) {
   if (!db) return [];
   if (!dryRun && process.env.SEGUIMIENTO_ACTIVO !== 'true') return []; // envío real solo si está activo; el dry-run corre igual
   const candidatos = [];
@@ -1515,7 +1515,7 @@ async function correrSeguimientos(dryRun) {
         const tel8 = String(contacto).replace(/\D/g, '').slice(-8);
         if (tel8 && tel8.length >= 6 && telsReservados.has(tel8)) continue;
         if (canal === 'wa' && silencio >= H24) continue;                // fuera de la ventana de 24h de WhatsApp
-        if (!((count === 0 && silencio >= H1) || (count === 1 && silencio >= H8))) continue;
+        if (!ignoraTiempo && !((count === 0 && silencio >= H1) || (count === 1 && silencio >= H8))) continue;
         if (dryRun) { candidatos.push({ chat: userId, nombre: c.nombre || '', seguimientoNro: count + 1, silencioHrs: Math.round(silencio / 3600000 * 10) / 10, msgs: c.totalMensajes || 0, sede: _seguimientoSede(c, cfg) || '-' }); continue; }
         const msg = _seguimientoMsg(count, c, cfg);
         await _enviarPorCanal(userId, msg);
@@ -1545,8 +1545,8 @@ app.get('/run-recordatorios', async (req, res) => {
 // SIMULACIÓN (dry-run) del seguimiento: muestra a QUIÉNES les escribiría AHORA, SIN enviar nada. Para revisar antes de activar.
 app.get('/dry-seguimiento', async (req, res) => {
   try {
-    const list = await correrSeguimientos(true);
-    res.json({ total: list.length, activo: process.env.SEGUIMIENTO_ACTIVO === 'true', candidatos: list });
+    const list = await correrSeguimientos(true, req.query.ignoraTiempo === '1');
+    res.json({ total: list.length, activo: process.env.SEGUIMIENTO_ACTIVO === 'true', ignoraTiempo: req.query.ignoraTiempo === '1', candidatos: list });
   } catch (e) { res.status(200).json({ error: e.message }); }
 });
 
