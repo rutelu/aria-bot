@@ -44,9 +44,9 @@ const BENI_SEED = {
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'oruro-sucre-2026-06b',
+  campaignVersion: 'oruro-sucre-2026-06c',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
-  promo: 'Trae un recomendado que se atienda y ganas 40% de descuento en tu tratamiento. Las condiciones son las mismas para cada persona: cada quien obtiene su 40% al traer a un recomendado que se atienda, y así sucesivamente con cualquier interesado y su recomendado. Aplica a cualquier tratamiento. (El 40% es por traer un recomendado que se atienda; no es que dos personas ganen 40% solo por atenderse juntas.)',
+  promo: 'El 40% de descuento es SOLO para quien TRAE a un recomendado que se atienda: tú traes a un invitado que se atiende y TÚ ganas 40% en tu tratamiento. El invitado NO gana 40% por venir; él gana su propio 40% solo si a su vez trae a otro recomendado que se atienda (así en cadena, cada quien por su invitado). Aplica a cualquier tratamiento. NUNCA es "los dos ganan por venir juntos".',
   subsedes: [
     { id: 'Oruro', nombre: 'Oruro', direccion: 'Clínica Santiago, c. Rodríguez entre Brasil y Teferina', telefonos: ['+591 76951552'] },
     { id: 'Sucre', nombre: 'Sucre', direccion: 'Centro de Salud Victoria, c. Urriolagoitia Nº 601', telefonos: ['+591 76951552'] }
@@ -897,7 +897,8 @@ async function askValeria(userId, userMessage, origenDirecto) {
     + '5) AGENDA — REGLA DE ORO (NUNCA la rompas): para fechas, horas y reservas usas SIEMPRE tus herramientas, JAMAS tu memoria ni la lista de dias de abajo para inventar horas. '
       + '(a) Cuando la persona acepte o pida agendar, NO le tires horas de una vez: PRIMERO dile en una frase corta que vas a revisar la agenda (ej. "Permiteme revisar la disponibilidad un momento 😊") y recien ahi LLAMA a consultar_disponibilidad_beni; SOLO despues ofrece las horas que ESA herramienta devuelva como libres en esta misma conversacion. NUNCA ofrezcas horas adivinando, suponiendo ni de memoria. '
       + '(b) Para reservar, LLAMA a crear_reserva_beni. SOLO puedes decir que la cita quedo agendada/confirmada si esa herramienta te respondio ok:true. Si respondio error (ocupado, ya paso, faltan datos), NO confirmes: disculpate en una frase y ofrece otra hora libre que la herramienta SI devuelva. '
-      + '(c) PROHIBIDO decir "te agende", "quedo reservado", "listo, confirmada" o parecido sin un ok:true real de crear_reserva_beni. Si tienes cualquier duda sobre disponibilidad, vuelve a consultar_disponibilidad_beni antes de responder.\n';
+      + '(c) PROHIBIDO decir "te agende", "quedo reservado", "listo, confirmada" o parecido sin un ok:true real de crear_reserva_beni. Si tienes cualquier duda sobre disponibilidad, vuelve a consultar_disponibilidad_beni antes de responder.\n'
+    + '6) PROMO DEL 40% (REGLA EXACTA, nunca la cambies ni la interpretes distinto): el 40% de descuento es SOLO para QUIEN TRAE a un recomendado que se atienda. Es decir: la persona trae a un invitado que se atiende y ELLA (la que invita) gana 40% en SU propio tratamiento. El invitado NO gana 40% por el simple hecho de venir; el invitado gana su propio 40% UNICAMENTE si a su vez trae a OTRO recomendado que se atienda (asi en cadena, cada quien por su propio invitado). PROHIBIDO decir "los dos ganan", "ambos ganan el 40%", "traes a un amigo y los dos tienen 40%" o similar. El beneficio es de quien invita, uno por uno.\n';
   const bloqueInstruccion = instruccionEspecial
     ? 'INSTRUCCION ESPECIAL DEL EQUIPO PARA ESTE CLIENTE (PRIORIDAD MAXIMA, por encima de TODO lo demas): '
       + instruccionEspecial
