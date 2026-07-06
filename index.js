@@ -1544,51 +1544,6 @@ app.get('/run-recordatorios', async (req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
 });
 
-// TEMPORAL: buscar por teléfono (reservas + chat con últimos mensajes) para reconstruir una reserva borrada.
-app.get('/admin/buscar-tel', async (req, res) => {
-  if (!db) return res.status(200).json({ error: 'sin db' });
-  const tel = String(req.query.tel || '').replace(/\D/g, '').slice(-8);
-  if (tel.length < 6) return res.status(400).json({ error: 'tel invalido' });
-  const out = { reservas: [], chats: [] };
-  try {
-    const rs = await db.collection('reservas_beni').get();
-    rs.forEach(function (d) { const r = d.data() || {}; if (String(r.telefono || '').replace(/\D/g, '').slice(-8) === tel) out.reservas.push(Object.assign({ id: d.id }, r)); });
-  } catch (e) {}
-  try {
-    const cs = await db.collection('valeria_chats').get();
-    for (const d of cs.docs) {
-      const c = d.data() || {};
-      const ct = String(c.contacto || d.id).replace(/\D/g, '').slice(-8);
-      if (ct !== tel) continue;
-      let msgs = [];
-      try { const ms = await d.ref.collection('mensajes').orderBy('ts', 'desc').limit(40).get(); ms.forEach(function (m) { msgs.push(m.data()); }); } catch (e) {}
-      out.chats.push({ id: d.id, nombre: c.nombre || '', contacto: c.contacto || '', origen: (c.origen || '').slice(0, 80), mensajes: msgs.reverse().map(function (m) { return (m.rol || '?') + ': ' + String(m.texto || '').slice(0, 220); }) });
-    }
-  } catch (e) {}
-  res.json(out);
-});
-
-// TEMPORAL: restaurar/crear una reserva (Admin SDK, sin bloqueo de fecha pasada). Para recuperar una borrada por error.
-app.post('/admin/restaurar-reserva', async (req, res) => {
-  if (!db) return res.status(200).json({ error: 'sin db' });
-  const b = req.body || {};
-  const fecha = String(b.fecha || ''), hora = String(b.hora || ''), subsede = String(b.subsede || ''), nombre = String(b.nombre || ''), telefono = String(b.telefono || '');
-  if (!fecha || !hora || !subsede || !nombre || !telefono) return res.status(400).json({ error: 'faltan datos (fecha, hora, subsede, nombre, telefono)' });
-  const slotId = beniSlotId(fecha, hora);
-  try {
-    const batch = db.batch();
-    batch.set(db.collection('cupos_ocupados').doc(slotId), { jornadaId: 'beni', fecha: fecha, hora: hora, ocupado: true });
-    batch.set(db.collection('reservas_beni').doc(slotId), {
-      jornadaId: 'beni', fecha: fecha, hora: hora, subsede: subsede, lugar: b.lugar || subsede,
-      especialista: 'Equipo Harmonie Institute', especialidad: '', nombre: nombre, telefono: telefono,
-      email: b.email || '', notas: b.notas || '', estado: 'confirmada', canal: 'restaurada',
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-    await batch.commit();
-    res.json({ ok: true, id: slotId });
-  } catch (e) { res.status(200).json({ error: e.message }); }
-});
-
 // SIMULACIÓN (dry-run) del seguimiento: muestra a QUIÉNES les escribiría AHORA, SIN enviar nada. Para revisar antes de activar.
 app.get('/dry-seguimiento', async (req, res) => {
   try {
