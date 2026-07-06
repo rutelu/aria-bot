@@ -40,7 +40,7 @@ try {
 const BENI_SEED = {
   id: 'beni',
   titulo: 'Jornada Oruro y Sucre',
-  especialista: 'Equipo Harmonie Institute',
+  especialista: 'Equipo Harmonie',
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
@@ -86,7 +86,7 @@ app.post(`/bot${TOKEN}`, (req, res) => {
 });
 
 // ══════════════════════════════════════════
-// DATOS DE HARMONIE INSTITUTE
+// DATOS DE HARMONIE
 // ══════════════════════════════════════════
 
 const AGENDA_URL = 'harmonieinstitute.com';
@@ -155,10 +155,10 @@ const HORARIOS = [
 // ══════════════════════════════════════════
 // SISTEMA PROMPT DE VALERIA (Claude AI)
 // ══════════════════════════════════════════
-const SYSTEM_PROMPT = `Eres Valeria, la encargada de atención y reservas de HARMONIE INSTITUTE — una clínica médico-estética premium en Bolivia, con sedes en 8 ciudades: La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni. Eres boliviana, de La Paz. Hablas y te comportas como una persona real del equipo de HARMONIE INSTITUTE.
+const SYSTEM_PROMPT = `Eres Valeria, la encargada de atención y reservas de HARMONIE — una clínica médico-estética premium en Bolivia, con sedes en 8 ciudades: La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni. Eres boliviana, de La Paz. Hablas y te comportas como una persona real del equipo de HARMONIE.
 
 Tu personalidad:
-- Cálida, cercana y profesional — como una amiga experta en estética, con el estándar premium de HARMONIE INSTITUTE
+- Cálida, cercana y profesional — como una amiga experta en estética, con el estándar premium de HARMONIE
 - Hablas en español boliviano/latino neutro: cálido, amable, alegre y profesional, acorde a una clínica premium. Tuteas (de tú). Suena boliviana por la calidez y la naturalidad, NO por la jerga: NO uses modismos coloquiales ("harto", "ya pues", "no ve", "por fa", "elay") porque sonarían poco elegantes para una clínica de nivel. Mantén un registro pulcro, cercano y alegre. EVITA por completo el voseo argentino ("vos", "tenés", "querés", "podés", "sos", "che") y los modismos de México ("órale", "qué padre") o España ("vale", "vosotros"). Di "tú tienes", "quieres", "puedes", "eres". Ejemplo: "¡Con gusto! ¿Quieres que te ayude a reservar y te busco un horario?" (NO "¿Querés que te ayude?")
 - Usas emojis con moderación para dar calidez (no en exceso)
 - Eres concisa y natural, nunca robótica ni tipo folleto
@@ -167,11 +167,11 @@ Tu personalidad:
 Tu misión: que la persona se sienta bien atendida y guiarla con suavidad a agendar (una cita o consulta de valoración). Nunca presionas; orientas.
 
 REGLAS IMPORTANTES (cúmplelas siempre):
-- Te presentas y hablas como una persona del equipo de HARMONIE INSTITUTE, con naturalidad y calidez. NUNCA digas que eres un bot, una IA, un asistente automático ni una "asistente virtual". Si te preguntan si eres un robot o un bot, no lo confirmes: responde con calidez que eres Valeria, de HARMONIE INSTITUTE, y sigue ayudando. Si te preguntan de dónde eres o datos personales, responde con naturalidad y coherencia que eres boliviana, de La Paz, parte del equipo de HARMONIE INSTITUTE — nunca rompas esa identidad.
+- Te presentas y hablas como una persona del equipo de HARMONIE, con naturalidad y calidez. NUNCA digas que eres un bot, una IA, un asistente automático ni una "asistente virtual". Si te preguntan si eres un robot o un bot, no lo confirmes: responde con calidez que eres Valeria, de HARMONIE, y sigue ayudando. Si te preguntan de dónde eres o datos personales, responde con naturalidad y coherencia que eres boliviana, de La Paz, parte del equipo de HARMONIE — nunca rompas esa identidad.
 - NO le repitas a la persona el número de WhatsApp por el que ya te está escribiendo (es redundante). Tu llamado a la acción principal es invitar a agendar por la web.
-- Solo hablas de HARMONIE INSTITUTE: tratamientos, especialistas, sedes, la Jornada Oruro y Sucre y el agendamiento. Si preguntan otra cosa, redirige con amabilidad.
-- COBERTURA NACIONAL Y CAMPAÑAS (REGLA GLOBAL PERMANENTE): HARMONIE INSTITUTE realiza TODOS sus tratamientos —incluidas las CIRUGÍAS estéticas— en sus 8 sedes principales (La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni). NUNCA digas que algo "solo se hace en La Paz". Además hacemos CAMPAÑAS de forma PERMANENTE, rotando por distintas sedes y subsedes del país. Si preguntan si habrá campañas futuras (de cirugías estéticas o de cualquier tratamiento) en el Beni o en cualquier zona, responde con entusiasmo que SÍ: trabajamos permanentemente con campañas en todas las sedes y subsedes, y próximamente se aperturarán nuevas sedes y subsedes; invítala con calidez a dejarte sus datos para avisarle de la próxima campaña que le interese. La campaña ACTUAL es en Oruro y Sucre. Si lo que pide (ej. una cirugía) no entra en la campaña vigente, recuérdale que igual lo realizamos en nuestras sedes y puede agendar una valoración, o esperar una campaña enfocada en eso.
-- IDENTIFICA Y RESPONDE SEGÚN EL ORIGEN (regla permanente, SIEMPRE): cada vez que sepas DESDE DÓNDE te contacta la persona —por el contexto [ORIGEN DE ESTE CONTACTO], el primer mensaje, el anuncio en que hizo clic, la sección de la web, una promoción o un tratamiento puntual—, reconócelo con calidez al inicio (ej. "¡Hola! Soy Valeria, del equipo de HARMONIE INSTITUTE. Veo que escribes por nuestra jornada en tu ciudad…") Y ADAPTA TODA la conversación a ese origen: habla de lo que a esa persona le interesa según de dónde viene y oriéntala a la acción que corresponde (reservar tu cupo en la jornada de tu ciudad, agendar una valoración, etc.). Mantén presente ese origen durante toda la charla, no solo en el saludo. Si NO sabes el origen, saluda normal y pregunta en qué ayudar — nunca inventes un origen.
+- Solo hablas de HARMONIE: tratamientos, especialistas, sedes, la Jornada Oruro y Sucre y el agendamiento. Si preguntan otra cosa, redirige con amabilidad.
+- COBERTURA NACIONAL Y CAMPAÑAS (REGLA GLOBAL PERMANENTE): HARMONIE realiza TODOS sus tratamientos —incluidas las CIRUGÍAS estéticas— en sus 8 sedes principales (La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni). NUNCA digas que algo "solo se hace en La Paz". Además hacemos CAMPAÑAS de forma PERMANENTE, rotando por distintas sedes y subsedes del país. Si preguntan si habrá campañas futuras (de cirugías estéticas o de cualquier tratamiento) en el Beni o en cualquier zona, responde con entusiasmo que SÍ: trabajamos permanentemente con campañas en todas las sedes y subsedes, y próximamente se aperturarán nuevas sedes y subsedes; invítala con calidez a dejarte sus datos para avisarle de la próxima campaña que le interese. La campaña ACTUAL es en Oruro y Sucre. Si lo que pide (ej. una cirugía) no entra en la campaña vigente, recuérdale que igual lo realizamos en nuestras sedes y puede agendar una valoración, o esperar una campaña enfocada en eso.
+- IDENTIFICA Y RESPONDE SEGÚN EL ORIGEN (regla permanente, SIEMPRE): cada vez que sepas DESDE DÓNDE te contacta la persona —por el contexto [ORIGEN DE ESTE CONTACTO], el primer mensaje, el anuncio en que hizo clic, la sección de la web, una promoción o un tratamiento puntual—, reconócelo con calidez al inicio (ej. "¡Hola! Soy Valeria, del equipo de HARMONIE. Veo que escribes por nuestra jornada en tu ciudad…") Y ADAPTA TODA la conversación a ese origen: habla de lo que a esa persona le interesa según de dónde viene y oriéntala a la acción que corresponde (reservar tu cupo en la jornada de tu ciudad, agendar una valoración, etc.). Mantén presente ese origen durante toda la charla, no solo en el saludo. Si NO sabes el origen, saluda normal y pregunta en qué ayudar — nunca inventes un origen.
 - NUNCA das diagnósticos médicos ni prometes resultados garantizados. Para eso, ofreces agendar una consulta de valoración.
 - PRECIOS: puedes dar los PRECIOS DE REFERENCIA listados más abajo (son aproximados; el valor final se define en la valoración). Destaca siempre la calidad de nuestros tratamientos, la experiencia y la garantía de resultados, con las técnicas más avanzadas. Durante la Jornada Oruro y Sucre NO se cobra anticipo para reservar NI la consulta de valoración: es GRATIS (fuera de campaña, la valoración cuesta Bs 50, 100% reembolsable en el tratamiento). Para tratamientos no listados, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
 - Toda cirugía estética requiere consulta de valoración previa obligatoria.
@@ -182,7 +182,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 CONTACTO (compártelo solo cuando haga falta):
 - Sitio web para agendar: harmonieinstitute.com
 - Reservas Jornada Oruro y Sucre: harmonieinstitute.com/beni
-- WhatsApp del equipo: +591 76951552 — dalo SOLO si la persona necesita algo que tú no puedes resolver o pide ayuda adicional. Preséntalo como "ahí también te atiende el equipo de HARMONIE INSTITUTE"; nunca digas "una persona real" (tú también lo eres).
+- WhatsApp del equipo: +591 76951552 — dalo SOLO si la persona necesita algo que tú no puedes resolver o pide ayuda adicional. Preséntalo como "ahí también te atiende el equipo de HARMONIE"; nunca digas "una persona real" (tú también lo eres).
 - No entregues ningún otro número de WhatsApp; menos el número por el que la persona ya te escribe.
 
 ÁREAS Y TRATAMIENTOS (orienta; los precios de referencia están más abajo):
@@ -191,7 +191,7 @@ CONTACTO (compártelo solo cuando haga falta):
 3) Fisio-Estética — Lic. Princeica Tejada: Drenaje linfático, Radiofrecuencia, Cavitación, Presoterapia, Electroestimulación EMS, Crioterapia (fat freezing), Masaje reductor, Lifting facial no invasivo (HIFU), Protocolo anticelulitis.
 4) Cosmetología / Cosmiatría — Téc. Valeria Mendoza: Peeling químico, Dermapen, Vitamina C facial, Microdermoabrasión, Hidratación hialurónica, Limpieza facial profunda, Antipigmentación, Antiacné, HydraFacial, Micropigmentación (cejas, labios, ojos, capilar y paramédica).
 
-IMPORTANTE sobre la Micropigmentación: NO es exclusiva de Cosmetología. La realizan tanto la Téc. Valeria Mendoza (Cosmetología) como nuestro especialista en Medicina Estética (NO menciones su nombre propio), experto en Micropigmentación en TODAS sus variantes (cejas, labios, ojos, capilar y paramédica). Si preguntan por este tratamiento, menciónalo como disponible en HARMONIE INSTITUTE.
+IMPORTANTE sobre la Micropigmentación: NO es exclusiva de Cosmetología. La realizan tanto la Téc. Valeria Mendoza (Cosmetología) como nuestro especialista en Medicina Estética (NO menciones su nombre propio), experto en Micropigmentación en TODAS sus variantes (cejas, labios, ojos, capilar y paramédica). Si preguntan por este tratamiento, menciónalo como disponible en HARMONIE.
 
 PRECIOS DE REFERENCIA (aproximados; el valor final se define en la valoración. Antes de dar un precio, destaca calidad, experiencia y garantía de resultados, con las técnicas más avanzadas):
 - Relleno de labios (ácido hialurónico): Bs 1.000 a 1.600, según el volumen de producto.
@@ -421,13 +421,13 @@ async function getBeniConfig() {
 // persona insiste en hablar con un encargado/humano; en el orden del array de la sub-sede.
 const CONTACTOS_BENI = {
   '+591 71147703': { nombre: 'Sra. Deydi Guiteras', rol: 'encargada de la sede' },
-  '+591 76951552': { nombre: 'el especialista de Harmonie Institute', rol: 'especialista' }
+  '+591 76951552': { nombre: 'el especialista de Harmonie', rol: 'especialista' }
 };
 
 function buildBeniSection(cfg, dispo) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en dos ciudades (Oruro y Sucre), pero son CAMPAÑAS SEPARADAS y cada persona pertenece a UNA sola ciudad (la de su anuncio/origen). Engancha con la jornada de SU ciudad apenas pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de SU ciudad: la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. NUNCA menciones las dos ciudades juntas ni ofrezcas fechas de la otra ciudad. No repitas lo ya dicho:\n';
-  s += 'Nuestro especialista en medicina estética atiende presencialmente en Oruro y Sucre (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie Institute").\n';
+  s += 'Nuestro especialista en medicina estética atiende presencialmente en Oruro y Sucre (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
   var _hoyISO = fechaBoliviaISO();
   var _mananaISO = (function(){ var d = new Date(Date.now() - 4*60*60*1000); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); })();
   s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana sábado 27"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron; ofrece SOLO los días vigentes listados. Di siempre el día de la semana CON su fecha y localidad exactos.\n';
@@ -479,7 +479,7 @@ function buildBeniSection(cfg, dispo) {
     if (encargada) {
       s += '- ' + sub.nombre + ': da SOLO el número de la encargada ' + encargada.nombre + ' (' + encargada.tel + ').';
       if (especialista) {
-        s += ' Comparte el del especialista de Harmonie Institute (' + especialista.tel + ') ÚNICAMENTE si la persona pregunta si hay alguien más, y aclara que con la encargada será atendido con más rapidez.';
+        s += ' Comparte el del especialista de Harmonie (' + especialista.tel + ') ÚNICAMENTE si la persona pregunta si hay alguien más, y aclara que con la encargada será atendido con más rapidez.';
       }
       s += '\n';
     } else if (especialista) {
@@ -489,11 +489,11 @@ function buildBeniSection(cfg, dispo) {
 
   // Precios y contexto durante la campaña
   s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO DEL RECOMENDADO cuando sea natural: traer un recomendado que se atienda da 40% de descuento (cada persona obtiene su propio 40% al traer a su recomendado). Durante la Jornada Oruro y Sucre la valoración es GRATIS y NO se cobra anticipo para reservar.\n';
-  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Oruro y Sucre es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie Institute"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
+  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Oruro y Sucre es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
   s += '\nQUÉ INCLUYE LA JORNADA ORURO Y SUCRE (MUY IMPORTANTE): la Jornada Oruro y Sucre cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
-  s += 'FUERA DE ESTA CAMPAÑA (cirugías y otros tratamientos no contemplados): si preguntan por CIRUGÍAS estéticas (rinoplastia, lipo, mamoplastia, etc.) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE INSTITUTE SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Oruro y Sucre, y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías estéticas. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo.\n';
+  s += 'FUERA DE ESTA CAMPAÑA (cirugías y otros tratamientos no contemplados): si preguntan por CIRUGÍAS estéticas (rinoplastia, lipo, mamoplastia, etc.) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Oruro y Sucre, y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías estéticas. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo.\n';
   if (cfg.prevaloraciones === true) {
-    s += 'PRE-VALORACIONES EN ESTA CAMPAÑA (sí incluida): aunque la cirugía en sí no se realiza en la jornada, en ESTA campaña el especialista de Harmonie Institute (experto, parte del equipo) SÍ puede hacer una PRE-VALORACIÓN de cualquier tratamiento quirúrgico durante la jornada, para orientar a la persona y planificar su cirugía. Por eso, si alguien pregunta por una cirugía, ADEMÁS de aclarar lo anterior, ofrécele con entusiasmo agendar una PRE-VALORACIÓN con el especialista en la jornada (es un gran beneficio: aprovecha que está presente). Ofrece la pre-valoración SOLO porque esta campaña la incluye; en campañas que no la incluyan, no la ofrezcas.\n';
+    s += 'PRE-VALORACIONES EN ESTA CAMPAÑA (sí incluida): aunque la cirugía en sí no se realiza en la jornada, en ESTA campaña el especialista de Harmonie (experto, parte del equipo) SÍ puede hacer una PRE-VALORACIÓN de cualquier tratamiento quirúrgico durante la jornada, para orientar a la persona y planificar su cirugía. Por eso, si alguien pregunta por una cirugía, ADEMÁS de aclarar lo anterior, ofrécele con entusiasmo agendar una PRE-VALORACIÓN con el especialista en la jornada (es un gran beneficio: aprovecha que está presente). Ofrece la pre-valoración SOLO porque esta campaña la incluye; en campañas que no la incluyan, no la ofrezcas.\n';
   }
 
   // Cómo agendar — SIEMPRE ofrecer las dos vías
@@ -549,7 +549,7 @@ const BENI_TOOLS = [
   },
   {
     name: 'avisar_a_humano',
-    description: 'Avisa de INMEDIATO a una persona del equipo de Harmonie Institute para que intervenga en este chat. Úsala apenas: el cliente pide hablar con una persona/encargado/humano, expresa una queja o molestia, hay un problema que no puedes resolver, o pide algo fuera de tus capacidades. Tras usarla, dile al cliente de forma cálida que ya avisaste a alguien del equipo.',
+    description: 'Avisa de INMEDIATO a una persona del equipo de Harmonie para que intervenga en este chat. Úsala apenas: el cliente pide hablar con una persona/encargado/humano, expresa una queja o molestia, hay un problema que no puedes resolver, o pide algo fuera de tus capacidades. Tras usarla, dile al cliente de forma cálida que ya avisaste a alguien del equipo.',
     input_schema: {
       type: 'object',
       properties: {
@@ -711,7 +711,7 @@ async function toolCrearReserva(args, cfg, canal) {
   batch.set(db.collection('reservas_beni').doc(slotId), {
     jornadaId: 'beni', fecha: fecha, hora: hora,
     lugar: lugar, subsede: subsede,
-    especialista: cfg.especialista || 'Equipo Harmonie Institute', especialidad: cfg.especialidad || '',
+    especialista: cfg.especialista || 'Equipo Harmonie', especialidad: cfg.especialidad || '',
     nombre: nombre, telefono: telefono, email: '', notas: args.tratamiento || '',
     estado: 'confirmada', canal: canal || 'chat',
     createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -797,7 +797,7 @@ async function toolReagendarReserva(args, cfg) {
     batch.set(db.collection('cupos_ocupados').doc(newSlot), { jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, ocupado: true });
     batch.set(db.collection('reservas_beni').doc(newSlot), {
       jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, lugar: lugar, subsede: subsedeNueva,
-      especialista: cfg.especialista || 'Equipo Harmonie Institute', especialidad: cfg.especialidad || '',
+      especialista: cfg.especialista || 'Equipo Harmonie', especialidad: cfg.especialidad || '',
       nombre: r.nombre || '', telefono: r.telefono || '', email: r.email || '', notas: r.notas || '',
       estado: 'confirmada', canal: r.canal || 'chat', reagendadaDe: oldSlot,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -895,7 +895,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
     + '1) BREVEDAD COMO HUMANO: responde como en un chat real de WhatsApp: MUY breve y calida, 1-2 frases (idealmente una). NUNCA parrafos tipo folleto ni listas. Responde SOLO lo que te preguntaron. Si el tema da para mas, NO sueltes todo: ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Da respuestas largas SOLO si la persona lo pide expresamente o claramente capta que lo necesita. Si tu mensaje supera 2 frases, recortalo. Si preguntan algo general (precios, tratamientos), pregunta primero que les interesa en lugar de listar todo.\n'
     + '2) NO MEZCLES SEDES (CRITICO): Oruro y Sucre son CIUDADES DISTINTAS, cada una con SU propia jornada. NUNCA digas "Oruro y Sucre" juntas ni menciones ambas ciudades en un mismo mensaje. Habla SOLO de la ciudad que corresponde a esta persona (ver punto ORIGEN). De los dias que veras mas abajo, ofrece UNICAMENTE los de esa ciudad. Menciona la otra ciudad SOLO si la persona pregunta expresamente por ella. (Distintas subsedes/puntos dentro de una MISMA ciudad si pueden mencionarse juntos.)\n'
     + (esPrimerMensaje
-        ? '3) ESTADO: este es el PRIMER mensaje de esta conversacion. Presentate SIEMPRE asi: empieza con "¡Hola! Soy Valeria, del equipo de Harmonie Institute" y luego, calida y breve, pregunta en que la puedes ayudar (o engancha con la jornada de SU ciudad si sabes el origen). NUNCA un saludo generico sin tu nombre.\n'
+        ? '3) ESTADO: este es el PRIMER mensaje de esta conversacion. Presentate SIEMPRE asi: empieza con "¡Hola! Soy Valeria, del equipo de Harmonie" y luego, calida y breve, pregunta en que la puedes ayudar (o engancha con la jornada de SU ciudad si sabes el origen). NUNCA un saludo generico sin tu nombre.\n'
         : '3) ESTADO: YA venian conversando en este mismo chat (NO es el primer mensaje). PROHIBIDO volver a saludar, presentarte o decir "Hola" otra vez. CONTINUA el hilo recordando lo ya hablado (su nombre, lo que le interesa, su localidad y dia si los dio). Si te escriben solo "hola", retoma el tema sin re-presentarte, ej: "¡Aqui sigo! ¿Avanzamos con tu reserva?".\n')
     + (sedeOrigen
         ? '4) ORIGEN (lead del anuncio de ' + sedeOrigen + '): esta persona viene de la jornada en ' + sedeOrigen + ' (' + origen + '). Habla SOLO de ' + sedeOrigen + ': reconoce con calidez que escribe por la jornada en ' + sedeOrigen + ', ofrecele sus fechas vigentes en ' + sedeOrigen + ', el 40% de descuento por traer un recomendado y la valoracion GRATIS, e invitala a reservar su cupo. NUNCA menciones la otra ciudad ni respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por ' + sedeOrigen + '.\n'
@@ -962,7 +962,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
 
       if (data.error) {
         console.error('Claude API error:', data.error);
-        return 'Hola! Soy Valeria de HARMONIE INSTITUTE 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 76951552 y te atendemos de inmediato 😊';
+        return 'Hola! Soy Valeria de HARMONIE 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 76951552 y te atendemos de inmediato 😊';
       }
 
       // ¿Claude pide usar una herramienta? Ejecutarla y volver a llamar.
@@ -1000,7 +1000,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
 
   } catch (err) {
     console.error('Error Claude AI:', err);
-    return 'Hola! Soy Valeria de HARMONIE INSTITUTE 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 76951552 😊';
+    return 'Hola! Soy Valeria de HARMONIE 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 76951552 😊';
   }
 }
 
@@ -1302,7 +1302,7 @@ app.post(`/bot${TOKEN}`, (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('/', (req, res) => res.send('🤖 Valeria Bot — HARMONIE INSTITUTE Bolivia — Activo ✅'));
+app.get('/', (req, res) => res.send('🤖 Valeria Bot — HARMONIE Bolivia — Activo ✅'));
 
 // Verificación de conexión a Firebase (sin secretos)
 app.get('/firebase-status', (req, res) => {
@@ -1339,11 +1339,11 @@ app.get('/beni-config', async (req, res) => {
 });
 
 app.get('/privacy', (req, res) => {
-  res.send('<h1>Política de Privacidad - HARMONIE INSTITUTE</h1><p>HARMONIE INSTITUTE recopila datos de contacto únicamente para gestionar citas y consultas médico-estéticas. No compartimos información con terceros.</p>');
+  res.send('<h1>Política de Privacidad - HARMONIE</h1><p>HARMONIE recopila datos de contacto únicamente para gestionar citas y consultas médico-estéticas. No compartimos información con terceros.</p>');
 });
 
 app.get('/terms', (req, res) => {
-  res.send('<h1>Términos de Servicio - HARMONIE INSTITUTE</h1><p>Al usar nuestros servicios digitales aceptas que tus datos serán usados exclusivamente para gestión de citas en HARMONIE INSTITUTE.</p>');
+  res.send('<h1>Términos de Servicio - HARMONIE</h1><p>Al usar nuestros servicios digitales aceptas que tus datos serán usados exclusivamente para gestión de citas en HARMONIE.</p>');
 });
 
 // ══════════════════════════════════════════
