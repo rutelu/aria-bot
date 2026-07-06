@@ -1544,6 +1544,23 @@ app.get('/run-recordatorios', async (req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
 });
 
+// TEMPORAL: valores reales de subsede en reservas_beni (para clasificar bien las subsedes).
+app.get('/admin/subsedes', async (req, res) => {
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const out = {};
+  try {
+    const rs = await db.collection('reservas_beni').get();
+    rs.forEach(function (d) {
+      const r = d.data() || {};
+      const k = '[' + (r.subsede == null ? 'NULL' : JSON.stringify(r.subsede)) + ']';
+      if (!out[k]) out[k] = { count: 0, fechas: {} };
+      out[k].count++; out[k].fechas[r.fecha || '?'] = true;
+    });
+    Object.keys(out).forEach(function (k) { out[k].fechas = Object.keys(out[k].fechas).sort(); });
+  } catch (e) { return res.status(200).json({ error: e.message }); }
+  res.json(out);
+});
+
 // SIMULACIÓN (dry-run) del seguimiento: muestra a QUIÉNES les escribiría AHORA, SIN enviar nada. Para revisar antes de activar.
 app.get('/dry-seguimiento', async (req, res) => {
   try {
