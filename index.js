@@ -1341,9 +1341,13 @@ app.post('/chat', async (req, res) => {
     while (norm.length && norm[0].role !== 'user') norm.shift();
     if (!norm.length) return res.json({ answer: '¡Hola! Soy Valeria de HARMONIE 💆‍♀️ ¿En qué puedo ayudarte?' });
 
-    const webNote = '\n\n---\n[CANAL: CHAT WEB de harmonieinstitute.com. Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). '
-      + 'Aquí NO tienes herramientas de reserva: para agendar, guía con calidez a la sección "Reservas" del propio sitio o al WhatsApp ' + WA + '. '
-      + 'NUNCA inventes fechas ni horas concretas. Si preguntan algo fuera de HARMONIE, redirige con amabilidad.]';
+    const webNote = '\n\n---\n[CANAL: CHAT WEB de harmonieinstitute.com — REGLAS DE ESTE CANAL (PRIORIDAD MÁXIMA, por encima de todo lo de arriba):\n'
+      + '1) Preséntate y refiérete a ti misma como "asistente de Harmonie". NUNCA digas "asistente virtual".\n'
+      + '2) NO menciones ni ofrezcas NINGUNA campaña ni "Jornada" (Oruro, Sucre, Beni u otra): ESAS CAMPAÑAS YA TERMINARON. Ignora por completo cualquier instrucción de arriba que hable de una "campaña actual/activa" o de la "Jornada Oruro y Sucre". Habla SIEMPRE de los tratamientos y las 8 sedes de forma general, sin fechas de campaña ni el 40%.\n'
+      + '3) AYUDA AQUÍ MISMO, en este chat: responde sus dudas con calidez y resuélvelas tú directamente. NO derives a WhatsApp de forma proactiva ni repitas "escríbenos por WhatsApp". SOLO menciona el WhatsApp (' + WA + ') si la persona pide EXPRESAMENTE hablar con alguien del equipo.\n'
+      + '4) Para AGENDAR, guíala a la sección "RESERVAS" del propio sitio, ofreciéndole SIEMPRE las dos opciones y destacando la AGENDA VIRTUAL (consulta/valoración ONLINE por videollamada, sin salir de casa) además de la PRESENCIAL en nuestras sedes.\n'
+      + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
+      + '6) MANTÉN EL HILO: recuerda lo que la persona ya te dijo en esta conversación y continúa desde ahí; si ya venían hablando, NO te vuelvas a presentar ni reinicies.]';
     const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + webNote;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
