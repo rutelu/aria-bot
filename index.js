@@ -1304,6 +1304,66 @@ app.post(`/bot${TOKEN}`, (req, res) => {
 
 app.get('/', (req, res) => res.send('🤖 Valeria Bot — HARMONIE Bolivia — Activo ✅'));
 
+// ══════════════════════════════════════════
+// CHAT WEB — endpoint para el chat de Valeria en el sitio (tarjeta de la sección "Valeria").
+// Sin herramientas de reserva: informa y deriva a Reservas del sitio / WhatsApp. Stateless (el navegador manda el historial).
+// ══════════════════════════════════════════
+function _setChatCors(req, res) {
+  const origin = req.headers.origin || '';
+  const permitido =
+    /^https:\/\/(www\.)?(harmonieinstitute\.com|armonniza\.com)$/.test(origin) ||
+    /^https:\/\/armonniza-prod(--[a-z0-9-]+)?\.web\.app$/.test(origin) ||
+    /^https:\/\/armonniza-prod\.firebaseapp\.com$/.test(origin);
+  if (permitido) res.set('Access-Control-Allow-Origin', origin);
+  res.set('Vary', 'Origin');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+}
+app.options('/chat', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.post('/chat', async (req, res) => {
+  _setChatCors(req, res);
+  const WA = '+591 76951552';
+  try {
+    const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+    if (!ANTHROPIC_API_KEY) return res.json({ answer: 'El chat no está disponible ahora mismo. Escríbenos por WhatsApp ' + WA + '.' });
+
+    const raw = (req.body && req.body.messages) || [];
+    let msgs = raw
+      .slice(-12)
+      .map(function (m) { return { role: m && m.role === 'assistant' ? 'assistant' : 'user', content: String((m && (m.content || m.text)) || '').slice(0, 2000) }; })
+      .filter(function (m) { return m.content; });
+    // Colapsa turnos del mismo rol y garantiza que empiece en "user" (requisito del modelo).
+    const norm = [];
+    msgs.forEach(function (m) {
+      if (norm.length && norm[norm.length - 1].role === m.role) norm[norm.length - 1].content += '\n' + m.content;
+      else norm.push({ role: m.role, content: m.content });
+    });
+    while (norm.length && norm[0].role !== 'user') norm.shift();
+    if (!norm.length) return res.json({ answer: '¡Hola! Soy Valeria de HARMONIE 💆‍♀️ ¿En qué puedo ayudarte?' });
+
+    const webNote = '\n\n---\n[CANAL: CHAT WEB de harmonieinstitute.com. Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). '
+      + 'Aquí NO tienes herramientas de reserva: para agendar, guía con calidez a la sección "Reservas" del propio sitio o al WhatsApp ' + WA + '. '
+      + 'NUNCA inventes fechas ni horas concretas. Si preguntan algo fuera de HARMONIE, redirige con amabilidad.]';
+    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + webNote;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400, system: systemPrompt, messages: norm })
+    });
+    const data = await response.json();
+    if (data.error) {
+      console.error('Chat web Claude error:', data.error);
+      return res.json({ answer: 'Ahora mismo tengo mucha demanda. Escríbeme por WhatsApp ' + WA + ' y te atiendo enseguida. 💬' });
+    }
+    const answer = (data.content && data.content[0] && data.content[0].text) || ('Disculpa, no pude procesar tu consulta. Escríbenos por WhatsApp ' + WA + '.');
+    res.json({ answer: answer });
+  } catch (e) {
+    console.error('/chat:', e);
+    res.json({ answer: 'Estamos con mucha demanda ahora. Escríbenos por WhatsApp ' + WA + ' y te atendemos enseguida. 💬' });
+  }
+});
+
 // Verificación de conexión a Firebase (sin secretos)
 app.get('/firebase-status', (req, res) => {
   res.json({ connected: !!db, varPresent: fbVarPresent, varLen: fbVarLen, error: fbInitError });
