@@ -1781,6 +1781,11 @@ app.listen(PORT, () => {
       iniciarWatcherPagos({
         db: db, waSend: waSend, bot: bot, getAdminTelegram: getAdminTelegram, ADMIN_WHATSAPP: ADMIN_WHATSAPP,
         beneficiario: process.env.PAGOS_BENEFICIARIO || 'HARMONIE',
+        smtp: {
+          host: 'smtp.gmail.com',
+          user: process.env.PAGOS_SMTP_USER || process.env.PAGOS_IMAP_USER,
+          pass: process.env.PAGOS_SMTP_PASS || process.env.PAGOS_IMAP_PASS
+        },
         MONTO_MIN: parseFloat(process.env.PAGOS_MONTO_MIN || '50'),
         pollSeg: parseInt(process.env.PAGOS_POLL_SEG || '60', 10),
         imap: {

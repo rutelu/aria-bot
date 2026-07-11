@@ -28,6 +28,8 @@
 
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
+let nodemailer = null;
+try { nodemailer = require('nodemailer'); } catch (e) { console.warn('⚠️ nodemailer no disponible (sin correo al cliente):', e.message); }
 
 // ── Utilitarios ─────────────────────────────────────────────────────────────
 function norm(s) {
@@ -115,6 +117,59 @@ async function avisarJulio(deps, texto) {
     if (adm) { await deps.bot.sendMessage(adm, texto); console.log('💳 aviso enviado a Telegram admin ' + adm); }
     else console.warn('💳 sin admin de Telegram registrado — no pude avisar por TG (usá /admin en el bot)');
   } catch (e) { console.error('pago aviso TG:', e.message); }
+}
+
+// ── Correo de confirmación al cliente (SMTP) ────────────────────────────────
+let _transporter = null;
+function getTransporter(deps) {
+  if (_transporter !== null) return _transporter;
+  if (!nodemailer || !deps.smtp || !deps.smtp.user || !deps.smtp.pass) { _transporter = false; return false; }
+  _transporter = nodemailer.createTransport({
+    host: deps.smtp.host || 'smtp.gmail.com', port: 465, secure: true,
+    auth: { user: deps.smtp.user, pass: deps.smtp.pass }
+  });
+  return _transporter;
+}
+// Solo enviamos correo si el cliente puso un email REAL (no el placeholder por defecto).
+function esCorreoReal(email) {
+  const e = String(email || '').toLowerCase().trim();
+  if (!e || e.indexOf('@') === -1) return false;
+  if (/^paciente@(armonniza|harmonieinstitute)\.com$/.test(e)) return false;
+  return true;
+}
+function correoConfirmacionHTML(cita, p) {
+  const nombre = (cita.nombre || '').split(/\s+/)[0] || '';
+  const linea = function (label, val) {
+    return val ? ('<tr><td style="padding:4px 12px 4px 0;color:#a8a89e;font-size:13px;">' + label + '</td><td style="padding:4px 0;color:#f5f5f0;font-size:14px;font-weight:600;">' + val + '</td></tr>') : '';
+  };
+  return '<div style="background:#0a1628;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;">'
+    + '<div style="max-width:520px;margin:0 auto;background:#112847;border-radius:16px;overflow:hidden;border:1px solid rgba(201,169,110,0.25);">'
+    + '<div style="background:#0a1628;padding:24px;text-align:center;border-bottom:1px solid rgba(201,169,110,0.25);">'
+    + '<div style="color:#c9a96e;font-size:22px;letter-spacing:2px;font-family:Georgia,serif;">HARMONIE INSTITUTE</div>'
+    + '<div style="color:rgba(245,245,240,0.5);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-top:4px;">Cl&iacute;nica Est&eacute;tica Avanzada</div>'
+    + '</div><div style="padding:28px 24px;">'
+    + '<div style="color:#5b8e5a;font-size:15px;font-weight:700;margin-bottom:8px;">&#10004; &iexcl;Pago confirmado!</div>'
+    + '<div style="color:#f5f5f0;font-size:16px;line-height:1.6;margin-bottom:16px;">Hola <b>' + nombre + '</b>, recibimos tu dep&oacute;sito y tu cita qued&oacute; <b style="color:#c9a96e;">confirmada</b>. &iexcl;Te esperamos! &#128155;</div>'
+    + '<table style="width:100%;border-collapse:collapse;margin:8px 0 16px;">'
+    + linea('Servicio', cita.servicio) + linea('Fecha', cita.fecha) + linea('Hora', cita.hora) + linea('Sede', cita.sede)
+    + linea('Dep&oacute;sito', p.monto != null ? ('Bs ' + p.monto + ' (se descuenta de tu tratamiento)') : '')
+    + '</table>'
+    + '<div style="color:rgba(245,245,240,0.6);font-size:12px;line-height:1.5;border-top:1px solid rgba(201,169,110,0.2);padding-top:14px;">Si necesit&aacute;s reprogramar o ten&eacute;s alguna duda, respond&eacute; este correo o escribinos por WhatsApp. Gracias por elegir Harmonie Institute.</div>'
+    + '</div></div></div>';
+}
+async function enviarCorreoCliente(deps, cita, p) {
+  if (!esCorreoReal(cita.email)) { console.log('💳 email del cliente vacío/placeholder → no envío correo'); return; }
+  const t = getTransporter(deps);
+  if (!t) { console.warn('💳 SMTP no configurado → no envío correo al cliente'); return; }
+  try {
+    await t.sendMail({
+      from: '"Harmonie Institute" <' + deps.smtp.user + '>',
+      to: cita.email,
+      subject: 'Tu cita en Harmonie Institute está confirmada ✅',
+      html: correoConfirmacionHTML(cita, p)
+    });
+    console.log('💳 correo de confirmación enviado a ' + cita.email);
+  } catch (e) { console.error('💳 error enviando correo cliente:', e.message); }
 }
 
 // ── Núcleo: procesa UN pago ya parseado ─────────────────────────────────────
@@ -210,9 +265,11 @@ async function procesarPago(deps, p) {
       + (elegida.fecha ? (' para el ' + elegida.fecha) : '')
       + (elegida.hora ? (' a las ' + elegida.hora) : '')
       + (elegida.sede ? (' · ' + elegida.sede) : '')
-      + '.\n¡Te esperamos! 💛 Recordá que los Bs 50 se descuentan de tu tratamiento.';
-    deps.waSend(telCli, msgCli).catch(function (e) { console.error('pago aviso cliente:', e.message); });
+      + '.\n¡Te esperamos! 💛 Recordá que tu depósito se descuenta de tu tratamiento.';
+    deps.waSend(telCli, msgCli).catch(function (e) { console.error('pago aviso cliente WA:', e.message); });
   }
+  // ...y también por correo (si el cliente puso un email real).
+  enviarCorreoCliente(deps, elegida, p).catch(function (e) { console.error('pago aviso cliente email:', e.message); });
 
   // 7) Notifica al EQUIPO
   await avisarJulio(deps, '✅ PAGO CONFIRMADO automáticamente (' + motivo + ')\n'
