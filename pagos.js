@@ -130,6 +130,13 @@ async function procesarPago(deps, p) {
   console.log('💳 pago ' + id + ': ' + candidatas.length + ' reserva(s) pendiente(s) de pago');
   let elegida = null, motivo = '';
   if (candidatas.length === 0) {
+    // Diagnóstico: mostrar las últimas citas y su estado para entender por qué no matcheó.
+    try {
+      const diag = await db.collection('citas').orderBy('timestamp', 'desc').limit(6).get();
+      const res = [];
+      diag.forEach(function (d) { const x = d.data(); res.push('"' + (x.nombre || '?') + '" estado=' + (x.estado || '?') + ' modalidad=' + (x.modalidad || '?') + ' ' + (x.fecha || '') + ' ' + (x.hora || '')); });
+      console.log('💳 diag — últimas 6 citas: ' + (res.length ? res.join(' || ') : '(no hay ninguna cita en la colección)'));
+    } catch (e) { console.error('💳 diag citas:', e.message); }
     console.log('💳 pago ' + id + ' sin reserva pendiente → aviso a Julio');
     await avisarJulio(deps, '⚠️ Llegó un PAGO pero NO hay ninguna reserva pendiente de pago.\n' + resumenPago(p) + '\nRevisá si corresponde a algo.');
     await guardar({ resultado: 'sin_reserva' });
