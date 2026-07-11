@@ -58,18 +58,40 @@ function coincideNombre(a, b) {
 // Corta el nombre al toparse con la etiqueta siguiente (por si viene todo pegado).
 function limpiarNombre(s) {
   return String(s || '')
-    .split(/\s+(?:Cuenta|Email|Correo|Beneficiario|Origen|Destino|Detalle|Monto|Glosa|Fecha|N[°ºo])\b/i)[0]
+    .split(/\s+(?:Cuenta|Email|Correo|Beneficiario|Origen|Destino|Detalle|Monto|Glosa|Fecha|Descripci|Originante|Identificador|Operaci|N[uú]mero|N[°ºo])/i)[0]
     .trim().replace(/\s+/g, ' ');
 }
 function parsearPago(texto) {
   const t = String(texto || '').replace(/\r/g, '');
+
+  // ── Formato 1: MULTIPLICA EXTRANET (pago RECIBIDO por HARMONIE) — EL QUE IMPORTA ──
+  // "Número de operación: 0108397", "Originante: <quien paga>", "Descripción: HARMONIE",
+  // "Monto Recibido: Bs 1.00". Es la notificación cuando un cliente PAGA el QR del negocio.
+  const mOp = t.match(/N[uú]mero\s+de\s+operaci[oó]n\s*:?\s*([0-9]{3,})/i);
+  const mRec = t.match(/Monto\s+Recibido\s*:?\s*(?:Bs\.?|BOB|BOL)?\s*([0-9]+(?:[.,][0-9]{1,2})?)/i);
+  if (mOp && mRec) {
+    const mOrig = t.match(/Originante\s*:?\s*([A-Za-zÁÉÍÓÚÑáéíóúñ.\- ]{3,80})/i);
+    const mDesc = t.match(/Descripci[oó]n\s*:?\s*([A-Za-zÁÉÍÓÚÑáéíóúñ0-9.\- ]{2,80})/i);
+    const mFe = t.match(/Fecha\s*:?\s*([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4}(?:\s+[0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)?)/i);
+    return {
+      tipo: 'recibido',
+      nTransaccion: mOp[1].trim(),                         // dedup por N° de operación
+      titular: mOrig ? limpiarNombre(mOrig[1]) : '',       // quién pagó
+      monto: parseFloat(mRec[1].replace(',', '.')),
+      fecha: mFe ? mFe[1].trim() : '',
+      beneficiario: mDesc ? limpiarNombre(mDesc[1]) : ''   // "Descripción" (HARMONIE)
+    };
+  }
+
+  // ── Formato 2: Transferencia QR (pago SALIENTE de Julio) — fallback/compatibilidad ──
   const mTx = t.match(/N[°ºo]?\s*Transacci[oó]n\s*:?\s*([0-9]{4,})/i);
-  if (!mTx) return null; // sin N° de transacción no es un correo de pago válido
+  if (!mTx) return null; // sin N° de operación ni transacción no es un correo de pago
   const mTit = t.match(/Titular\s*:?\s*([A-Za-zÁÉÍÓÚÑáéíóúñ.\- ]{3,80})/i);
   const mMonto = t.match(/Monto\s*(?:transferido)?\s*:?\s*(?:BOL|Bs\.?|BOB)?\s*([0-9]+(?:[.,][0-9]{1,2})?)/i);
   const mFecha = t.match(/Fecha\s*:?\s*([0-9]{1,2}\/[0-9]{1,2}\/[0-9]{2,4}(?:\s+[0-9]{1,2}:[0-9]{2})?)/i);
   const mBenef = t.match(/Beneficiario\s*:?\s*([A-Za-zÁÉÍÓÚÑáéíóúñ.\- ]{2,80})/i);
   return {
+    tipo: 'enviado',
     nTransaccion: mTx[1].trim(),
     titular: mTit ? limpiarNombre(mTit[1]) : '',
     monto: mMonto ? parseFloat(mMonto[1].replace(',', '.')) : null,
@@ -202,6 +224,7 @@ async function procesarPago(deps, p) {
 }
 
 // ── Adaptador de entrada: lee la bandeja por IMAP ───────────────────────────
+const _vistosMem = new Set(); // messageIds ya evaluados en esta corrida (evita re-bajar el cuerpo)
 let _revisando = false;
 async function revisarBandeja(deps) {
   if (_revisando) return; // evita solapes si una pasada tarda
@@ -216,59 +239,62 @@ async function revisarBandeja(deps) {
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
     try {
-      // Filtramos EN EL SERVIDOR por remitente del banco + sin leer + últimos 2 días.
-      // (La bandeja personal puede tener miles de correos sin leer; sin este filtro
-      //  el lector se cuelga recorriéndolos todos.)
+      // Filtramos EN EL SERVIDOR (por remitente O por asunto) + últimos 2 días.
+      // NO filtramos por "sin leer": procesamos aunque el correo esté abierto
+      // (la dedup por N° de operación evita repetir). Así no importa si Julio lo abre.
       const desde = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-      const criteria = { seen: false, since: desde };
+      const criteria = { since: desde };
       if (cfg.remitente) criteria.from = cfg.remitente;
+      else if (cfg.asunto) criteria.subject = cfg.asunto;
       let uids = [];
       try { uids = await client.search(criteria, { uid: true }); }
       catch (e) { console.error('pagos: search:', e.message); }
       uids = uids || [];
-      console.log('💳 poll: ' + uids.length + ' correo(s) del banco sin leer (últimos 2 días)');
+      console.log('💳 poll: ' + uids.length + ' correo(s) del banco (últimos 2 días)');
       let procesados = 0;
       for (const uid of uids) {
-        let msg;
-        try { msg = await client.fetchOne(uid, { source: true, envelope: true }, { uid: true }); }
-        catch (e) { console.error('pagos: fetch ' + uid + ':', e.message); continue; }
-        if (!msg) continue;
-        const from = ((msg.envelope && msg.envelope.from && msg.envelope.from[0] && msg.envelope.from[0].address) || '').toLowerCase();
-        const subject = (msg.envelope && msg.envelope.subject) || '';
-        // ¿Es un correo del banco? Si no, NO lo tocamos (ni lo marcamos leído).
-        const esDelBanco = cfg.remitente
-          ? (from.indexOf(cfg.remitente.toLowerCase()) !== -1)
-          : /transferencia\s*qr|yape/i.test(subject);
+        // 1) Envelope primero (barato): filtra y deduplica sin bajar el cuerpo.
+        let env;
+        try { env = await client.fetchOne(uid, { envelope: true }, { uid: true }); }
+        catch (e) { console.error('pagos: envelope ' + uid + ':', e.message); continue; }
+        if (!env) continue;
+        const from = ((env.envelope && env.envelope.from && env.envelope.from[0] && env.envelope.from[0].address) || '').toLowerCase();
+        const subject = (env.envelope && env.envelope.subject) || '';
+        const msgId = (env.envelope && env.envelope.messageId) || ('uid-' + uid);
+        const esDelBanco =
+          (cfg.remitente && from.indexOf(cfg.remitente.toLowerCase()) !== -1) ||
+          (cfg.asunto && subject.toLowerCase().indexOf(cfg.asunto.toLowerCase()) !== -1) ||
+          /multiplica\s*extranet|transferencia\s*qr/i.test(subject);
         if (!esDelBanco) continue;
-        console.log('💳 correo del banco detectado: from=' + from + ' subj="' + subject + '"');
+        if (_vistosMem.has(msgId)) continue; // ya lo miramos en esta corrida
+        _vistosMem.add(msgId);
 
+        // 2) Bajamos el cuerpo y parseamos.
         let cuerpo = '';
         try {
-          const mail = await simpleParser(msg.source);
+          const full = await client.fetchOne(uid, { source: true }, { uid: true });
+          const mail = await simpleParser(full.source);
           cuerpo = (mail.text && mail.text.trim())
             ? mail.text
             : String(mail.html || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ');
-        } catch (e) { console.error('pagos: parse mail:', e.message); }
+        } catch (e) { console.error('pagos: fetch/parse ' + uid + ':', e.message); continue; }
+        console.log('💳 correo del banco: subj="' + subject + '"');
 
         const p = parsearPago(cuerpo);
         if (!p) { console.warn('pagos: correo del banco sin campos reconocibles (uid ' + uid + ')'); continue; }
-        console.log('💳 pago parseado: Tx=' + p.nTransaccion + ' monto=' + p.monto + ' titular="' + p.titular + '" beneficiario="' + p.beneficiario + '"');
+        console.log('💳 pago parseado: tipo=' + (p.tipo || '?') + ' op/tx=' + p.nTransaccion + ' monto=' + p.monto + ' titular="' + p.titular + '" beneficiario="' + p.beneficiario + '"');
 
         // Solo procesamos dinero que ENTRA a HARMONIE. Si el beneficiario es otro,
         // es un pago SALIENTE (Julio pagándole a un tercero) → se ignora.
         const benefEsperado = norm(deps.beneficiario || 'HARMONIE');
         if (p.beneficiario && norm(p.beneficiario).indexOf(benefEsperado) === -1) {
-          console.log('💳 Tx=' + p.nTransaccion + ' IGNORADO: beneficiario "' + p.beneficiario + '" no es ' + (deps.beneficiario || 'HARMONIE') + ' (pago saliente)');
-          try { await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true }); } catch (e) {}
+          console.log('💳 op/tx=' + p.nTransaccion + ' IGNORADO: beneficiario "' + p.beneficiario + '" no es ' + (deps.beneficiario || 'HARMONIE') + ' (pago saliente)');
           continue;
         }
         try { await procesarPago(deps, p); procesados++; }
         catch (e) { console.error('pagos: procesar:', e.message); }
-        // Marca leído SOLO el correo de pago ya procesado (no toca el correo personal).
-        try { await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true }); }
-        catch (e) { console.error('pagos: marcar leído:', e.message); }
       }
-      if (uids.length && !procesados) console.log('💳 (ningún correo sin leer era del banco ' + (cfg.remitente || '?') + ')');
+      if (uids.length && !procesados) console.log('💳 (nada nuevo del banco para procesar)');
     } finally { lock.release(); }
   } catch (e) {
     console.error('pagos IMAP:', e.message);

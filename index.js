@@ -1788,7 +1788,8 @@ app.listen(PORT, () => {
           port: parseInt(process.env.PAGOS_IMAP_PORT || '993', 10),
           user: process.env.PAGOS_IMAP_USER,
           pass: process.env.PAGOS_IMAP_PASS,
-          remitente: process.env.PAGOS_REMITENTE || ''
+          remitente: process.env.PAGOS_REMITENTE || '',
+          asunto: process.env.PAGOS_ASUNTO || ''
         }
       });
     } catch (e) { console.error('⚠️ no pude iniciar el watcher de pagos:', e.message); }
