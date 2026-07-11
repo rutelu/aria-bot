@@ -209,11 +209,17 @@ async function revisarBandeja(deps) {
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
     try {
+      // Filtramos EN EL SERVIDOR por remitente del banco + sin leer + últimos 2 días.
+      // (La bandeja personal puede tener miles de correos sin leer; sin este filtro
+      //  el lector se cuelga recorriéndolos todos.)
+      const desde = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+      const criteria = { seen: false, since: desde };
+      if (cfg.remitente) criteria.from = cfg.remitente;
       let uids = [];
-      try { uids = await client.search({ seen: false }, { uid: true }); }
+      try { uids = await client.search(criteria, { uid: true }); }
       catch (e) { console.error('pagos: search:', e.message); }
       uids = uids || [];
-      console.log('💳 poll: ' + uids.length + ' correo(s) sin leer en INBOX');
+      console.log('💳 poll: ' + uids.length + ' correo(s) del banco sin leer (últimos 2 días)');
       let procesados = 0;
       for (const uid of uids) {
         let msg;
