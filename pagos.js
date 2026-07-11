@@ -90,7 +90,8 @@ async function avisarJulio(deps, texto) {
   try { await deps.waSend(deps.ADMIN_WHATSAPP, texto); } catch (e) { console.error('pago aviso WA:', e.message); }
   try {
     const adm = await deps.getAdminTelegram();
-    if (adm) await deps.bot.sendMessage(adm, texto);
+    if (adm) { await deps.bot.sendMessage(adm, texto); console.log('💳 aviso enviado a Telegram admin ' + adm); }
+    else console.warn('💳 sin admin de Telegram registrado — no pude avisar por TG (usá /admin en el bot)');
   } catch (e) { console.error('pago aviso TG:', e.message); }
 }
 
@@ -126,8 +127,10 @@ async function procesarPago(deps, p) {
   candidatas.sort(function (a, b) { return tsMs(b.timestamp) - tsMs(a.timestamp); }); // más reciente primero
 
   // 3) Elige la reserva
+  console.log('💳 pago ' + id + ': ' + candidatas.length + ' reserva(s) pendiente(s) de pago');
   let elegida = null, motivo = '';
   if (candidatas.length === 0) {
+    console.log('💳 pago ' + id + ' sin reserva pendiente → aviso a Julio');
     await avisarJulio(deps, '⚠️ Llegó un PAGO pero NO hay ninguna reserva pendiente de pago.\n' + resumenPago(p) + '\nRevisá si corresponde a algo.');
     await guardar({ resultado: 'sin_reserva' });
     return;
@@ -137,6 +140,7 @@ async function procesarPago(deps, p) {
     const conNombre = candidatas.filter(function (c) { return coincideNombre(p.titular, c.nombre); });
     if (conNombre.length === 1) { elegida = conNombre[0]; motivo = 'por nombre'; }
     else {
+      console.log('💳 pago ' + id + ' ambiguo (' + candidatas.length + ' pendientes) → aviso a Julio');
       await avisarJulio(deps, '🤔 Llegó un pago pero hay ' + candidatas.length + ' reservas pendientes y no puedo decidir con certeza.\n' + resumenPago(p) + '\n👉 Confirmá vos a mano cuál corresponde.');
       await guardar({ resultado: 'ambiguo', pendientes: candidatas.length });
       return;
@@ -196,16 +200,22 @@ async function revisarBandeja(deps) {
   if (_revisando) return; // evita solapes si una pasada tarda
   _revisando = true;
   const cfg = deps.imap;
-  const client = new ImapFlow({
-    host: cfg.host, port: cfg.port || 993, secure: true,
-    auth: { user: cfg.user, pass: cfg.pass }, logger: false
-  });
+  let client = null;
   try {
+    client = new ImapFlow({
+      host: cfg.host, port: cfg.port || 993, secure: true,
+      auth: { user: cfg.user, pass: cfg.pass }, logger: false
+    });
     await client.connect();
     const lock = await client.getMailboxLock('INBOX');
     try {
-      const uids = await client.search({ seen: false }, { uid: true });
-      for (const uid of (uids || [])) {
+      let uids = [];
+      try { uids = await client.search({ seen: false }, { uid: true }); }
+      catch (e) { console.error('pagos: search:', e.message); }
+      uids = uids || [];
+      console.log('💳 poll: ' + uids.length + ' correo(s) sin leer en INBOX');
+      let procesados = 0;
+      for (const uid of uids) {
         let msg;
         try { msg = await client.fetchOne(uid, { source: true, envelope: true }, { uid: true }); }
         catch (e) { console.error('pagos: fetch ' + uid + ':', e.message); continue; }
@@ -217,6 +227,7 @@ async function revisarBandeja(deps) {
           ? (from.indexOf(cfg.remitente.toLowerCase()) !== -1)
           : /transferencia\s*qr|yape/i.test(subject);
         if (!esDelBanco) continue;
+        console.log('💳 correo del banco detectado: from=' + from + ' subj="' + subject + '"');
 
         let cuerpo = '';
         try {
@@ -228,17 +239,19 @@ async function revisarBandeja(deps) {
 
         const p = parsearPago(cuerpo);
         if (!p) { console.warn('pagos: correo del banco sin campos reconocibles (uid ' + uid + ')'); continue; }
-        try { await procesarPago(deps, p); }
+        console.log('💳 pago parseado: Tx=' + p.nTransaccion + ' monto=' + p.monto + ' titular="' + p.titular + '"');
+        try { await procesarPago(deps, p); procesados++; }
         catch (e) { console.error('pagos: procesar:', e.message); }
         // Marca leído SOLO el correo de pago ya procesado (no toca el correo personal).
         try { await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true }); }
         catch (e) { console.error('pagos: marcar leído:', e.message); }
       }
+      if (uids.length && !procesados) console.log('💳 (ningún correo sin leer era del banco ' + (cfg.remitente || '?') + ')');
     } finally { lock.release(); }
   } catch (e) {
     console.error('pagos IMAP:', e.message);
   } finally {
-    try { await client.logout(); } catch (_) {}
+    if (client) { try { await client.logout(); } catch (_) {} }
     _revisando = false;
   }
 }
