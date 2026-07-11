@@ -2,6 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
+// Módulo de confirmación automática de pagos (defensivo: si falta la lib, el bot igual arranca)
+let iniciarWatcherPagos = null;
+try { iniciarWatcherPagos = require('./pagos').iniciarWatcherPagos; }
+catch (e) { console.warn('⚠️ módulo pagos no disponible:', e.message); }
+
 const app = express();
 app.use(express.json());
 
@@ -1770,4 +1775,21 @@ function iniciarWatcherReservas() {
 app.listen(PORT, () => {
   console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`);
   iniciarWatcherReservas();
+  // Confirmación automática de pagos (BCP/Yape por correo → confirma reserva + notifica)
+  if (iniciarWatcherPagos) {
+    try {
+      iniciarWatcherPagos({
+        db: db, waSend: waSend, bot: bot, getAdminTelegram: getAdminTelegram, ADMIN_WHATSAPP: ADMIN_WHATSAPP,
+        MONTO_MIN: parseFloat(process.env.PAGOS_MONTO_MIN || '50'),
+        pollSeg: parseInt(process.env.PAGOS_POLL_SEG || '60', 10),
+        imap: {
+          host: process.env.PAGOS_IMAP_HOST,
+          port: parseInt(process.env.PAGOS_IMAP_PORT || '993', 10),
+          user: process.env.PAGOS_IMAP_USER,
+          pass: process.env.PAGOS_IMAP_PASS,
+          remitente: process.env.PAGOS_REMITENTE || ''
+        }
+      });
+    } catch (e) { console.error('⚠️ no pude iniciar el watcher de pagos:', e.message); }
+  }
 });
