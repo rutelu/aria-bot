@@ -245,7 +245,16 @@ async function revisarBandeja(deps) {
 
         const p = parsearPago(cuerpo);
         if (!p) { console.warn('pagos: correo del banco sin campos reconocibles (uid ' + uid + ')'); continue; }
-        console.log('💳 pago parseado: Tx=' + p.nTransaccion + ' monto=' + p.monto + ' titular="' + p.titular + '"');
+        console.log('💳 pago parseado: Tx=' + p.nTransaccion + ' monto=' + p.monto + ' titular="' + p.titular + '" beneficiario="' + p.beneficiario + '"');
+
+        // Solo procesamos dinero que ENTRA a HARMONIE. Si el beneficiario es otro,
+        // es un pago SALIENTE (Julio pagándole a un tercero) → se ignora.
+        const benefEsperado = norm(deps.beneficiario || 'HARMONIE');
+        if (p.beneficiario && norm(p.beneficiario).indexOf(benefEsperado) === -1) {
+          console.log('💳 Tx=' + p.nTransaccion + ' IGNORADO: beneficiario "' + p.beneficiario + '" no es ' + (deps.beneficiario || 'HARMONIE') + ' (pago saliente)');
+          try { await client.messageFlagsAdd(uid, ['\\Seen'], { uid: true }); } catch (e) {}
+          continue;
+        }
         try { await procesarPago(deps, p); procesados++; }
         catch (e) { console.error('pagos: procesar:', e.message); }
         // Marca leído SOLO el correo de pago ya procesado (no toca el correo personal).
