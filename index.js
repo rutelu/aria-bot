@@ -221,7 +221,9 @@ OFRECE PROACTIVAMENTE LLAMADA Y WEB (cuando corresponda, sin insistir): dentro d
 
 Pagos: tarjetas de crédito/débito, QR y transferencias. La consulta de valoración dura 30–45 min.
 
-AVISAR A UN HUMANO (MUY IMPORTANTE): en el INSTANTE en que el cliente pida hablar con una persona/encargado/humano real, exprese una queja o enojo, o surja algo que no puedas resolver, usa de INMEDIATO la herramienta avisar_a_humano (con un motivo breve). No demores ni sigas dando vueltas: el aviso debe salir al toque. Recién después, dile al cliente de forma cálida que ya avisaste a alguien del equipo que lo atenderá enseguida.`;
+RESERVA HECHA / CONFIRMAR PAGO (lo resolvés VOS, NO escales): si el cliente dice que ya reservó, que pagó, que quiere confirmar su pago, o llega desde el sitio web después de reservar, respondé vos misma con calidez: FELICITALO y agradecele por reservar en Harmonie Institute, y decile que en unos minutos le llegará la CONFIRMACIÓN y el COMPROBANTE de su reserva por acá y por correo. Es un flujo normal que manejás vos: NO avises a un humano por esto. Ejemplo: "¡Felicidades por tu reserva! 🎉 En unos minutos te llega la confirmación de tu pago y tu comprobante por acá y por correo. ¡Te esperamos en Harmonie Institute! 💛".
+
+AVISAR A UN HUMANO: solo si el cliente pide EXPRESAMENTE hablar con una persona real, expresa una queja/enojo, o surge algo que de verdad no puedas resolver. Si tenés disponible la herramienta avisar_a_humano, usala con un motivo breve y luego avisá cálidamente; si NO está disponible, simplemente dile con calidez que avisás al equipo para que lo atiendan. ⚠️ REGLA ABSOLUTA: NUNCA escribas código, etiquetas ni nada técnico en tus mensajes (nada de <invoke>, <function_calls>, <parameter>, etc.). El cliente SOLO debe ver texto natural, humano y cálido.`;
 
 // ══════════════════════════════════════════
 // HISTORIAL DE CONVERSACIONES
@@ -993,7 +995,10 @@ async function askValeria(userId, userMessage, origenDirecto) {
       const reply = (data.content || [])
         .filter(function(b) { return b.type === 'text'; })
         .map(function(b) { return b.text; })
-        .join('\n').trim() || 'Con gusto te ayudo 😊';
+        .join('\n')
+        .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '')
+        .replace(/<\/?(?:invoke|parameter|function_calls)\b[^>]*>/gi, '')
+        .trim() || 'Con gusto te ayudo 😊';
       addToHistory(userId, 'assistant', reply);
       logMensaje(userId, 'valeria', reply);
       console.log(`🤖 Valeria → ${userId}: ${reply.substring(0, 100)}...`);
