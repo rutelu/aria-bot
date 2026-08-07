@@ -2123,6 +2123,25 @@ app.get('/gcal/set', async (req, res) => {
   await db.collection('config').doc('gcal').set({ citasCalendarId: id }, { merge: true });
   res.json({ ok: true, citasCalendarId: id });
 });
+// Diagnóstico: crea un evento de prueba, lista los eventos del día y borra la prueba.
+app.get('/gcal/selftest', async (req, res) => {
+  const out = { pasos: [] };
+  try {
+    const calId = await getCitasCalendarId();
+    out.calId = calId;
+    if (!calId) { out.pasos.push('sin calendarId'); return res.json(out); }
+    // 1) crear
+    let evId = null;
+    try { evId = await gcalCrearEvento(calId, { nombre: 'SELFTEST', telefono: '0', sede: 'Videollamada', modalidad: 'virtual', servicio: 'diag', fecha: '2026-08-28', hora: '21:00', canal: 'diag' }); out.pasos.push('crear OK ' + evId); }
+    catch (e) { out.pasos.push('crear ERROR ' + e.message); }
+    // 2) listar
+    try { const l = await _gcal().events.list({ calendarId: calId, timeMin: '2026-08-28T00:00:00-04:00', timeMax: '2026-08-28T23:59:59-04:00', singleEvents: true }); out.eventos = (l.data.items || []).map(function (e) { return { summary: e.summary, start: e.start && (e.start.dateTime || e.start.date) }; }); }
+    catch (e) { out.pasos.push('listar ERROR ' + e.message); }
+    // 3) borrar la prueba
+    if (evId) { try { await gcalBorrarEvento(calId, evId); out.pasos.push('borrar OK'); } catch (e) { out.pasos.push('borrar ERROR ' + e.message); } }
+    res.json(out);
+  } catch (e) { res.status(200).json({ error: e.message, out: out }); }
+});
 // Prueba de lectura de un calendario (para confirmar que está compartido con la cuenta de servicio).
 app.get('/gcal/probe', async (req, res) => {
   const id = req.query.calendarId;
