@@ -816,10 +816,10 @@ async function toolReagendarReserva(args, cfg) {
 // horas ocupadas (Google Calendar para las sedes con calendarId + citas ya tomadas).
 // ══════════════════════════════════════════
 const SEDES_SEED = {
-  version: 'sedes-2026-08a',
+  version: 'sedes-2026-08b',
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00'],
   sedes: {
-    'La Paz':     { calendarId: 'c_6e4a7c796ff4cb0f2e498b240908341bfdcc72c6581c307c162d582d374eaec7@group.calendar.google.com', direccion: 'Av. Arce #2345, Zona Sur', dias: [] },
+    'La Paz':     { calendarId: 'c_6e4a7c796ff4cb0f2e498b240908341bfdcc72c6581c307c162d582d374eaec7@group.calendar.google.com', direccion: 'Av. Arce #2345, Zona Sur', dias: [ { fecha: '2026-08-12', label: 'Miércoles 12 de agosto' }, { fecha: '2026-08-13', label: 'Jueves 13 de agosto' } ] },
     'Oruro':      { calendarId: null, direccion: 'Calle Bolívar #456, Centro', dias: [] },
     'Cochabamba': { calendarId: null, direccion: 'Av. Pando #789, Recoleta', dias: [] },
     'Santa Cruz': { calendarId: null, direccion: 'Av. Monseñor Rivero #890', dias: [] },
