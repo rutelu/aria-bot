@@ -1689,6 +1689,9 @@ app.post('/vapi/tools', async (req, res) => {
       let result;
       if (name === 'consultar_disponibilidad_beni') result = await toolConsultarDisponibilidad(args, cfg);
       else if (name === 'crear_reserva_beni') result = await toolCrearReserva(args, cfg, 'voz');
+      else if (name === 'buscar_reserva_beni') result = await toolBuscarReserva(args);
+      else if (name === 'cancelar_reserva_beni') result = await toolCancelarReserva(args, cfg);
+      else if (name === 'reagendar_reserva_beni') result = await toolReagendarReserva(args, cfg);
       else result = { error: 'herramienta desconocida: ' + name };
       console.log('🛠️ [Vapi] ' + name + ' →', JSON.stringify(result).substring(0, 160));
       results.push({ toolCallId: id, result: JSON.stringify(result) });
