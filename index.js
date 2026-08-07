@@ -2110,6 +2110,13 @@ app.get('/gcal/busy', async (req, res) => {
     res.json({ date: date, calendarId: calendarId, busyHoras: await gcalBusyHoras(calendarId, date) });
   } catch (e) { res.status(200).json({ busyHoras: [] }); }
 });
+// Prueba de lectura de un calendario (para confirmar que está compartido con la cuenta de servicio).
+app.get('/gcal/probe', async (req, res) => {
+  const id = req.query.calendarId;
+  if (!id) return res.status(400).json({ error: 'falta calendarId' });
+  try { const h = await gcalBusyHoras(id, req.query.date || '2026-08-10'); res.json({ ok: true, calendarId: id, leyoOcupados: h }); }
+  catch (e) { res.status(200).json({ ok: false, error: e.message }); }
+});
 
 // ── NOTIFICACIÓN DE NUEVAS RESERVAS (web + Valeria) al equipo ──
 // reservas_beni la usan TANTO la web como Valeria (chat/voz), así que un solo watcher las capta todas.
