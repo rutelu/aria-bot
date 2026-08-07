@@ -2110,6 +2110,19 @@ app.get('/gcal/busy', async (req, res) => {
     res.json({ date: date, calendarId: calendarId, busyHoras: await gcalBusyHoras(calendarId, date) });
   } catch (e) { res.status(200).json({ busyHoras: [] }); }
 });
+// Setup (una vez): guarda el calendarId destino en config/gcal.
+// Candado: SOLO acepta un calendario que la cuenta de servicio ya pueda abrir (prueba de que fue compartido),
+// y no pisa un calendarId ya configurado (first-write-wins) para evitar desvíos.
+app.get('/gcal/set', async (req, res) => {
+  const id = req.query.calendarId;
+  if (!id || !db || !gcalAuth) return res.status(400).json({ error: 'falta calendarId, db o gcal' });
+  const actual = await getCitasCalendarId();
+  if (actual && actual !== id) return res.status(409).json({ error: 'ya hay un calendarId configurado', citasCalendarId: actual });
+  try { await _gcal().events.list({ calendarId: id, maxResults: 1 }); }
+  catch (e) { return res.status(403).json({ error: 'la cuenta de servicio no puede abrir ese calendario; compartilo primero', detalle: e.message }); }
+  await db.collection('config').doc('gcal').set({ citasCalendarId: id }, { merge: true });
+  res.json({ ok: true, citasCalendarId: id });
+});
 // Prueba de lectura de un calendario (para confirmar que está compartido con la cuenta de servicio).
 app.get('/gcal/probe', async (req, res) => {
   const id = req.query.calendarId;
