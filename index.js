@@ -2123,6 +2123,38 @@ app.get('/gcal/set', async (req, res) => {
   await db.collection('config').doc('gcal').set({ citasCalendarId: id }, { merge: true });
   res.json({ ok: true, citasCalendarId: id });
 });
+// Plan B: el robot crea un calendario PROPIO (puede escribir) y lo comparte con el equipo.
+// Idempotente: si el calendario actual ya es escribible, no crea otro.
+app.get('/gcal/setup-owned', async (req, res) => {
+  const out = { pasos: [] };
+  try {
+    if (!gcalAuth || !db) return res.status(400).json({ error: 'sin gcal o db' });
+    const share = req.query.share || 'admin@harmonieinstitute.com';
+    // 1) ¿el calendario actual ya es escribible? entonces no hago nada.
+    const actual = await getCitasCalendarId();
+    if (actual && !req.query.force) {
+      try {
+        const t = await gcalCrearEvento(actual, { nombre: '__probe__', fecha: '2026-08-28', hora: '23:00', sede: 'x', modalidad: 'virtual', canal: 'diag' });
+        await gcalBorrarEvento(actual, t);
+        out.pasos.push('el calendario actual ya es escribible: ' + actual);
+        return res.json({ ok: true, citasCalendarId: actual, out: out });
+      } catch (e) { out.pasos.push('el actual no es escribible (' + e.message + ') → creo uno propio'); }
+    }
+    // 2) crear calendario propiedad de la cuenta de servicio
+    const cal = await _gcal().calendars.insert({ requestBody: { summary: 'HARMONIE — Citas', timeZone: GCAL_TZ } });
+    const newId = cal.data.id;
+    out.pasos.push('calendario propio creado: ' + newId);
+    // 3) compartirlo con el equipo para que lo vea (writer si se puede, si no reader)
+    for (const role of ['writer', 'reader']) {
+      try { await _gcal().acl.insert({ calendarId: newId, requestBody: { role: role, scope: { type: 'user', value: share } } }); out.pasos.push('compartido con ' + share + ' (' + role + ')'); break; }
+      catch (e) { out.pasos.push('no pude compartir como ' + role + ': ' + e.message); }
+    }
+    // 4) guardar en config
+    await db.collection('config').doc('gcal').set({ citasCalendarId: newId }, { merge: true });
+    out.pasos.push('config/gcal.citasCalendarId = ' + newId);
+    res.json({ ok: true, citasCalendarId: newId, out: out });
+  } catch (e) { res.status(200).json({ error: e.message, out: out }); }
+});
 // Diagnóstico: crea un evento de prueba, lista los eventos del día y borra la prueba.
 app.get('/gcal/selftest', async (req, res) => {
   const out = { pasos: [] };
