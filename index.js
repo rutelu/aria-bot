@@ -810,6 +810,227 @@ async function toolReagendarReserva(args, cfg) {
   } catch (e) { console.error('reagendarReserva:', e.message); return { error: 'No pude reagendar la reserva ahora.' }; }
 }
 
+// ══════════════════════════════════════════
+// FASE 2 — CITAS GENERALES (con o sin campaña): config/sedes + colección 'citas'
+// (misma colección que la web). Disponibilidad = días publicados por sede −
+// horas ocupadas (Google Calendar para las sedes con calendarId + citas ya tomadas).
+// ══════════════════════════════════════════
+const SEDES_SEED = {
+  version: 'sedes-2026-08a',
+  horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00'],
+  sedes: {
+    'La Paz':     { calendarId: 'c_6e4a7c796ff4cb0f2e498b240908341bfdcc72c6581c307c162d582d374eaec7@group.calendar.google.com', direccion: 'Av. Arce #2345, Zona Sur', dias: [] },
+    'Oruro':      { calendarId: null, direccion: 'Calle Bolívar #456, Centro', dias: [] },
+    'Cochabamba': { calendarId: null, direccion: 'Av. Pando #789, Recoleta', dias: [] },
+    'Santa Cruz': { calendarId: null, direccion: 'Av. Monseñor Rivero #890', dias: [] },
+    'Sucre':      { calendarId: null, direccion: 'Plaza 25 de Mayo', dias: [] },
+    'Potosí':     { calendarId: null, direccion: 'Calle Hoyos #99', dias: [] },
+    'Tarija':     { calendarId: null, direccion: 'Av. Las Américas #678', dias: [] },
+    'Beni':       { calendarId: null, direccion: 'Rurrenabaque / San Borja', dias: [] }
+  }
+};
+let _sedesCache = null, _sedesCacheTs = 0;
+async function seedSedesConfig() {
+  if (!db) return;
+  try {
+    const ref = db.collection('config').doc('sedes');
+    const snap = await ref.get();
+    if (!snap.exists || snap.data().version !== SEDES_SEED.version) {
+      await ref.set(SEDES_SEED);
+      console.log('🌱 config/sedes actualizado a ' + SEDES_SEED.version);
+    } else {
+      console.log('ℹ️ config/sedes ya está en ' + SEDES_SEED.version);
+    }
+  } catch (e) { console.error('seedSedesConfig:', e.message); }
+}
+seedSedesConfig();
+async function getSedesConfig() {
+  const now = Date.now();
+  if (_sedesCache && (now - _sedesCacheTs) < 30000) return _sedesCache;
+  try {
+    const snap = await db.collection('config').doc('sedes').get();
+    _sedesCache = (snap.exists ? snap.data() : SEDES_SEED);
+  } catch (e) { _sedesCache = SEDES_SEED; }
+  _sedesCacheTs = now;
+  return _sedesCache;
+}
+function normSede(x) { return String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
+function resolverSedeGeneral(nombre, cfg) {
+  const n = normSede(nombre);
+  const keys = Object.keys((cfg && cfg.sedes) || {});
+  return keys.find(function(k) { return normSede(k) === n; }) || nombre;
+}
+function esModalidadVirtual(x) { return /virtual|videollamada|video\s*llamada|telemedicina|zoom|meet|whats/i.test(String(x || '')); }
+// Google Calendar (misma Cloud Function que la web) → horas ocupadas 'HH:MM'.
+async function gcalHorasOcupadas(calendarId, fecha) {
+  if (!calendarId) return [];
+  try {
+    const r = await fetch('https://us-central1-armonniza-prod.cloudfunctions.net/getCalendarAvailability?calendarId=' + encodeURIComponent(calendarId) + '&date=' + fecha);
+    const data = await r.json();
+    return (data.busySlots || []).map(function(s) { const d = new Date(s.start); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); });
+  } catch (e) { return []; }
+}
+// Horas ya reservadas en 'citas' (no canceladas) para sede+fecha.
+async function citasHorasOcupadas(sede, fecha) {
+  if (!db) return [];
+  try {
+    const snap = await db.collection('citas').where('sede', '==', sede).where('fecha', '==', fecha).get();
+    const out = [];
+    snap.forEach(function(d) { const c = d.data(); if ((c.estado || 'confirmada') !== 'cancelada' && c.hora) out.push(c.hora); });
+    return out;
+  } catch (e) { return []; }
+}
+async function _buscarCitaDoc(telefono, fecha, hora) {
+  const tel = String(telefono || '').replace(/\D/g, '').slice(-8);
+  const h = String(hora || '').trim();
+  const snap = await db.collection('citas').where('fecha', '==', String(fecha || '').trim()).get();
+  let found = null;
+  snap.forEach(function(doc) {
+    const c = doc.data();
+    if ((c.estado || 'confirmada') === 'cancelada') return;
+    const ct = String(c.telefono || '').replace(/\D/g, '').slice(-8);
+    if ((!tel || ct === tel) && (!h || c.hora === h)) found = { id: doc.id, data: c };
+  });
+  return found;
+}
+function notificarNuevaCita(c) {
+  if (!c) return;
+  const txt = '🗓️ NUEVA CITA — ' + (c.modalidad === 'virtual' ? 'Videollamada' : (c.sede || 'Presencial')) + '\n'
+    + '👤 ' + (c.nombre || '(sin nombre)') + '\n'
+    + '📞 ' + (c.telefono || '-') + '\n'
+    + '📅 ' + (c.fecha || '-') + ' · ' + (c.hora || '-') + '\n'
+    + (c.servicio ? ('💬 ' + c.servicio + '\n') : '')
+    + '🔗 Por: ' + (c.canal === 'voz' ? 'llamada de voz' : (c.canal || 'chat'));
+  try { waSend(ADMIN_WHATSAPP, txt).catch(function(){}); } catch (e) {}
+  try { getAdminTelegram().then(function(adm){ if (adm) bot.sendMessage(adm, txt).catch(function(){}); }).catch(function(){}); } catch (e) {}
+  console.log('🗓️ Notificada nueva cita: ' + (c.nombre || '?') + ' ' + (c.fecha || '') + ' ' + (c.hora || ''));
+}
+
+async function toolConsultarDisponibilidadSede(args) {
+  args = args || {};
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  const cfg = await getSedesConfig();
+  const hoy = fechaBoliviaISO();
+  if (esModalidadVirtual(args.modalidad) || esModalidadVirtual(args.sede)) {
+    return { modalidad: 'virtual', nota: 'La videollamada está disponible TODOS los días, de 09:00 a 21:00 (WhatsApp, Zoom o Google Meet). Pregunta qué día y hora prefiere y crea la cita con crear_cita.', horas_referencia: cfg.horas };
+  }
+  const sede = resolverSedeGeneral(args.sede, cfg);
+  const sc = cfg.sedes && cfg.sedes[sede];
+  if (!args.sede || !sc) return { error: 'Dime en qué sede: ' + Object.keys(cfg.sedes || {}).join(', ') + '. O si prefiere, la videollamada está disponible todos los días.' };
+  let dias = (sc.dias || []).filter(function(d) { return d.fecha >= hoy; });
+  if (args.fecha) dias = dias.filter(function(d) { return d.fecha === args.fecha; });
+  if (!dias.length) {
+    return { sede: sede, direccion: sc.direccion, disponibilidad: [], nota: 'Por ahora no hay fechas presenciales publicadas para ' + sede + '. Ofrece la videollamada (todos los días de 9 a 21) o toma sus datos para avisarle cuando se habiliten fechas.' };
+  }
+  const out = [];
+  for (const d of dias) {
+    const ocup = (await gcalHorasOcupadas(sc.calendarId, d.fecha)).concat(await citasHorasOcupadas(sede, d.fecha));
+    let libres = (cfg.horas || []).filter(function(h) { return ocup.indexOf(h) === -1; });
+    if (d.fecha === hoy) libres = libres.filter(function(h) { return h > horaBoliviaHHMM(); });
+    out.push({ fecha: d.fecha, label: d.label, horas_libres: libres });
+  }
+  return { sede: sede, direccion: sc.direccion, disponibilidad: out };
+}
+
+async function toolCrearCita(args, canal) {
+  args = args || {};
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  const cfg = await getSedesConfig();
+  const nombre = (args.nombre || '').trim(), telefono = (args.telefono || '').trim();
+  const fecha = (args.fecha || '').trim(), hora = normalizarHora(args.hora, cfg.horas);
+  if (!nombre || !telefono || !fecha || !hora) return { error: 'Necesito nombre completo, teléfono, fecha y hora.' };
+  if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM())) {
+    return { error: 'Ese horario ya pasó. Ofrece uno de hoy en adelante.' };
+  }
+  const virtual = esModalidadVirtual(args.modalidad) || esModalidadVirtual(args.sede) || esModalidadVirtual(args.plataforma);
+  let sede, modalidad;
+  if (virtual) {
+    modalidad = 'virtual';
+    sede = args.plataforma || (esModalidadVirtual(args.sede) ? args.sede : 'Videollamada');
+    if ((await citasHorasOcupadas(sede, fecha)).indexOf(hora) !== -1) return { error: 'Ese horario de videollamada ya está tomado. Ofrece otra hora.' };
+  } else {
+    modalidad = 'presencial';
+    sede = resolverSedeGeneral(args.sede, cfg);
+    const sc = cfg.sedes && cfg.sedes[sede];
+    if (!sc) return { error: 'No reconozco esa sede. Las sedes son: ' + Object.keys(cfg.sedes || {}).join(', ') + '.' };
+    const diaOk = (sc.dias || []).some(function(d) { return d.fecha === fecha && d.fecha >= fechaBoliviaISO(); });
+    if (!diaOk) return { error: 'Ese día no está disponible en ' + sede + '. Consulta con consultar_disponibilidad_sede y ofrece un día publicado.' };
+    const ocup = (await gcalHorasOcupadas(sc.calendarId, fecha)).concat(await citasHorasOcupadas(sede, fecha));
+    if (ocup.indexOf(hora) !== -1) return { error: 'Ese horario ya está ocupado. Ofrece otra hora libre.' };
+  }
+  const cita = {
+    nombre: nombre, telefono: telefono, email: args.email || '',
+    servicio: args.servicio || args.tratamiento || 'Consulta',
+    fecha: fecha, hora: hora, sede: sede, modalidad: modalidad,
+    estado: 'confirmada', canal: canal || 'voz',
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  };
+  const ref = await db.collection('citas').add(cita);
+  try { notificarNuevaCita({ id: ref.id, nombre: nombre, telefono: telefono, sede: sede, fecha: fecha, hora: hora, modalidad: modalidad, servicio: cita.servicio, canal: cita.canal }); } catch (e) {}
+  return { ok: true, id: ref.id, mensaje: 'Cita confirmada: ' + (modalidad === 'virtual' ? 'videollamada' : sede) + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
+}
+
+async function toolBuscarCita(args) {
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  const tel = String((args && args.telefono) || '').replace(/\D/g, '').slice(-8);
+  if (tel.length < 6) return { error: 'Necesito el teléfono del paciente para buscar su cita.' };
+  try {
+    const snap = await db.collection('citas').get();
+    const out = [];
+    snap.forEach(function(doc) {
+      const c = doc.data();
+      if ((c.estado || 'confirmada') === 'cancelada') return;
+      const ct = String(c.telefono || '').replace(/\D/g, '').slice(-8);
+      if (ct && ct === tel && c.fecha >= fechaBoliviaISO()) out.push({ sede: c.sede, fecha: c.fecha, hora: c.hora, modalidad: c.modalidad, nombre: c.nombre });
+    });
+    return { citas: out, nota: out.length ? '' : 'No encontré citas activas con ese teléfono.' };
+  } catch (e) { return { error: 'No pude buscar la cita ahora.' }; }
+}
+
+async function toolCancelarCita(args) {
+  args = args || {};
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  const cfg = await getSedesConfig();
+  const fecha = String(args.fecha || '').trim();
+  const hora = normalizarHora(args.hora, cfg.horas);
+  if (!fecha || !hora) return { error: 'Necesito la fecha y hora exactas de la cita a cancelar.' };
+  try {
+    const found = await _buscarCitaDoc(args.telefono, fecha, hora);
+    if (!found) return { error: 'No encontré una cita activa para ' + fecha + ' ' + hora + '. Verifica los datos con la persona.' };
+    await db.collection('citas').doc(found.id).set({ estado: 'cancelada', canceladaAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    return { ok: true, mensaje: 'Cita cancelada: ' + (found.data.sede || '') + ' ' + fecha + ' ' + hora + '. El horario quedó libre.' };
+  } catch (e) { return { error: 'No pude cancelar la cita ahora.' }; }
+}
+
+async function toolReagendarCita(args) {
+  args = args || {};
+  if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
+  const cfg = await getSedesConfig();
+  const fechaAct = String(args.fecha_actual || '').trim();
+  const horaAct = normalizarHora(args.hora_actual, cfg.horas);
+  const fechaNueva = String(args.fecha_nueva || '').trim();
+  const horaNueva = normalizarHora(args.hora_nueva, cfg.horas);
+  if (!fechaAct || !horaAct || !fechaNueva || !horaNueva) return { error: 'Necesito la fecha y hora ACTUALES y las NUEVAS.' };
+  try {
+    const found = await _buscarCitaDoc(args.telefono, fechaAct, horaAct);
+    if (!found) return { error: 'No encontré la cita actual (' + fechaAct + ' ' + horaAct + '). Verifica con la persona.' };
+    const c = found.data;
+    if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM())) return { error: 'El nuevo horario ya pasó. Ofrece uno de hoy en adelante.' };
+    const sede = args.sede_nueva ? resolverSedeGeneral(args.sede_nueva, cfg) : c.sede;
+    if ((c.modalidad || 'presencial') !== 'virtual') {
+      const sc = cfg.sedes && cfg.sedes[sede];
+      if (sc) {
+        const diaOk = (sc.dias || []).some(function(d) { return d.fecha === fechaNueva; });
+        if (!diaOk) return { error: 'El nuevo día no está disponible en ' + sede + '. Ofrece un día publicado.' };
+        const ocup = (await gcalHorasOcupadas(sc.calendarId, fechaNueva)).concat(await citasHorasOcupadas(sede, fechaNueva));
+        if (ocup.indexOf(horaNueva) !== -1) return { error: 'El nuevo horario ya está ocupado. Ofrece otro libre.' };
+      }
+    }
+    await db.collection('citas').doc(found.id).set({ fecha: fechaNueva, hora: horaNueva, sede: sede, estado: 'confirmada', reagendadaAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    return { ok: true, mensaje: 'Cita reagendada a ' + (c.modalidad === 'virtual' ? 'videollamada' : sede) + ' ' + fechaNueva + ' ' + horaNueva + ' (antes ' + fechaAct + ' ' + horaAct + ').' };
+  } catch (e) { return { error: 'No pude reagendar la cita ahora.' }; }
+}
+
 // ── AVISO A HUMANO (handoff proactivo): Telegram + WhatsApp ──
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '59178922666';
 const ADMIN_PIN = process.env.ADMIN_PIN || 'armonniza591';
@@ -1687,6 +1908,11 @@ app.post('/vapi/tools', async (req, res) => {
       else if (name === 'buscar_reserva_beni') result = await toolBuscarReserva(args);
       else if (name === 'cancelar_reserva_beni') result = await toolCancelarReserva(args, cfg);
       else if (name === 'reagendar_reserva_beni') result = await toolReagendarReserva(args, cfg);
+      else if (name === 'consultar_disponibilidad_sede') result = await toolConsultarDisponibilidadSede(args);
+      else if (name === 'crear_cita') result = await toolCrearCita(args, 'voz');
+      else if (name === 'buscar_cita') result = await toolBuscarCita(args);
+      else if (name === 'cancelar_cita') result = await toolCancelarCita(args);
+      else if (name === 'reagendar_cita') result = await toolReagendarCita(args);
       else result = { error: 'herramienta desconocida: ' + name };
       console.log('🛠️ [Vapi] ' + name + ' →', JSON.stringify(result).substring(0, 160));
       results.push({ toolCallId: id, result: JSON.stringify(result) });
@@ -1741,6 +1967,32 @@ app.post('/beni/reagendar', async (req, res) => {
     console.log('📞 [Vapi reagendar] resp:', JSON.stringify(r).substring(0, 200));
     res.json(r);
   } catch (e) { console.error('/beni/reagendar:', e.message); res.status(200).json({ error: 'No pude reagendar la reserva ahora.' }); }
+});
+
+// ── CITAS GENERALES (Fase 2) — endpoints REST para Vapi (tipo "Solicitud de API") ──
+app.post('/cita/disponibilidad', async (req, res) => {
+  console.log('📞 [Vapi cita/disponibilidad] body:', JSON.stringify(req.body || {}));
+  try { const r = await toolConsultarDisponibilidadSede(req.body || {}); console.log('📞 resp:', JSON.stringify(r).substring(0,200)); res.json(r); }
+  catch (e) { console.error('/cita/disponibilidad:', e.message); res.status(200).json({ error: 'No pude consultar la agenda ahora.' }); }
+});
+app.post('/cita/crear', async (req, res) => {
+  console.log('📞 [Vapi cita/crear] body:', JSON.stringify(req.body || {}));
+  try { const r = await toolCrearCita(req.body || {}, 'voz'); console.log('📞 resp:', JSON.stringify(r).substring(0,200)); res.json(r); }
+  catch (e) { console.error('/cita/crear:', e.message); res.status(200).json({ error: 'No pude crear la cita ahora.' }); }
+});
+app.post('/cita/buscar', async (req, res) => {
+  try { res.json(await toolBuscarCita(req.body || {})); }
+  catch (e) { console.error('/cita/buscar:', e.message); res.status(200).json({ error: 'No pude buscar la cita ahora.' }); }
+});
+app.post('/cita/cancelar', async (req, res) => {
+  console.log('📞 [Vapi cita/cancelar] body:', JSON.stringify(req.body || {}));
+  try { res.json(await toolCancelarCita(req.body || {})); }
+  catch (e) { console.error('/cita/cancelar:', e.message); res.status(200).json({ error: 'No pude cancelar la cita ahora.' }); }
+});
+app.post('/cita/reagendar', async (req, res) => {
+  console.log('📞 [Vapi cita/reagendar] body:', JSON.stringify(req.body || {}));
+  try { res.json(await toolReagendarCita(req.body || {})); }
+  catch (e) { console.error('/cita/reagendar:', e.message); res.status(200).json({ error: 'No pude reagendar la cita ahora.' }); }
 });
 
 // ── NOTIFICACIÓN DE NUEVAS RESERVAS (web + Valeria) al equipo ──
