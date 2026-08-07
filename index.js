@@ -2100,8 +2100,8 @@ app.post('/cita/reagendar', async (req, res) => {
 });
 
 // ── Google Calendar: estado (email para compartir el calendario) + disponibilidad ──
-app.get('/gcal/status', (req, res) => {
-  res.json({ ok: !!gcalAuth, compartirCalendarioCon: gcalEmail || '(sin cuenta de servicio)' });
+app.get('/gcal/status', async (req, res) => {
+  res.json({ ok: !!gcalAuth, compartirCalendarioCon: gcalEmail || '(sin cuenta de servicio)', citasCalendarId: await getCitasCalendarId() });
 });
 app.get('/gcal/busy', async (req, res) => {
   try {
