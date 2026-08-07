@@ -44,25 +44,20 @@ try {
 // Se crea SOLO si no existe, para no pisar ediciones hechas desde la consola.
 const BENI_SEED = {
   id: 'beni',
-  titulo: 'Jornada Oruro y Sucre',
+  titulo: 'Jornada Oruro',
   especialista: 'Equipo Harmonie',
   especialidad: 'Especialista en Medicina Estética',
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'oruro-sucre-2026-06c',
+  campaignVersion: 'oruro-2026-08a',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
-  promo: 'El 40% de descuento es SOLO para quien TRAE a un recomendado que se atienda: tú traes a un invitado que se atiende y TÚ ganas 40% en tu tratamiento. El invitado NO gana 40% por venir; él gana su propio 40% solo si a su vez trae a otro recomendado que se atienda (así en cadena, cada quien por su invitado). Aplica a cualquier tratamiento. NUNCA es "los dos ganan por venir juntos".',
+  promo: 'Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   subsedes: [
-    { id: 'Oruro', nombre: 'Oruro', direccion: 'Clínica Santiago, c. Rodríguez entre Brasil y Teferina', telefonos: ['+591 76951552'] },
-    { id: 'Sucre', nombre: 'Sucre', direccion: 'Centro de Salud Victoria, c. Urriolagoitia Nº 601', telefonos: ['+591 76951552'] }
+    { id: 'Oruro', nombre: 'Oruro', direccion: 'Clínica Santiago, c. Rodríguez entre Brasil y Teferina', telefonos: ['+591 76951552'] }
   ],
   dias: [
-    { fecha: '2026-06-27', label: 'Sábado 27 de junio', subsede: 'Oruro' },
-    { fecha: '2026-06-28', label: 'Domingo 28 de junio', subsede: 'Oruro' },
-    { fecha: '2026-06-29', label: 'Lunes 29 de junio', subsede: 'Sucre' },
-    { fecha: '2026-06-30', label: 'Martes 30 de junio', subsede: 'Sucre' },
-    { fecha: '2026-07-01', label: 'Miércoles 1 de julio', subsede: 'Sucre' },
-    { fecha: '2026-07-02', label: 'Jueves 2 de julio', subsede: 'Sucre' }
+    { fecha: '2026-08-10', label: 'Lunes 10 de agosto', subsede: 'Oruro' },
+    { fecha: '2026-08-11', label: 'Martes 11 de agosto', subsede: 'Oruro' }
   ],
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
 };
