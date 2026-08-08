@@ -822,6 +822,10 @@ async function toolCrearReserva(args, cfg, canal) {
     const cupo = await db.collection('cupos_ocupados').doc(slotId).get();
     if (cupo.exists) return { error: 'Ese horario ya está ocupado. Ofrece otro horario libre del mismo día u otro día.' };
   } catch (e) { console.error('cupo check:', e.message); }
+  // Cruce por ESPECIALISTA: si el especialista de la campaña ya tiene una cita (virtual/presencial) que se solapa, no permitir.
+  if (await especialistaOcupado(cfg.especialidadId, fecha, hora, 60)) {
+    return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otro horario libre.' };
+  }
 
   const sub = (cfg.subsedes || []).find(function(s) { return s.id === subsede; }) || {};
   const lugar = sub.direccion ? (subsede + ' — ' + sub.direccion) : subsede;
@@ -1054,6 +1058,15 @@ async function reservasBeniOcupEsp(especialidadId, fecha) {
     return out;
   } catch (e) { return []; }
 }
+function _minHHMM(hhmm) { var p = String(hhmm || '0:0').split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
+// ¿El especialista de esa especialidad ya está ocupado en [hora, hora+durMin)? Cruza citas (presencial+virtual) + campaña.
+async function especialistaOcupado(especialidadId, fecha, hora, durMin) {
+  if (!especialidadId || !db) return false;
+  const intervals = (await citasOcupEsp(especialidadId, fecha)).concat(await reservasBeniOcupEsp(especialidadId, fecha));
+  const s = _minHHMM(_hora24(hora)), e = s + (durMin || 60);
+  for (var k = 0; k < intervals.length; k++) { var i = _minHHMM(intervals[k].i), j = i + (intervals[k].m || 60); if (s < j && i < e) return true; }
+  return false;
+}
 async function _buscarCitaDoc(telefono, fecha, hora) {
   const tel = String(telefono || '').replace(/\D/g, '').slice(-8);
   const h = String(hora || '').trim();
@@ -1134,6 +1147,10 @@ async function toolCrearCita(args, canal) {
   }
   const servicio = args.servicio || args.tratamiento || 'Consulta';
   const espId = _espKeyFromText(args.especialidad || servicio);
+  // Cruce por ESPECIALISTA (presencial+virtual+campaña) con solapamiento: no doble-agendar al mismo especialista.
+  if (await especialistaOcupado(espId, fecha, hora, virtual ? 15 : 60)) {
+    return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otra hora libre.' };
+  }
   const cita = {
     nombre: nombre, telefono: telefono, email: args.email || '',
     servicio: servicio,
