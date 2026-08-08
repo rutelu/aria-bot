@@ -1016,6 +1016,15 @@ async function reservasBeniHorasEsp(especialidadId, fecha) {
     return out;
   } catch (e) { return []; }
 }
+// Deriva la especialidad (med/fisio/cir/cos) de un texto de tratamiento/servicio. Por defecto med.
+function _espKeyFromText(s) {
+  s = String(s || '').toLowerCase();
+  if (/cirug|plasti|quirurg|rinoplast|liposu|lipoescul|mamoplast|blefaro|abdominoplast|senos|nariz|oper/.test(s)) return 'cir';
+  if (/fisio|corporal|modelad|celuli|drenaj|medidas|grasa localiz|tonific|varic|piernas/.test(s)) return 'fisio';
+  if (/cosm|limpiez|peeling|microderm|acn|mancha|hidrataci|rutina.*piel|facial b/.test(s)) return 'cos';
+  if (/medic|botox|toxina|rellen|hialur|rinomodel|bioestim|hilos|mesoterap|skinboost|arruga|labios|ojera/.test(s)) return 'med';
+  return 'med';
+}
 // ── Ocupación como INTERVALOS {i:'HH:MM', m:minutos} — presencial 60 min, virtual 15 min ──
 function _durCita(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 15 : 60; }
 async function citasOcupEsp(especialidadId, fecha) {
@@ -1123,9 +1132,12 @@ async function toolCrearCita(args, canal) {
     const ocup = (await gcalHorasOcupadas(sc.calendarId, fecha)).concat(await citasHorasOcupadas(sede, fecha));
     if (ocup.indexOf(hora) !== -1) return { error: 'Ese horario ya está ocupado. Ofrece otra hora libre.' };
   }
+  const servicio = args.servicio || args.tratamiento || 'Consulta';
+  const espId = _espKeyFromText(args.especialidad || servicio);
   const cita = {
     nombre: nombre, telefono: telefono, email: args.email || '',
-    servicio: args.servicio || args.tratamiento || 'Consulta',
+    servicio: servicio,
+    especialidadId: espId, especialidadNombre: (_ESPS[espId] || ''),
     fecha: fecha, hora: hora, sede: sede, modalidad: modalidad,
     estado: 'confirmada', canal: canal || 'voz',
     timestamp: admin.firestore.FieldValue.serverTimestamp()
