@@ -165,9 +165,10 @@ const BENI_SEED = {
   titulo: 'Jornada Oruro',
   especialista: 'Equipo Harmonie',
   especialidad: 'Especialista en Medicina Estética',
+  especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'oruro-2026-08a',
+  campaignVersion: 'oruro-2026-08b',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   subsedes: [
@@ -832,6 +833,7 @@ async function toolCrearReserva(args, cfg, canal) {
     jornadaId: 'beni', fecha: fecha, hora: hora,
     lugar: lugar, subsede: subsede,
     especialista: cfg.especialista || 'Equipo Harmonie', especialidad: cfg.especialidad || '',
+    especialidadId: cfg.especialidadId || '',
     nombre: nombre, telefono: telefono, email: '', notas: args.tratamiento || '',
     estado: 'confirmada', canal: canal || 'chat',
     createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -994,10 +996,21 @@ async function citasHorasOcupadas(sede, fecha) {
   } catch (e) { return []; }
 }
 // Horas ocupadas de una ESPECIALIDAD (= su especialista responsable) cruzando TODA sede y modalidad.
-async function citasHorasOcupadasEsp(especialidad, fecha) {
+// Campo canónico del id: 'especialidadId' (med/fisio/cir/cosm).
+async function citasHorasOcupadasEsp(especialidadId, fecha) {
   if (!db) return [];
   try {
-    const snap = await db.collection('citas').where('especialidad', '==', especialidad).where('fecha', '==', fecha).get();
+    const snap = await db.collection('citas').where('especialidadId', '==', especialidadId).where('fecha', '==', fecha).get();
+    const out = [];
+    snap.forEach(function(d) { const c = d.data(); if ((c.estado || 'confirmada') !== 'cancelada' && c.hora) out.push(c.hora); });
+    return out;
+  } catch (e) { return []; }
+}
+// Horas ocupadas de una especialidad en las reservas de CAMPAÑA (reservas_beni).
+async function reservasBeniHorasEsp(especialidadId, fecha) {
+  if (!db) return [];
+  try {
+    const snap = await db.collection('reservas_beni').where('especialidadId', '==', especialidadId).where('fecha', '==', fecha).get();
     const out = [];
     snap.forEach(function(d) { const c = d.data(); if ((c.estado || 'confirmada') !== 'cancelada' && c.hora) out.push(c.hora); });
     return out;
@@ -1717,6 +1730,40 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// ── CLASIFICADOR DE TRATAMIENTO → ESPECIALIDAD (para la Agenda Virtual del sitio) ──
+// Recibe el texto libre del paciente y devuelve med/fisio/cir/cosm. Si es vago o "no sé" → med.
+const _ESPS = {
+  med: 'Medicina Estética', fisio: 'Fisio-Estética', cir: 'Cirugías Estéticas', cosm: 'Cosmetología Avanzada'
+};
+app.options('/clasificar-tratamiento', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.post('/clasificar-tratamiento', async (req, res) => {
+  _setChatCors(req, res);
+  const texto = String((req.body && req.body.texto) || '').trim().slice(0, 500);
+  if (!texto || /^\s*(no\s*s[eé]|no\s*lo\s*s[eé]|ninguno|nada|no)\s*$/i.test(texto)) {
+    return res.json({ especialidad: 'med', nombre: _ESPS.med, motivo: 'default' });
+  }
+  try {
+    const KEY = process.env.ANTHROPIC_API_KEY;
+    if (!KEY) return res.json({ especialidad: 'med', nombre: _ESPS.med, motivo: 'sin-ia' });
+    const sys = 'Sos un clasificador de una clínica médico-estética. Clasificá la consulta del paciente en EXACTAMENTE una de estas 4 especialidades y respondé SOLO con el código (una palabra), sin nada más:\n'
+      + 'med = Medicina Estética (botox, toxina botulínica, rellenos, ácido hialurónico, rinomodelación, bioestimuladores, hilos tensores, mesoterapia, skinbooster, arrugas, labios, ojeras, armonización facial).\n'
+      + 'fisio = Fisio-Estética (celulitis, reducción de medidas, drenaje linfático, tonificación muscular, grasa localizada, moldeo corporal, post-operatorio, várices, piernas cansadas).\n'
+      + 'cir = Cirugías Estéticas (rinoplastia, lipoescultura, aumento o levantamiento de senos, blefaroplastia, abdominoplastia, liposucción, cualquier cirugía con quirófano).\n'
+      + 'cosm = Cosmetología Avanzada (limpieza facial profunda, peeling, microdermoabrasión, manchas, acné, hidratación, radiofrecuencia facial, rutina de cuidado de piel).\n'
+      + 'Si no está claro, es ambiguo o es una consulta general, respondé: med.\n'
+      + 'Respondé ÚNICAMENTE con una de estas palabras: med, fisio, cir, cosm.';
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 8, system: sys, messages: [{ role: 'user', content: texto }] })
+    });
+    const data = await r.json();
+    let out = String(data.content && data.content[0] && data.content[0].text || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (!_ESPS[out]) out = 'med';
+    res.json({ especialidad: out, nombre: _ESPS[out], motivo: 'ia' });
+  } catch (e) { res.status(200).json({ especialidad: 'med', nombre: _ESPS.med, motivo: 'error' }); }
+});
+
 // Verificación de conexión a Firebase (sin secretos)
 app.get('/firebase-status', (req, res) => {
   res.json({ connected: !!db, varPresent: fbVarPresent, varLen: fbVarLen, error: fbInitError });
@@ -2139,8 +2186,10 @@ app.get('/disponibilidad', async (req, res) => {
     const sede = String(req.query.sede || '').trim();
     const fecha = String(req.query.fecha || '').trim();
     if (!fecha || (!especialidad && !sede)) return res.status(400).json({ error: 'especialidad (o sede) + fecha requeridos' });
-    // Por especialidad = cruza presencial+virtual del especialista responsable; si no, cae a por-sede.
-    const raw = especialidad ? await citasHorasOcupadasEsp(especialidad, fecha) : await citasHorasOcupadas(sede, fecha);
+    // Por especialidad = cruza citas (presencial+virtual) + reservas de campaña del especialista; si no, cae a por-sede.
+    const raw = especialidad
+      ? (await citasHorasOcupadasEsp(especialidad, fecha)).concat(await reservasBeniHorasEsp(especialidad, fecha))
+      : await citasHorasOcupadas(sede, fecha);
     const ocupadas = raw
       .map(function (h) { return _hora24(h); })
       .filter(function (h, i, a) { return h && a.indexOf(h) === i; });
