@@ -1733,7 +1733,7 @@ app.post('/chat', async (req, res) => {
 // ── CLASIFICADOR DE TRATAMIENTO → ESPECIALIDAD (para la Agenda Virtual del sitio) ──
 // Recibe el texto libre del paciente y devuelve med/fisio/cir/cosm. Si es vago o "no sé" → med.
 const _ESPS = {
-  med: 'Medicina Estética', fisio: 'Fisio-Estética', cir: 'Cirugías Estéticas', cosm: 'Cosmetología Avanzada'
+  med: 'Medicina Estética', fisio: 'Fisio-Estética', cir: 'Cirugías Estéticas', cos: 'Cosmetología'
 };
 app.options('/clasificar-tratamiento', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
 app.post('/clasificar-tratamiento', async (req, res) => {
@@ -1749,9 +1749,9 @@ app.post('/clasificar-tratamiento', async (req, res) => {
       + 'med = Medicina Estética (botox, toxina botulínica, rellenos, ácido hialurónico, rinomodelación, bioestimuladores, hilos tensores, mesoterapia, skinbooster, arrugas, labios, ojeras, armonización facial).\n'
       + 'fisio = Fisio-Estética (celulitis, reducción de medidas, drenaje linfático, tonificación muscular, grasa localizada, moldeo corporal, post-operatorio, várices, piernas cansadas).\n'
       + 'cir = Cirugías Estéticas (rinoplastia, lipoescultura, aumento o levantamiento de senos, blefaroplastia, abdominoplastia, liposucción, cualquier cirugía con quirófano).\n'
-      + 'cosm = Cosmetología Avanzada (limpieza facial profunda, peeling, microdermoabrasión, manchas, acné, hidratación, radiofrecuencia facial, rutina de cuidado de piel).\n'
+      + 'cos = Cosmetología (limpieza facial profunda, peeling, microdermoabrasión, manchas, acné, hidratación, radiofrecuencia facial, rutina de cuidado de piel).\n'
       + 'Si no está claro, es ambiguo o es una consulta general, respondé: med.\n'
-      + 'Respondé ÚNICAMENTE con una de estas palabras: med, fisio, cir, cosm.';
+      + 'Respondé ÚNICAMENTE con una de estas palabras: med, fisio, cir, cos.';
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': KEY, 'anthropic-version': '2023-06-01' },
