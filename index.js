@@ -1134,7 +1134,6 @@ async function toolCrearCita(args, canal) {
   if (virtual) {
     modalidad = 'virtual';
     sede = args.plataforma || (esModalidadVirtual(args.sede) ? args.sede : 'Videollamada');
-    if ((await citasHorasOcupadas(sede, fecha)).indexOf(hora) !== -1) return { error: 'Ese horario de videollamada ya está tomado. Ofrece otra hora.' };
   } else {
     modalidad = 'presencial';
     sede = resolverSedeGeneral(args.sede, cfg);
@@ -1142,9 +1141,9 @@ async function toolCrearCita(args, canal) {
     if (!sc) return { error: 'No reconozco esa sede. Las sedes son: ' + Object.keys(cfg.sedes || {}).join(', ') + '.' };
     const diaOk = (sc.dias || []).some(function(d) { return d.fecha === fecha && d.fecha >= fechaBoliviaISO(); });
     if (!diaOk) return { error: 'Ese día no está disponible en ' + sede + '. Consulta con consultar_disponibilidad_sede y ofrece un día publicado.' };
-    const ocup = (await gcalHorasOcupadas(sc.calendarId, fecha)).concat(await citasHorasOcupadas(sede, fecha));
-    if (ocup.indexOf(hora) !== -1) return { error: 'Ese horario ya está ocupado. Ofrece otra hora libre.' };
   }
+  // La disponibilidad se decide por ESPECIALISTA (abajo, con especialistaOcupado), no por plataforma/sede:
+  // así dos especialistas distintos pueden atender a la misma hora, pero el mismo no se dobla.
   const servicio = args.servicio || args.tratamiento || 'Consulta';
   const espId = _espKeyFromText(args.especialidad || servicio);
   // Cruce por ESPECIALISTA (presencial+virtual+campaña) con solapamiento: no doble-agendar al mismo especialista.
