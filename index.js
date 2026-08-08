@@ -2110,6 +2110,16 @@ app.get('/gcal/busy', async (req, res) => {
     res.json({ date: date, calendarId: calendarId, busyHoras: await gcalBusyHoras(calendarId, date) });
   } catch (e) { res.status(200).json({ busyHoras: [] }); }
 });
+// Diagnóstico temporal: últimas citas guardadas (para ver si el sitio está escribiendo).
+app.get('/debug/citas', async (req, res) => {
+  if (!db) return res.status(400).json({ error: 'sin db' });
+  try {
+    const snap = await db.collection('citas').orderBy('timestamp', 'desc').limit(12).get();
+    const out = [];
+    snap.forEach(function (d) { const c = d.data(); out.push({ id: d.id, nombre: c.nombre, fecha: c.fecha, hora: c.hora, sede: c.sede, modalidad: c.modalidad, estado: c.estado, gcalEventId: c.gcalEventId || null, canal: c.canal || null }); });
+    res.json({ total: out.length, citas: out });
+  } catch (e) { res.status(200).json({ error: e.message }); }
+});
 // Renombra el calendario propio del robot (para distinguirlo del que se creó a mano).
 app.get('/gcal/rename', async (req, res) => {
   try {
