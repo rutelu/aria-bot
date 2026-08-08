@@ -1016,6 +1016,35 @@ async function reservasBeniHorasEsp(especialidadId, fecha) {
     return out;
   } catch (e) { return []; }
 }
+// ── Ocupación como INTERVALOS {i:'HH:MM', m:minutos} — presencial 60 min, virtual 15 min ──
+function _durCita(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 15 : 60; }
+async function citasOcupEsp(especialidadId, fecha) {
+  if (!db) return [];
+  try {
+    const snap = await db.collection('citas').where('especialidadId', '==', especialidadId).where('fecha', '==', fecha).get();
+    const out = [];
+    snap.forEach(function(d) { const c = d.data(); if ((c.estado || 'confirmada') !== 'cancelada' && c.hora) out.push({ i: _hora24(c.hora), m: _durCita(c) }); });
+    return out;
+  } catch (e) { return []; }
+}
+async function citasOcupSede(sede, fecha) {
+  if (!db) return [];
+  try {
+    const snap = await db.collection('citas').where('sede', '==', sede).where('fecha', '==', fecha).get();
+    const out = [];
+    snap.forEach(function(d) { const c = d.data(); if ((c.estado || 'confirmada') !== 'cancelada' && c.hora) out.push({ i: _hora24(c.hora), m: _durCita(c) }); });
+    return out;
+  } catch (e) { return []; }
+}
+async function reservasBeniOcupEsp(especialidadId, fecha) {
+  if (!db) return [];
+  try {
+    const snap = await db.collection('reservas_beni').where('especialidadId', '==', especialidadId).where('fecha', '==', fecha).get();
+    const out = [];
+    snap.forEach(function(d) { const c = d.data(); if ((c.estado || 'confirmada') !== 'cancelada' && c.hora) out.push({ i: _hora24(c.hora), m: 60 }); });
+    return out;
+  } catch (e) { return []; }
+}
 async function _buscarCitaDoc(telefono, fecha, hora) {
   const tel = String(telefono || '').replace(/\D/g, '').slice(-8);
   const h = String(hora || '').trim();
@@ -2186,14 +2215,13 @@ app.get('/disponibilidad', async (req, res) => {
     const sede = String(req.query.sede || '').trim();
     const fecha = String(req.query.fecha || '').trim();
     if (!fecha || (!especialidad && !sede)) return res.status(400).json({ error: 'especialidad (o sede) + fecha requeridos' });
-    // Por especialidad = cruza citas (presencial+virtual) + reservas de campaña del especialista; si no, cae a por-sede.
-    const raw = especialidad
-      ? (await citasHorasOcupadasEsp(especialidad, fecha)).concat(await reservasBeniHorasEsp(especialidad, fecha))
-      : await citasHorasOcupadas(sede, fecha);
-    const ocupadas = raw
-      .map(function (h) { return _hora24(h); })
-      .filter(function (h, i, a) { return h && a.indexOf(h) === i; });
-    res.json({ especialidad: especialidad || null, sede: sede || null, fecha: fecha, ocupadas: ocupadas });
+    // Intervalos ocupados {i:'HH:MM', m:min}. Por especialidad cruza citas (presencial+virtual) + campaña; si no, por-sede.
+    const ocupados = especialidad
+      ? (await citasOcupEsp(especialidad, fecha)).concat(await reservasBeniOcupEsp(especialidad, fecha))
+      : await citasOcupSede(sede, fecha);
+    // Compat: lista de horas de inicio (por si algún cliente viejo la usa).
+    const ocupadas = ocupados.map(function (o) { return o.i; }).filter(function (h, i, a) { return h && a.indexOf(h) === i; });
+    res.json({ especialidad: especialidad || null, sede: sede || null, fecha: fecha, ocupados: ocupados, ocupadas: ocupadas });
   } catch (e) { res.status(200).json({ ocupadas: [] }); }
 });
 // Diagnóstico temporal: últimas citas guardadas (para ver si el sitio está escribiendo).
