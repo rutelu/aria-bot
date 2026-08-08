@@ -77,7 +77,14 @@ async function gcalBusyHoras(calendarId, fecha) {
 // Normaliza cualquier hora ("09:00 AM", "9", "20:00") a "HH:MM" 24h para el evento.
 function _hora24(hora) { const h = normalizarHora(hora); return /^\d{2}:\d{2}$/.test(h) ? h : '09:00'; }
 function _evStart(fecha, hora) { return fecha + 'T' + _hora24(hora) + ':00'; }
-function _evEnd(fecha, hora) { const p = _hora24(hora).split(':'); return fecha + 'T' + ('0' + (parseInt(p[0], 10) + 1)).slice(-2) + ':' + (p[1] || '00') + ':00'; }
+// Fin del evento = inicio + duración (min). Virtual = 15 min, presencial = 60 min.
+function _evEnd(fecha, hora, minutos) {
+  const p = _hora24(hora).split(':');
+  const total = parseInt(p[0], 10) * 60 + parseInt(p[1] || '0', 10) + (minutos || 60);
+  const hh = Math.floor(total / 60) % 24, mm = total % 60;
+  return fecha + 'T' + ('0' + hh).slice(-2) + ':' + ('0' + mm).slice(-2) + ':00';
+}
+function _durMin(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 15 : 60; }
 async function gcalCrearEvento(calendarId, c) {
   const r = await _gcal().events.insert({ calendarId: calendarId, requestBody: {
     summary: 'Cita — ' + (c.nombre || 'Paciente') + ' (' + (c.sede || c.subsede || 'Harmonie') + ')',
@@ -86,7 +93,7 @@ async function gcalCrearEvento(calendarId, c) {
       + '\nServicio: ' + (c.servicio || c.notas || '-')
       + '\nOrigen: ' + (c.canal === 'voz' ? 'Llamada de voz (Valeria)' : (c.canal || 'web/chat')),
     start: { dateTime: _evStart(c.fecha, c.hora), timeZone: GCAL_TZ },
-    end: { dateTime: _evEnd(c.fecha, c.hora), timeZone: GCAL_TZ }
+    end: { dateTime: _evEnd(c.fecha, c.hora, _durMin(c)), timeZone: GCAL_TZ }
   } });
   return r.data.id;
 }
@@ -94,7 +101,7 @@ async function gcalMoverEvento(calendarId, eventId, c) {
   await _gcal().events.patch({ calendarId: calendarId, eventId: eventId, requestBody: {
     summary: 'Cita — ' + (c.nombre || 'Paciente') + ' (' + (c.sede || c.subsede || 'Harmonie') + ')',
     start: { dateTime: _evStart(c.fecha, c.hora), timeZone: GCAL_TZ },
-    end: { dateTime: _evEnd(c.fecha, c.hora), timeZone: GCAL_TZ }
+    end: { dateTime: _evEnd(c.fecha, c.hora, _durMin(c)), timeZone: GCAL_TZ }
   } });
 }
 async function gcalBorrarEvento(calendarId, eventId) {
