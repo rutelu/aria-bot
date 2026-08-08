@@ -2206,6 +2206,22 @@ app.get('/debug/citas', async (req, res) => {
     res.json({ total: out.length, citas: out });
   } catch (e) { res.status(200).json({ error: e.message }); }
 });
+// Backfill temporal: asigna especialidadId a reservas_beni viejas (según el nombre de especialidad; por defecto 'med').
+app.get('/debug/backfill-esp', async (req, res) => {
+  if (!db) return res.status(400).json({ error: 'sin db' });
+  const out = { actualizadas: 0 };
+  const key = function (s) { s = String(s || '').toLowerCase(); if (/cirug|plasti|quirurg/.test(s)) return 'cir'; if (/fisio|corporal|celuli/.test(s)) return 'fisio'; if (/cosm|cosmet|facial|piel/.test(s)) return 'cos'; return 'med'; };
+  try {
+    const snap = await db.collection('reservas_beni').get();
+    for (const d of snap.docs) {
+      const c = d.data();
+      if (c.especialidadId) continue;
+      await d.ref.set({ especialidadId: key(c.especialidad) }, { merge: true });
+      out.actualizadas++;
+    }
+    res.json(out);
+  } catch (e) { res.status(200).json({ error: e.message, out: out }); }
+});
 // Diagnóstico temporal: últimas reservas de campaña (para ver especialidadId/fecha/hora).
 app.get('/debug/reservas', async (req, res) => {
   if (!db) return res.status(400).json({ error: 'sin db' });
