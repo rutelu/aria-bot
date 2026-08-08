@@ -993,6 +993,16 @@ async function citasHorasOcupadas(sede, fecha) {
     return out;
   } catch (e) { return []; }
 }
+// Horas ocupadas de una ESPECIALIDAD (= su especialista responsable) cruzando TODA sede y modalidad.
+async function citasHorasOcupadasEsp(especialidad, fecha) {
+  if (!db) return [];
+  try {
+    const snap = await db.collection('citas').where('especialidad', '==', especialidad).where('fecha', '==', fecha).get();
+    const out = [];
+    snap.forEach(function(d) { const c = d.data(); if ((c.estado || 'confirmada') !== 'cancelada' && c.hora) out.push(c.hora); });
+    return out;
+  } catch (e) { return []; }
+}
 async function _buscarCitaDoc(telefono, fecha, hora) {
   const tel = String(telefono || '').replace(/\D/g, '').slice(-8);
   const h = String(hora || '').trim();
@@ -2125,13 +2135,16 @@ app.options('/disponibilidad', (req, res) => { _setChatCors(req, res); res.statu
 app.get('/disponibilidad', async (req, res) => {
   _setChatCors(req, res);
   try {
+    const especialidad = String(req.query.especialidad || '').trim();
     const sede = String(req.query.sede || '').trim();
     const fecha = String(req.query.fecha || '').trim();
-    if (!sede || !fecha) return res.status(400).json({ error: 'sede y fecha requeridos' });
-    const ocupadas = (await citasHorasOcupadas(sede, fecha))
+    if (!fecha || (!especialidad && !sede)) return res.status(400).json({ error: 'especialidad (o sede) + fecha requeridos' });
+    // Por especialidad = cruza presencial+virtual del especialista responsable; si no, cae a por-sede.
+    const raw = especialidad ? await citasHorasOcupadasEsp(especialidad, fecha) : await citasHorasOcupadas(sede, fecha);
+    const ocupadas = raw
       .map(function (h) { return _hora24(h); })
       .filter(function (h, i, a) { return h && a.indexOf(h) === i; });
-    res.json({ sede: sede, fecha: fecha, ocupadas: ocupadas });
+    res.json({ especialidad: especialidad || null, sede: sede || null, fecha: fecha, ocupadas: ocupadas });
   } catch (e) { res.status(200).json({ ocupadas: [] }); }
 });
 // Diagnóstico temporal: últimas citas guardadas (para ver si el sitio está escribiendo).
