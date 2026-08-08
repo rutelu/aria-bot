@@ -74,8 +74,10 @@ async function gcalBusyHoras(calendarId, fecha) {
     });
   } catch (e) { console.error('gcalBusyHoras:', e.message); return []; }
 }
-function _evStart(fecha, hora) { return fecha + 'T' + (hora || '09:00') + ':00'; }
-function _evEnd(fecha, hora) { const p = String(hora || '09:00').split(':'); return fecha + 'T' + ('0' + (parseInt(p[0], 10) + 1)).slice(-2) + ':' + (p[1] || '00') + ':00'; }
+// Normaliza cualquier hora ("09:00 AM", "9", "20:00") a "HH:MM" 24h para el evento.
+function _hora24(hora) { const h = normalizarHora(hora); return /^\d{2}:\d{2}$/.test(h) ? h : '09:00'; }
+function _evStart(fecha, hora) { return fecha + 'T' + _hora24(hora) + ':00'; }
+function _evEnd(fecha, hora) { const p = _hora24(hora).split(':'); return fecha + 'T' + ('0' + (parseInt(p[0], 10) + 1)).slice(-2) + ':' + (p[1] || '00') + ':00'; }
 async function gcalCrearEvento(calendarId, c) {
   const r = await _gcal().events.insert({ calendarId: calendarId, requestBody: {
     summary: 'Cita — ' + (c.nombre || 'Paciente') + ' (' + (c.sede || c.subsede || 'Harmonie') + ')',
@@ -2119,6 +2121,23 @@ app.get('/debug/citas', async (req, res) => {
     snap.forEach(function (d) { const c = d.data(); out.push({ id: d.id, nombre: c.nombre, fecha: c.fecha, hora: c.hora, sede: c.sede, modalidad: c.modalidad, estado: c.estado, gcalEventId: c.gcalEventId || null, canal: c.canal || null }); });
     res.json({ total: out.length, citas: out });
   } catch (e) { res.status(200).json({ error: e.message }); }
+});
+// Re-sincroniza (backfill): crea eventos faltantes de citas activas sin gcalEventId.
+app.get('/gcal/resync', async (req, res) => {
+  if (!db || !gcalAuth) return res.status(400).json({ error: 'sin db o gcal' });
+  const calId = await getCitasCalendarId();
+  if (!calId) return res.status(400).json({ error: 'sin calendarId' });
+  const out = { creados: 0, saltados: 0, errores: [] };
+  try {
+    const snap = await db.collection('citas').get();
+    for (const d of snap.docs) {
+      const c = d.data();
+      if (c.gcalEventId || _esCancelado(c.estado) || !c.fecha || !c.hora) { out.saltados++; continue; }
+      try { const id = await gcalCrearEvento(calId, c); await d.ref.set({ gcalEventId: id, gcalCalendarId: calId }, { merge: true }); out.creados++; }
+      catch (e) { out.errores.push(d.id + ': ' + e.message); }
+    }
+    res.json(out);
+  } catch (e) { res.status(200).json({ error: e.message, out: out }); }
 });
 // Renombra el calendario propio del robot (para distinguirlo del que se creó a mano).
 app.get('/gcal/rename', async (req, res) => {
