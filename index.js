@@ -2110,6 +2110,17 @@ app.get('/gcal/busy', async (req, res) => {
     res.json({ date: date, calendarId: calendarId, busyHoras: await gcalBusyHoras(calendarId, date) });
   } catch (e) { res.status(200).json({ busyHoras: [] }); }
 });
+// Renombra el calendario propio del robot (para distinguirlo del que se creó a mano).
+app.get('/gcal/rename', async (req, res) => {
+  try {
+    if (!gcalAuth) return res.status(400).json({ error: 'sin gcal' });
+    const calId = await getCitasCalendarId();
+    const nombre = req.query.name || 'HARMONIE — Reservas (automático)';
+    if (!calId) return res.status(400).json({ error: 'sin calendarId configurado' });
+    await _gcal().calendars.patch({ calendarId: calId, requestBody: { summary: nombre } });
+    res.json({ ok: true, calendarId: calId, nuevoNombre: nombre });
+  } catch (e) { res.status(200).json({ error: e.message }); }
+});
 
 // ── NOTIFICACIÓN DE NUEVAS RESERVAS (web + Valeria) al equipo ──
 // reservas_beni la usan TANTO la web como Valeria (chat/voz), así que un solo watcher las capta todas.
