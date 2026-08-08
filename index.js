@@ -2206,6 +2206,16 @@ app.get('/debug/citas', async (req, res) => {
     res.json({ total: out.length, citas: out });
   } catch (e) { res.status(200).json({ error: e.message }); }
 });
+// Diagnóstico temporal: últimas reservas de campaña (para ver especialidadId/fecha/hora).
+app.get('/debug/reservas', async (req, res) => {
+  if (!db) return res.status(400).json({ error: 'sin db' });
+  try {
+    const snap = await db.collection('reservas_beni').limit(20).get();
+    const out = [];
+    snap.forEach(function (d) { const c = d.data(); out.push({ id: d.id, nombre: c.nombre, fecha: c.fecha, hora: c.hora, subsede: c.subsede || c.lugar, especialidadId: c.especialidadId || null, estado: c.estado }); });
+    res.json({ total: out.length, reservas: out });
+  } catch (e) { res.status(200).json({ error: e.message }); }
+});
 // Limpieza temporal: borra citas de prueba (por nombre) y sus eventos del calendario.
 app.get('/debug/limpiar', async (req, res) => {
   if (!db) return res.status(400).json({ error: 'sin db' });
