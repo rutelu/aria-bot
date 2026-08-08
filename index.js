@@ -2112,6 +2112,21 @@ app.get('/gcal/busy', async (req, res) => {
     res.json({ date: date, calendarId: calendarId, busyHoras: await gcalBusyHoras(calendarId, date) });
   } catch (e) { res.status(200).json({ busyHoras: [] }); }
 });
+// Disponibilidad para el SITIO (navegador): horarios ocupados reales (24h) de una sede/plataforma + fecha.
+// Fuente única de verdad = la colección 'citas'. Se normaliza a 24h para que el sitio compare sin ambigüedad.
+app.options('/disponibilidad', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.get('/disponibilidad', async (req, res) => {
+  _setChatCors(req, res);
+  try {
+    const sede = String(req.query.sede || '').trim();
+    const fecha = String(req.query.fecha || '').trim();
+    if (!sede || !fecha) return res.status(400).json({ error: 'sede y fecha requeridos' });
+    const ocupadas = (await citasHorasOcupadas(sede, fecha))
+      .map(function (h) { return _hora24(h); })
+      .filter(function (h, i, a) { return h && a.indexOf(h) === i; });
+    res.json({ sede: sede, fecha: fecha, ocupadas: ocupadas });
+  } catch (e) { res.status(200).json({ ocupadas: [] }); }
+});
 // Diagnóstico temporal: últimas citas guardadas (para ver si el sitio está escribiendo).
 app.get('/debug/citas', async (req, res) => {
   if (!db) return res.status(400).json({ error: 'sin db' });
