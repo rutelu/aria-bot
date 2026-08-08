@@ -2144,6 +2144,23 @@ app.get('/debug/citas', async (req, res) => {
     res.json({ total: out.length, citas: out });
   } catch (e) { res.status(200).json({ error: e.message }); }
 });
+// Limpieza temporal: borra citas de prueba (por nombre) y sus eventos del calendario.
+app.get('/debug/limpiar', async (req, res) => {
+  if (!db) return res.status(400).json({ error: 'sin db' });
+  const out = { borradas: 0, eventos: 0, nombres: [] };
+  const rx = /prueba|selftest|__probe__|ruben tejada/i;
+  try {
+    const snap = await db.collection('citas').get();
+    for (const d of snap.docs) {
+      const c = d.data();
+      if (!rx.test(String(c.nombre || ''))) continue;
+      if (c.gcalEventId && c.gcalCalendarId) { try { await gcalBorrarEvento(c.gcalCalendarId, c.gcalEventId); out.eventos++; } catch (e) {} }
+      await d.ref.delete();
+      out.borradas++; out.nombres.push(c.nombre);
+    }
+    res.json(out);
+  } catch (e) { res.status(200).json({ error: e.message, out: out }); }
+});
 // Re-sincroniza (backfill): crea eventos faltantes de citas activas sin gcalEventId.
 app.get('/gcal/resync', async (req, res) => {
   if (!db || !gcalAuth) return res.status(400).json({ error: 'sin db o gcal' });
