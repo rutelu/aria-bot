@@ -2210,9 +2210,11 @@ app.get('/debug/citas', async (req, res) => {
 app.get('/debug/reservas', async (req, res) => {
   if (!db) return res.status(400).json({ error: 'sin db' });
   try {
-    const snap = await db.collection('reservas_beni').limit(20).get();
+    let q = db.collection('reservas_beni');
+    if (req.query.fecha) q = q.where('fecha', '==', String(req.query.fecha));
+    const snap = await q.limit(30).get();
     const out = [];
-    snap.forEach(function (d) { const c = d.data(); out.push({ id: d.id, nombre: c.nombre, fecha: c.fecha, hora: c.hora, subsede: c.subsede || c.lugar, especialidadId: c.especialidadId || null, estado: c.estado }); });
+    snap.forEach(function (d) { const c = d.data(); out.push({ id: d.id, nombre: c.nombre, fecha: c.fecha, hora: c.hora, subsede: c.subsede || c.lugar, especialidadId: c.especialidadId || null, especialidad: c.especialidad || null, estado: c.estado }); });
     res.json({ total: out.length, reservas: out });
   } catch (e) { res.status(200).json({ error: e.message }); }
 });
