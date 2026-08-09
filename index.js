@@ -808,6 +808,14 @@ async function toolCrearReserva(args, cfg, canal) {
   if (!subsede || !fecha || !hora || !nombre || !telefono) {
     return { error: 'Faltan datos. Necesito localidad, día, hora, nombre completo y teléfono.' };
   }
+  // CANDADO: la campaña es SOLO de medicina estética. Si el tratamiento es de otra especialidad, rechaza y deriva a cita normal.
+  if ((cfg.especialidadId || 'med') === 'med' && args.tratamiento) {
+    const _esp = _espKeyFromText(args.tratamiento);
+    if (_esp !== 'med') {
+      const _nom = { cir: 'cirugía estética', fisio: 'fisio-estética', cos: 'cosmetología' };
+      return { error: 'El tratamiento "' + args.tratamiento + '" es de ' + (_nom[_esp] || _esp) + ', NO de medicina estética. Esta campaña (Oruro/Sucre) es SOLO de medicina estética, así que NO lo agendes en la campaña. Explícale con calidez que esta jornada es solo de medicina estética y ofrécele agendar una cita normal con crear_cita: por videollamada (gratis) o presencial en una sede.' };
+    }
+  }
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
   const horaOk = (cfg.horas || []).includes(hora);
   if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Oruro y Sucre. Ofrece un día y hora válidos de la campaña.' };
@@ -846,7 +854,7 @@ async function toolCrearReserva(args, cfg, canal) {
   await batch.commit();
 
   enviarLinkPago(telefono, { nombre: nombre, fecha: fecha, hora: hora, sede: subsede });
-  return { ok: true, id: slotId, mensaje: 'Reserva creada en ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP: depósito de 50 bolivianos para confirmar (no es cobro de la consulta, se reembolsa en su tratamiento). Queda confirmada apenas pague.' };
+  return { ok: true, id: slotId, mensaje: 'Reserva creada en ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. La CONSULTA de valoración es gratis; LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP con el depósito de 50 bolivianos REEMBOLSABLE que asegura el cupo y se descuenta dentro de su tratamiento. Dile que le enviaste el enlace y que su reserva queda confirmada apenas pague. NO le digas que "no se paga nada por adelantado".' };
 }
 
 // ── REAGENDAR / CANCELAR reservas (Plan B) ──
@@ -1183,7 +1191,7 @@ async function toolCrearCita(args, canal) {
   try { notificarNuevaCita({ id: ref.id, nombre: nombre, telefono: telefono, sede: sede, fecha: fecha, hora: hora, modalidad: modalidad, servicio: cita.servicio, canal: cita.canal }); } catch (e) {}
   if (esPresencial) {
     enviarLinkPago(telefono, { nombre: nombre, fecha: fecha, hora: hora, sede: sede });
-    return { ok: true, id: ref.id, mensaje: 'Reserva creada en ' + sede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP: es un depósito de 50 bolivianos para confirmar la reserva, NO es el cobro de la consulta y se reembolsa dentro de su tratamiento. Queda confirmada apenas pague.' };
+    return { ok: true, id: ref.id, mensaje: 'Reserva creada en ' + sede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP: un depósito de 50 bolivianos REEMBOLSABLE que asegura la reserva y se descuenta dentro de su tratamiento. Dile que le enviaste el enlace y que queda confirmada apenas pague.' };
   }
   return { ok: true, id: ref.id, mensaje: 'Cita confirmada: videollamada (gratis), ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
 }
