@@ -1131,9 +1131,10 @@ function enviarLinkPago(telefono, c) {
     + (c && c.fecha ? (' (' + c.fecha + (c.hora ? ' ' + c.hora : '') + (c.sede ? ' · ' + c.sede : '') + ')') : '')
     + ' hacé el depósito de Bs 50 que asegura tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nAbrí el enlace y pagá acá 👉 ' + PAGO_URL + '\n\nApenas pagues, tu reserva queda confirmada automáticamente. ¡Te esperamos!';
   try {
-    waSend(tel, msg)
-      .then(function () { console.log('💳 enlace de pago enviado por WhatsApp a ' + tel); })
-      .catch(function (e) { console.error('💳 enviarLinkPago WA falló (' + tel + '):', e && e.message); });
+    waSend(tel, msg).then(function (data) {
+      if (data && data.error) console.error('💳 enlace de pago NO enviado a ' + tel + ':', (data.error.message || JSON.stringify(data.error)));
+      else console.log('💳 enlace de pago enviado por WhatsApp a ' + tel);
+    });
   } catch (e) { console.error('💳 enviarLinkPago:', e.message); }
 }
 
@@ -1500,13 +1501,23 @@ async function waSend(to, text) {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
   try {
-    await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
+    const r = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text } })
     });
-  } catch (err) { console.error('Error WA:', err); }
+    const data = await r.json().catch(function () { return {}; });
+    if (data && data.error) console.error('❌ WA a ' + to + ':', JSON.stringify(data.error).slice(0, 400));
+    return data;
+  } catch (err) { console.error('Error WA a ' + to + ':', err.message); return { error: { message: err.message } }; }
 }
+// Diagnóstico temporal: envía un WhatsApp de prueba y devuelve la respuesta de Meta (para ver el error real).
+app.get('/debug/test-wa', async (req, res) => {
+  const to = String(req.query.to || '').replace(/\D/g, '');
+  if (!to) return res.status(400).json({ error: 'falta ?to=<numero con codigo pais>' });
+  const data = await waSend(to, 'Prueba de HARMONIE 💛 Si ves este mensaje, el WhatsApp del bot funciona.');
+  res.json({ to: to, phoneIdConfigurado: !!process.env.WHATSAPP_PHONE_ID, respuesta: data });
+});
 
 // Botón "Llamar a Valeria" (WhatsApp interactive cta_url): abre la página correcta donde
 // están el botón Llamar, el calendario para agendar y el botón de WhatsApp para volver.
