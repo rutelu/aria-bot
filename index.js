@@ -811,7 +811,10 @@ async function toolCrearReserva(args, cfg, canal) {
   // CANDADO: la campaña la cubre MEDICINA ESTÉTICA. Rechaza SOLO los tratamientos estrictamente de otra
   // especialidad (masajes, limpieza de piel, cirugías); los overlaps (peeling, dermapen, aparatología,
   // hidrolipoclasia, etc.) SÍ entran porque medicina estética los realiza.
-  if ((cfg.especialidadId || 'med') === 'med' && args.tratamiento) {
+  if ((cfg.especialidadId || 'med') === 'med') {
+    if (!String(args.tratamiento || '').trim()) {
+      return { error: 'Antes de reservar en la campaña necesito saber QUÉ TRATAMIENTO desea (para confirmar que entra en la jornada de medicina estética). Pregúntaselo con calidez y vuelve a intentar con el tratamiento.' };
+    }
     const _fuera = _fueraDeCampanaMed(args.tratamiento);
     if (_fuera) {
       return { error: 'El tratamiento "' + args.tratamiento + '" es estrictamente de ' + _fuera + ', fuera del alcance de esta campaña de medicina estética. NO lo agendes en la campaña: explícalo con calidez y ofrécele una cita normal con crear_cita (videollamada gratis o presencial en una sede).' };
@@ -1149,13 +1152,67 @@ function enviarLinkPago(telefono, c) {
   const nombre = String((c && c.nombre) || '').split(/\s+/)[0] || '';
   const msg = 'Hola ' + nombre + ' 💛 Para CONFIRMAR tu reserva en HARMONIE'
     + (c && c.fecha ? (' (' + c.fecha + (c.hora ? ' ' + c.hora : '') + (c.sede ? ' · ' + c.sede : '') + ')') : '')
-    + ' haz el depósito de Bs 50 que asegura tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nAbre el enlace y paga aquí 👉 ' + PAGO_URL + '\n\nApenas pagues, tu reserva queda confirmada automáticamente. ¡Te esperamos!';
+    + ' haz el depósito de Bs 50 que asegura tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nAbre el enlace y paga aquí 👉 ' + PAGO_URL + '\n\nMantenemos tu cupo apartado 1 hora esperando el pago; si no se completa, se libera automáticamente. Apenas pagues, tu reserva queda confirmada. ¡Te esperamos!';
   try {
     waSend(tel, msg).then(function (data) {
       if (data && data.error) console.error('💳 enlace de pago NO enviado a ' + tel + ':', (data.error.message || JSON.stringify(data.error)));
       else console.log('💳 enlace de pago enviado por WhatsApp a ' + tel);
     });
   } catch (e) { console.error('💳 enviarLinkPago:', e.message); }
+}
+
+// ── EXPIRACIÓN DE RESERVAS SIN PAGO ─────────────────────────────────────────
+// La reserva presencial queda APARTADA 60 min esperando el depósito. Recordatorios
+// a los 30 y 45 min por WhatsApp; a los 60 min se ELIMINA y se libera el cupo.
+const HOLD_MIN = 60, REM1_MIN = 30, REM2_MIN = 45;
+function _tsMs(ts) {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (ts._seconds) return ts._seconds * 1000;
+  if (ts.seconds) return ts.seconds * 1000;
+  return 0;
+}
+async function revisarExpiraciones() {
+  if (!db) return;
+  const ahora = Date.now();
+  for (const col of ['citas', 'reservas_beni']) {
+    let snap;
+    try { snap = await db.collection(col).where('estado', '==', 'pendiente_pago').get(); }
+    catch (e) { console.error('⏳ query ' + col + ':', e.message); continue; }
+    for (const d of snap.docs) {
+      const c = d.data();
+      const t = _tsMs(c.timestamp || c.createdAt || c.creadoAt);
+      if (!t) continue;
+      const edadMin = (ahora - t) / 60000;
+      const tel = String(c.telefono || '').replace(/\D/g, '');
+      const nom = String(c.nombre || '').split(/\s+/)[0] || '';
+      const cuando = (c.fecha || '') + (c.hora ? (' a las ' + c.hora) : '') + ((c.sede || c.subsede) ? (' · ' + (c.sede || c.subsede)) : '');
+      const ref = (cuando ? (' (' + cuando.trim() + ')') : '');
+      try {
+        if (edadMin >= HOLD_MIN) {
+          const batch = db.batch();
+          batch.delete(d.ref);
+          if (col === 'reservas_beni') batch.delete(db.collection('cupos_ocupados').doc(d.id));
+          await batch.commit();
+          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Liberamos tu reserva' + ref + ' porque no recibimos el pago del depósito a tiempo. Si aún la deseas, con gusto la agendamos de nuevo. ¡Escríbenos!').catch(function () {});
+          console.log('⏳ reserva ' + col + '/' + d.id + ' EXPIRADA (sin pago) y liberada');
+        } else if (edadMin >= REM2_MIN && !c.recordatorio2At) {
+          await d.ref.update({ recordatorio2At: new Date() });
+          if (tel) waSend(tel, 'Hola ' + nom + ' ⏳ Te quedan unos 15 minutos para asegurar tu reserva' + ref + '. Completa tu depósito de Bs 50 aquí 👉 ' + PAGO_URL + ' o se liberará automáticamente.').catch(function () {});
+          console.log('⏳ recordatorio 2 (45min) → ' + col + '/' + d.id);
+        } else if (edadMin >= REM1_MIN && !c.recordatorio1At) {
+          await d.ref.update({ recordatorio1At: new Date() });
+          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Tu reserva' + ref + ' está apartada esperando tu depósito de Bs 50. Complétalo aquí 👉 ' + PAGO_URL + '. La mantenemos unos 30 minutos más.').catch(function () {});
+          console.log('⏳ recordatorio 1 (30min) → ' + col + '/' + d.id);
+        }
+      } catch (e) { console.error('⏳ exp ' + d.id + ':', e.message); }
+    }
+  }
+}
+function iniciarWatcherExpiraciones() {
+  console.log('⏳ Watcher de expiración activo (aparta ' + HOLD_MIN + 'min; recordatorios ' + REM1_MIN + '/' + REM2_MIN + 'min)');
+  revisarExpiraciones().catch(function () {});
+  setInterval(function () { revisarExpiraciones().catch(function () {}); }, 2 * 60 * 1000);
 }
 
 async function toolCrearCita(args, canal) {
@@ -2366,4 +2423,5 @@ app.listen(PORT, () => {
       });
     } catch (e) { console.error('⚠️ no pude iniciar el watcher de pagos:', e.message); }
   }
+  iniciarWatcherExpiraciones(); // Aparta la reserva 60min; recordatorios 30/45min; expira sin pago
 });
