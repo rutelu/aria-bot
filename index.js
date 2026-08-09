@@ -768,6 +768,14 @@ function resolverFecha(fechaArg, subsede, cfg) {
 async function toolConsultarDisponibilidad(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro y Sucre aún no está publicada.' };
+  // CANDADO TEMPRANO: valida el tratamiento ANTES de ofrecer horarios. Si es estrictamente de otra especialidad,
+  // rechaza YA (así Valeria avisa apenas escucha el tratamiento, sin pedir datos ni ofrecer horas que no aplican).
+  if ((cfg.especialidadId || 'med') === 'med' && String(args.tratamiento || '').trim()) {
+    const _fuera = _fueraDeCampanaMed(args.tratamiento);
+    if (_fuera) {
+      return { error: 'El tratamiento "' + args.tratamiento + '" es estrictamente de ' + _fuera + ', fuera del alcance de esta campaña de medicina estética. NO ofrezcas horarios de campaña para esto: díselo AHORA MISMO con calidez y ofrécele una cita normal con crear_cita (videollamada gratis o presencial en una sede).', fueraDeCampana: true };
+    }
+  }
   const horas = cfg.horas || [];
   let dias = diasVigentes(cfg); // solo días de hoy en adelante (no ofrecer fechas pasadas)
   if (args.subsede) { var ss = resolverSubsede(args.subsede, cfg); dias = dias.filter(function(d) { return d.subsede === ss; }); }
