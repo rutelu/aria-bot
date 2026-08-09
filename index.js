@@ -808,12 +808,13 @@ async function toolCrearReserva(args, cfg, canal) {
   if (!subsede || !fecha || !hora || !nombre || !telefono) {
     return { error: 'Faltan datos. Necesito localidad, día, hora, nombre completo y teléfono.' };
   }
-  // CANDADO: la campaña es SOLO de medicina estética. Si el tratamiento es de otra especialidad, rechaza y deriva a cita normal.
+  // CANDADO: la campaña la cubre MEDICINA ESTÉTICA. Rechaza SOLO los tratamientos estrictamente de otra
+  // especialidad (masajes, limpieza de piel, cirugías); los overlaps (peeling, dermapen, aparatología,
+  // hidrolipoclasia, etc.) SÍ entran porque medicina estética los realiza.
   if ((cfg.especialidadId || 'med') === 'med' && args.tratamiento) {
-    const _esp = _espKeyFromText(args.tratamiento);
-    if (_esp !== 'med') {
-      const _nom = { cir: 'cirugía estética', fisio: 'fisio-estética', cos: 'cosmetología' };
-      return { error: 'El tratamiento "' + args.tratamiento + '" es de ' + (_nom[_esp] || _esp) + ', NO de medicina estética. Esta campaña (Oruro/Sucre) es SOLO de medicina estética, así que NO lo agendes en la campaña. Explícale con calidez que esta jornada es solo de medicina estética y ofrécele agendar una cita normal con crear_cita: por videollamada (gratis) o presencial en una sede.' };
+    const _fuera = _fueraDeCampanaMed(args.tratamiento);
+    if (_fuera) {
+      return { error: 'El tratamiento "' + args.tratamiento + '" es estrictamente de ' + _fuera + ', fuera del alcance de esta campaña de medicina estética. NO lo agendes en la campaña: explícalo con calidez y ofrécele una cita normal con crear_cita (videollamada gratis o presencial en una sede).' };
     }
   }
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
@@ -1038,6 +1039,17 @@ function _espKeyFromText(s) {
   if (/cosm|limpiez|peeling|microderm|acn|mancha|hidrataci|rutina.*piel|facial b/.test(s)) return 'cos';
   if (/medic|botox|toxina|rellen|hialur|rinomodel|bioestim|hilos|mesoterap|skinboost|arruga|labios|ojera/.test(s)) return 'med';
   return 'med';
+}
+// ¿El tratamiento está ESTRICTAMENTE fuera del alcance de Medicina Estética (→ fuera de campaña)?
+// Devuelve el nombre de la especialidad si está fuera, o null si Medicina Estética PUEDE hacerlo (entra en campaña).
+// Medicina estética SÍ realiza overlaps: peeling, dermapen, aparatología, hidrolipoclasia no aspirativa, etc. → esos ENTRAN.
+// Solo quedan fuera los inequívocamente de otra especialidad: masajes/drenaje (fisio), limpieza de piel (cosmet.), cirugías.
+function _fueraDeCampanaMed(tratamiento) {
+  const s = String(tratamiento || '').toLowerCase();
+  if (/cirug|quir[uú]rg|operaci|rinoplast|mamoplast|mastopex|liposucci|lipoescul|abdominoplast|blefaroplast|otoplast|mentoplast|braquioplast|bichectom|aumento de (senos|mama|pecho)|implante/.test(s)) return 'cirugía estética';
+  if (/masaj|drenaje\s*(linf|l)|presoterap/.test(s)) return 'fisio-estética';
+  if (/limpiez|hidra\s?facial|hydra\s?facial|microdermoabra|dermaplan/.test(s)) return 'cosmetología';
+  return null; // Medicina Estética puede manejarlo → ENTRA en campaña
 }
 // ── Ocupación como INTERVALOS {i:'HH:MM', m:minutos} — presencial 60 min, virtual 15 min ──
 function _durCita(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 20 : 60; }
