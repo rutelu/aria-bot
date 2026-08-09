@@ -2283,6 +2283,22 @@ app.get('/debug/backfill-esp', async (req, res) => {
     res.json(out);
   } catch (e) { res.status(200).json({ error: e.message, out: out }); }
 });
+// Limpieza temporal por fecha: borra reservas_beni + cupos_ocupados + citas de esa fecha (y sus eventos).
+app.get('/debug/limpiar-fecha', async (req, res) => {
+  if (!db) return res.status(400).json({ error: 'sin db' });
+  const fecha = String(req.query.fecha || '');
+  if (!fecha) return res.status(400).json({ error: 'falta fecha' });
+  const out = { reservas: 0, cupos: 0, citas: 0 };
+  try {
+    const rs = await db.collection('reservas_beni').where('fecha', '==', fecha).get();
+    for (const d of rs.docs) { const c = d.data(); if (c.gcalEventId && c.gcalCalendarId) { try { await gcalBorrarEvento(c.gcalCalendarId, c.gcalEventId); } catch (e) {} } await d.ref.delete(); out.reservas++; }
+    const cs = await db.collection('cupos_ocupados').where('fecha', '==', fecha).get();
+    for (const d of cs.docs) { await d.ref.delete(); out.cupos++; }
+    const ci = await db.collection('citas').where('fecha', '==', fecha).get();
+    for (const d of ci.docs) { const c = d.data(); if (c.gcalEventId && c.gcalCalendarId) { try { await gcalBorrarEvento(c.gcalCalendarId, c.gcalEventId); } catch (e) {} } await d.ref.delete(); out.citas++; }
+    res.json(out);
+  } catch (e) { res.status(200).json({ error: e.message, out: out }); }
+});
 // Diagnóstico temporal: últimas reservas de campaña (para ver especialidadId/fecha/hora).
 app.get('/debug/reservas', async (req, res) => {
   if (!db) return res.status(400).json({ error: 'sin db' });
