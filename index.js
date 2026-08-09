@@ -1511,13 +1511,6 @@ async function waSend(to, text) {
     return data;
   } catch (err) { console.error('Error WA a ' + to + ':', err.message); return { error: { message: err.message } }; }
 }
-// Diagnóstico temporal: envía un WhatsApp de prueba y devuelve la respuesta de Meta (para ver el error real).
-app.get('/debug/test-wa', async (req, res) => {
-  const to = String(req.query.to || '').replace(/\D/g, '');
-  if (!to) return res.status(400).json({ error: 'falta ?to=<numero con codigo pais>' });
-  const data = await waSend(to, 'Prueba de HARMONIE 💛 Si ves este mensaje, el WhatsApp del bot funciona.');
-  res.json({ to: to, phoneIdConfigurado: !!process.env.WHATSAPP_PHONE_ID, respuesta: data });
-});
 
 // Botón "Llamar a Valeria" (WhatsApp interactive cta_url): abre la página correcta donde
 // están el botón Llamar, el calendario para agendar y el botón de WhatsApp para volver.
