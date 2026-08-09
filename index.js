@@ -1121,16 +1121,20 @@ async function toolConsultarDisponibilidadSede(args) {
   return { sede: sede, direccion: sc.direccion, disponibilidad: out };
 }
 
-// Enlace de la pasarela de pago + mensaje al cliente por WhatsApp (reserva presencial → depósito Bs 50).
-const PAGO_URL = process.env.PAGO_URL || 'https://harmonieinstitute.com/pago.html';
+// Enlace directo a la pasarela de pago del SITIO + mensaje al cliente por WhatsApp (reserva presencial → depósito Bs 50).
+const PAGO_URL = process.env.PAGO_URL || 'https://harmonieinstitute.com/?pagar=1';
 function enviarLinkPago(telefono, c) {
   const tel = String(telefono || '').replace(/\D/g, '');
-  if (!tel) return;
+  if (!tel) { console.warn('💳 enviarLinkPago: sin teléfono'); return; }
   const nombre = String((c && c.nombre) || '').split(/\s+/)[0] || '';
   const msg = 'Hola ' + nombre + ' 💛 Para CONFIRMAR tu reserva en HARMONIE'
     + (c && c.fecha ? (' (' + c.fecha + (c.hora ? ' ' + c.hora : '') + (c.sede ? ' · ' + c.sede : '') + ')') : '')
-    + ' necesitas un depósito de Bs 50.\nNO es el cobro de la consulta: es solo para confirmar tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nPagá acá 👉 ' + PAGO_URL + '\n\nApenas pagues, tu reserva queda confirmada automáticamente. ¡Te esperamos!';
-  try { waSend(tel, msg).catch(function () {}); } catch (e) { console.error('enviarLinkPago:', e.message); }
+    + ' hacé el depósito de Bs 50 que asegura tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nAbrí el enlace y pagá acá 👉 ' + PAGO_URL + '\n\nApenas pagues, tu reserva queda confirmada automáticamente. ¡Te esperamos!';
+  try {
+    waSend(tel, msg)
+      .then(function () { console.log('💳 enlace de pago enviado por WhatsApp a ' + tel); })
+      .catch(function (e) { console.error('💳 enviarLinkPago WA falló (' + tel + '):', e && e.message); });
+  } catch (e) { console.error('💳 enviarLinkPago:', e.message); }
 }
 
 async function toolCrearCita(args, canal) {
