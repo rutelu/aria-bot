@@ -84,7 +84,7 @@ function _evEnd(fecha, hora, minutos) {
   const hh = Math.floor(total / 60) % 24, mm = total % 60;
   return fecha + 'T' + ('0' + hh).slice(-2) + ':' + ('0' + mm).slice(-2) + ':00';
 }
-function _durMin(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 15 : 60; }
+function _durMin(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 20 : 60; }
 async function gcalCrearEvento(calendarId, c) {
   const r = await _gcal().events.insert({ calendarId: calendarId, requestBody: {
     summary: 'Cita — ' + (c.nombre || 'Paciente') + ' (' + (c.sede || c.subsede || 'Harmonie') + ')',
@@ -1030,7 +1030,7 @@ function _espKeyFromText(s) {
   return 'med';
 }
 // ── Ocupación como INTERVALOS {i:'HH:MM', m:minutos} — presencial 60 min, virtual 15 min ──
-function _durCita(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 15 : 60; }
+function _durCita(c) { return (String(c && c.modalidad || '').toLowerCase() === 'virtual') ? 20 : 60; }
 async function citasOcupEsp(especialidadId, fecha) {
   if (!db) return [];
   try {
@@ -1147,7 +1147,7 @@ async function toolCrearCita(args, canal) {
   const servicio = args.servicio || args.tratamiento || 'Consulta';
   const espId = _espKeyFromText(args.especialidad || servicio);
   // Cruce por ESPECIALISTA (presencial+virtual+campaña) con solapamiento: no doble-agendar al mismo especialista.
-  if (await especialistaOcupado(espId, fecha, hora, virtual ? 15 : 60)) {
+  if (await especialistaOcupado(espId, fecha, hora, virtual ? 20 : 60)) {
     return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otra hora libre.' };
   }
   const cita = {
