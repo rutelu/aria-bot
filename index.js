@@ -1138,22 +1138,6 @@ function enviarLinkPago(telefono, c) {
   } catch (e) { console.error('💳 enviarLinkPago:', e.message); }
 }
 
-// TEMPORAL (limpieza de datos de prueba): borra las reservas en estado 'pendiente_pago'
-// de citas + reservas_beni. Protegido con ?token=harmonie2026. QUITAR después de usar.
-app.get('/debug/limpiar-pendientes', async (req, res) => {
-  if (String(req.query.token || '') !== 'harmonie2026') return res.status(403).json({ error: 'token' });
-  if (!db) return res.status(500).json({ error: 'sin db' });
-  let borradas = 0; const detalle = {};
-  try {
-    for (const col of ['citas', 'reservas_beni']) {
-      const s = await db.collection(col).where('estado', '==', 'pendiente_pago').get();
-      detalle[col] = s.size;
-      for (const d of s.docs) { await d.ref.delete(); borradas++; }
-    }
-    res.json({ ok: true, borradas: borradas, detalle: detalle });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
 async function toolCrearCita(args, canal) {
   args = args || {};
   if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
