@@ -1802,11 +1802,12 @@ app.post('/clasificar-tratamiento', async (req, res) => {
   try {
     const KEY = process.env.ANTHROPIC_API_KEY;
     if (!KEY) return res.json({ especialidad: 'med', nombre: _ESPS.med, tratamiento: texto, motivo: 'sin-ia' });
-    const sys = 'Sos un clasificador de una clínica médico-estética. Segun lo que describe el paciente, devolvé la especialidad y el NOMBRE CORRECTO del tratamiento.\n'
-      + 'Especialidades: med = Medicina Estética (botox, toxina, rellenos, ácido hialurónico, rinomodelación, bioestimuladores, hilos, mesoterapia, arrugas, labios, ojeras, armonización). fisio = Fisio-Estética (celulitis, reducción de medidas, drenaje, tonificación, grasa localizada, várices). cir = Cirugías (rinoplastia, lipoescultura, senos, párpados, abdomen, cualquier cirugía). cos = Cosmetología (limpieza facial, peeling, microdermoabrasión, manchas, acné, hidratación, cuidado de piel).\n'
-      + 'Devolvé EXACTAMENTE en este formato, sin nada más: codigo|Tratamiento\n'
-      + 'donde codigo es med, fisio, cir o cos; y Tratamiento es el nombre correcto y bien escrito de lo que pide el paciente (corregí ortografía; capitalizá; en singular). Ejemplos: "btox"→med|Botox ; "operarme la naris"→cir|Rinoplastia ; "bajar de medidas"→fisio|Reducción de medidas ; "limpieza de cutis"→cos|Limpieza facial profunda ; "relleno de lavios"→med|Relleno de labios.\n'
-      + 'Si no está claro o es una consulta general, devolvé: med|Consulta de valoración.';
+    const sys = 'Sos el asistente de una clínica médico-estética. Interpretá lo que escribe el paciente (aunque tenga errores de ortografía o esté incompleto) y devolvé la especialidad + una descripción CORREGIDA y bien escrita de lo que quiere.\n'
+      + 'Especialidades: med = Medicina Estética (botox, toxina, rellenos, ácido hialurónico, rinomodelación, bioestimuladores, hilos, mesoterapia, arrugas, labios, ojeras, armonización). fisio = Fisio-Estética (celulitis, reducción de medidas, drenaje, tonificación, grasa localizada, moldeo corporal, várices, papada). cir = Cirugías (rinoplastia, lipoescultura, senos, párpados, abdomen, cualquier cirugía). cos = Cosmetología (limpieza facial, peeling, microdermoabrasión, manchas, acné, hidratación, cuidado de piel).\n'
+      + 'Formato EXACTO de respuesta, sin nada más: codigo|Descripcion\n'
+      + 'codigo = med, fisio, cir o cos. Descripcion = lo que pide el paciente pero CORREGIDO (arreglá TODA la ortografía, completá palabras obvias), interpretado y con la primera letra en mayúscula. Mantené el sentido de lo que dijo; NO lo cambies por otra cosa. Puede ser un tratamiento (Botox, Rinoplastia), una zona o un síntoma (Arrugas, Celulitis, Papada).\n'
+      + 'Ejemplos: "btox"→med|Botox ; "arrgas"→med|Arrugas ; "corpral"→fisio|Corporal ; "celultes"→fisio|Celulitis ; "operarme la naris"→cir|Rinoplastia ; "limpieza de cutis"→cos|Limpieza facial profunda ; "relleno de lavios"→med|Relleno de labios.\n'
+      + 'SOLO si el texto es completamente incomprensible (letras al azar) o dice "no sé", devolvé: med|Consulta de valoración.';
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': KEY, 'anthropic-version': '2023-06-01' },
