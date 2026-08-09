@@ -195,13 +195,17 @@ async function procesarPago(deps, p) {
     return procRef.set(doc).catch(function (e) { console.error('pagos: guardar procesado:', e.message); });
   };
 
-  // 2) Busca reservas pendientes de pago
+  // 2) Busca reservas pendientes de pago (en citas generales Y en reservas de campaña)
   let candidatas = [];
   try {
-    const snap = await db.collection('citas').where('estado', '==', 'pendiente_pago').get();
-    snap.forEach(function (d) { candidatas.push(Object.assign({ _id: d.id }, d.data())); });
+    const s1 = await db.collection('citas').where('estado', '==', 'pendiente_pago').get();
+    s1.forEach(function (d) { candidatas.push(Object.assign({ _id: d.id, _col: 'citas' }, d.data())); });
   } catch (e) { console.error('pagos: query citas:', e.message); }
-  candidatas.sort(function (a, b) { return tsMs(b.timestamp) - tsMs(a.timestamp); }); // más reciente primero
+  try {
+    const s2 = await db.collection('reservas_beni').where('estado', '==', 'pendiente_pago').get();
+    s2.forEach(function (d) { candidatas.push(Object.assign({ _id: d.id, _col: 'reservas_beni' }, d.data())); });
+  } catch (e) { console.error('pagos: query reservas_beni:', e.message); }
+  candidatas.sort(function (a, b) { return tsMs(b.timestamp || b.createdAt) - tsMs(a.timestamp || a.createdAt); }); // más reciente primero
 
   // 3) Elige la reserva
   console.log('💳 pago ' + id + ': ' + candidatas.length + ' reserva(s) pendiente(s) de pago');
@@ -239,9 +243,9 @@ async function procesarPago(deps, p) {
     return;
   }
 
-  // 5) CONFIRMA la reserva
+  // 5) CONFIRMA la reserva (en su colección: citas o reservas_beni)
   try {
-    await db.collection('citas').doc(elegida._id).update({
+    await db.collection(elegida._col || 'citas').doc(elegida._id).update({
       estado: 'confirmada',
       pago: {
         nTransaccion: id, monto: (p.monto != null ? p.monto : null),
