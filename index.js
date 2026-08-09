@@ -2333,6 +2333,7 @@ app.listen(PORT, () => {
           pass: process.env.PAGOS_SMTP_PASS || process.env.PAGOS_IMAP_PASS
         },
         MONTO_MIN: parseFloat(process.env.PAGOS_MONTO_MIN || '50'),
+        pagoUrl: PAGO_URL,
         pollSeg: parseInt(process.env.PAGOS_POLL_SEG || '60', 10),
         imap: {
           host: process.env.PAGOS_IMAP_HOST,

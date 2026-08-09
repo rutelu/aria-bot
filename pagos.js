@@ -235,20 +235,44 @@ async function procesarPago(deps, p) {
     }
   }
 
-  // 4) Verifica el monto
-  const montoOk = (p.monto == null) ? true : (p.monto >= deps.MONTO_MIN);
-  if (!montoOk) {
-    await avisarJulio(deps, '⚠️ Pago de Bs ' + p.monto + ' (menor a Bs ' + deps.MONTO_MIN + ') de ' + p.titular + '.\nReserva: ' + elegida.nombre + ' · ' + (elegida.telefono || '') + '\nNo la confirmé sola — revisá.\n' + resumenPago(p));
-    await guardar({ resultado: 'monto_bajo', citaId: elegida._id });
+  // 4) Verifica el MONTO contra el depósito esperado (Bs 50), ACUMULANDO pagos parciales.
+  //    - Insuficiente  → NO confirma; le pide al paciente el saldo faltante (reenvía el QR).
+  //    - Exacto/de más → confirma; si pagó de más, le avisa que el saldo a favor va en su consulta.
+  const DEP = Number(deps.MONTO_MIN) || 50;                 // depósito esperado
+  const telCli = soloDigitos(elegida.telefono);
+  const linkPago = deps.pagoUrl || 'https://harmonieinstitute.com/?pagar=1';
+  const round2 = function (n) { return Math.round(n * 100) / 100; };
+  const previo = Number(elegida.pagoAcumulado || 0);         // ya abonado antes en esta reserva
+  const abono = (p.monto != null) ? p.monto : 0;
+  const totalPagado = round2(previo + abono);
+
+  // 4a) PAGO INSUFICIENTE (solo cuando conocemos el monto): no confirmar, pedir el saldo.
+  if (p.monto != null && totalPagado < DEP) {
+    const falta = round2(DEP - totalPagado);
+    try {
+      await db.collection(elegida._col || 'citas').doc(elegida._id).update({ pagoAcumulado: totalPagado, pagoParcialAt: new Date() });
+    } catch (e) { console.error('pagos: update parcial:', e.message); }
+    if (telCli) {
+      const msg = '¡Hola ' + (primerNombre(elegida.nombre) || '') + '! Recibimos tu pago de Bs ' + abono + '. 🙏\n'
+        + 'El depósito que asegura tu reserva es de *Bs ' + DEP + '*'
+        + (previo > 0 ? (' (llevas Bs ' + totalPagado + ' en total)') : '') + ', así que aún faltan *Bs ' + falta + '*.\n'
+        + 'Completa el saldo aquí 👉 ' + linkPago + '\nEscanea el mismo QR e ingresa Bs ' + falta + '. Apenas llegue, tu cita queda confirmada. 💛';
+      deps.waSend(telCli, msg).catch(function (e) { console.error('pago parcial WA:', e.message); });
+    }
+    await avisarJulio(deps, '⚠️ Pago INSUFICIENTE: Bs ' + abono + ' de ' + p.titular + ' (acumulado Bs ' + totalPagado + ' de Bs ' + DEP + ').\n'
+      + 'Reserva: ' + elegida.nombre + ' · ' + (elegida.telefono || '') + '\nLe pedí el saldo (Bs ' + falta + ') por WhatsApp. Sigue PENDIENTE.\n' + resumenPago(p));
+    await guardar({ resultado: 'parcial', citaId: elegida._id, acumulado: totalPagado });
     return;
   }
 
-  // 5) CONFIRMA la reserva (en su colección: citas o reservas_beni)
+  // 5) CONFIRMA la reserva (monto suficiente, o monto no verificable).
+  const sobrante = (p.monto != null) ? round2(totalPagado - DEP) : 0;
   try {
     await db.collection(elegida._col || 'citas').doc(elegida._id).update({
       estado: 'confirmada',
+      pagoAcumulado: (p.monto != null ? totalPagado : null),
       pago: {
-        nTransaccion: id, monto: (p.monto != null ? p.monto : null),
+        nTransaccion: id, monto: (p.monto != null ? p.monto : null), totalPagado: (p.monto != null ? totalPagado : null),
         titular: p.titular || '', fecha: p.fecha || '',
         confirmadoPor: 'valeria-email', confirmadoAt: new Date()
       }
@@ -259,17 +283,18 @@ async function procesarPago(deps, p) {
     await guardar({ resultado: 'error_update', citaId: elegida._id });
     return;
   }
-  await guardar({ resultado: 'confirmado', citaId: elegida._id, motivo: motivo });
+  await guardar({ resultado: 'confirmado', citaId: elegida._id, motivo: motivo, sobrante: sobrante });
 
   // 6) Notifica al CLIENTE (WhatsApp)
-  const telCli = soloDigitos(elegida.telefono);
   if (telCli) {
-    const msgCli = '¡Hola ' + (primerNombre(elegida.nombre) || '') + '! 😊 Recibimos tu pago de Bs '
-      + (p.monto != null ? p.monto : '') + ' ✅\nTu cita en HARMONIE quedó *CONFIRMADA*'
+    const extra = (sobrante > 0)
+      ? ('\nAdemás, pagaste Bs ' + sobrante + ' de más: ese saldo a favor se te descuenta dentro de tu consulta. 💛')
+      : '';
+    const msgCli = '¡Hola ' + (primerNombre(elegida.nombre) || '') + '! 😊 Recibimos tu pago ✅\nTu cita en HARMONIE quedó *CONFIRMADA*'
       + (elegida.fecha ? (' para el ' + elegida.fecha) : '')
       + (elegida.hora ? (' a las ' + elegida.hora) : '')
       + (elegida.sede ? (' · ' + elegida.sede) : '')
-      + '.\n¡Te esperamos! 💛 Recordá que tu depósito se descuenta de tu tratamiento.';
+      + '.\n¡Te esperamos! 💛 Recuerda que tu depósito se descuenta de tu tratamiento.' + extra;
     deps.waSend(telCli, msgCli).catch(function (e) { console.error('pago aviso cliente WA:', e.message); });
   }
   // ...y también por correo (si el cliente puso un email real).
