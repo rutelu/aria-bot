@@ -786,16 +786,22 @@ async function toolConsultarDisponibilidad(args, cfg) {
 
   const hoyISO = fechaBoliviaISO();
   const ahoraHHMM = horaBoliviaHHMM();
-  const result = dias.map(function(d) {
+  const result = [];
+  for (const d of dias) {
     let libres = horas.filter(function(h) { return !ocupados.has(beniSlotId(d.fecha, h)); });
     // Si el día es HOY, no ofrecer horas que ya pasaron (deja un margen: el turno debe empezar después de la hora actual).
     if (d.fecha === hoyISO) libres = libres.filter(function(h) { return h > ahoraHHMM; });
+    // MISMA regla que crear_reserva: excluir horas donde el ESPECIALISTA de la campaña ya está ocupado
+    // por una cita general (presencial o virtual). Evita ofrecer horas que luego se rechazan al agendar.
+    const libresReal = [];
+    for (const h of libres) {
+      if (!(await especialistaOcupado(cfg.especialidadId, d.fecha, h, 60))) libresReal.push(h);
+    }
+    if (!libresReal.length) continue;
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === d.subsede; }) || {};
-    return { subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libres };
-  });
-  // Quita días de hoy que ya no tienen horas disponibles (todas pasaron).
-  const resultFiltrado = result.filter(function(r) { return r.horas_libres.length > 0; });
-  return { disponibilidad: resultFiltrado, promo: cfg.promo };
+    result.push({ subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libresReal });
+  }
+  return { disponibilidad: result, promo: cfg.promo };
 }
 
 async function toolCrearReserva(args, cfg, canal) {
