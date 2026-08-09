@@ -1797,28 +1797,29 @@ app.post('/clasificar-tratamiento', async (req, res) => {
   _setChatCors(req, res);
   const texto = String((req.body && req.body.texto) || '').trim().slice(0, 500);
   if (!texto || /^\s*(no\s*s[eé]|no\s*lo\s*s[eé]|ninguno|nada|no)\s*$/i.test(texto)) {
-    return res.json({ especialidad: 'med', nombre: _ESPS.med, motivo: 'default' });
+    return res.json({ especialidad: 'med', nombre: _ESPS.med, tratamiento: 'Consulta de valoración', motivo: 'default' });
   }
   try {
     const KEY = process.env.ANTHROPIC_API_KEY;
-    if (!KEY) return res.json({ especialidad: 'med', nombre: _ESPS.med, motivo: 'sin-ia' });
-    const sys = 'Sos un clasificador de una clínica médico-estética. Clasificá la consulta del paciente en EXACTAMENTE una de estas 4 especialidades y respondé SOLO con el código (una palabra), sin nada más:\n'
-      + 'med = Medicina Estética (botox, toxina botulínica, rellenos, ácido hialurónico, rinomodelación, bioestimuladores, hilos tensores, mesoterapia, skinbooster, arrugas, labios, ojeras, armonización facial).\n'
-      + 'fisio = Fisio-Estética (celulitis, reducción de medidas, drenaje linfático, tonificación muscular, grasa localizada, moldeo corporal, post-operatorio, várices, piernas cansadas).\n'
-      + 'cir = Cirugías Estéticas (rinoplastia, lipoescultura, aumento o levantamiento de senos, blefaroplastia, abdominoplastia, liposucción, cualquier cirugía con quirófano).\n'
-      + 'cos = Cosmetología (limpieza facial profunda, peeling, microdermoabrasión, manchas, acné, hidratación, radiofrecuencia facial, rutina de cuidado de piel).\n'
-      + 'Si no está claro, es ambiguo o es una consulta general, respondé: med.\n'
-      + 'Respondé ÚNICAMENTE con una de estas palabras: med, fisio, cir, cos.';
+    if (!KEY) return res.json({ especialidad: 'med', nombre: _ESPS.med, tratamiento: texto, motivo: 'sin-ia' });
+    const sys = 'Sos un clasificador de una clínica médico-estética. Segun lo que describe el paciente, devolvé la especialidad y el NOMBRE CORRECTO del tratamiento.\n'
+      + 'Especialidades: med = Medicina Estética (botox, toxina, rellenos, ácido hialurónico, rinomodelación, bioestimuladores, hilos, mesoterapia, arrugas, labios, ojeras, armonización). fisio = Fisio-Estética (celulitis, reducción de medidas, drenaje, tonificación, grasa localizada, várices). cir = Cirugías (rinoplastia, lipoescultura, senos, párpados, abdomen, cualquier cirugía). cos = Cosmetología (limpieza facial, peeling, microdermoabrasión, manchas, acné, hidratación, cuidado de piel).\n'
+      + 'Devolvé EXACTAMENTE en este formato, sin nada más: codigo|Tratamiento\n'
+      + 'donde codigo es med, fisio, cir o cos; y Tratamiento es el nombre correcto y bien escrito de lo que pide el paciente (corregí ortografía; capitalizá; en singular). Ejemplos: "btox"→med|Botox ; "operarme la naris"→cir|Rinoplastia ; "bajar de medidas"→fisio|Reducción de medidas ; "limpieza de cutis"→cos|Limpieza facial profunda ; "relleno de lavios"→med|Relleno de labios.\n'
+      + 'Si no está claro o es una consulta general, devolvé: med|Consulta de valoración.';
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 8, system: sys, messages: [{ role: 'user', content: texto }] })
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 30, system: sys, messages: [{ role: 'user', content: texto }] })
     });
     const data = await r.json();
-    let out = String(data.content && data.content[0] && data.content[0].text || '').toLowerCase().replace(/[^a-z]/g, '');
-    if (!_ESPS[out]) out = 'med';
-    res.json({ especialidad: out, nombre: _ESPS[out], motivo: 'ia' });
-  } catch (e) { res.status(200).json({ especialidad: 'med', nombre: _ESPS.med, motivo: 'error' }); }
+    const outRaw = String(data.content && data.content[0] && data.content[0].text || '').trim();
+    const parts = outRaw.split('|');
+    let esp = String(parts[0] || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (!_ESPS[esp]) esp = 'med';
+    let trat = String(parts[1] || '').trim() || texto;
+    res.json({ especialidad: esp, nombre: _ESPS[esp], tratamiento: trat, motivo: 'ia' });
+  } catch (e) { res.status(200).json({ especialidad: 'med', nombre: _ESPS.med, tratamiento: texto, motivo: 'error' }); }
 });
 
 // Verificación de conexión a Firebase (sin secretos)
