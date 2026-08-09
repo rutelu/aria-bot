@@ -1129,7 +1129,7 @@ function enviarLinkPago(telefono, c) {
   const nombre = String((c && c.nombre) || '').split(/\s+/)[0] || '';
   const msg = 'Hola ' + nombre + ' 💛 Para CONFIRMAR tu reserva en HARMONIE'
     + (c && c.fecha ? (' (' + c.fecha + (c.hora ? ' ' + c.hora : '') + (c.sede ? ' · ' + c.sede : '') + ')') : '')
-    + ' hacé el depósito de Bs 50 que asegura tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nAbrí el enlace y pagá acá 👉 ' + PAGO_URL + '\n\nApenas pagues, tu reserva queda confirmada automáticamente. ¡Te esperamos!';
+    + ' haz el depósito de Bs 50 que asegura tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nAbre el enlace y paga aquí 👉 ' + PAGO_URL + '\n\nApenas pagues, tu reserva queda confirmada automáticamente. ¡Te esperamos!';
   try {
     waSend(tel, msg).then(function (data) {
       if (data && data.error) console.error('💳 enlace de pago NO enviado a ' + tel + ':', (data.error.message || JSON.stringify(data.error)));
@@ -1137,6 +1137,22 @@ function enviarLinkPago(telefono, c) {
     });
   } catch (e) { console.error('💳 enviarLinkPago:', e.message); }
 }
+
+// TEMPORAL (limpieza de datos de prueba): borra las reservas en estado 'pendiente_pago'
+// de citas + reservas_beni. Protegido con ?token=harmonie2026. QUITAR después de usar.
+app.get('/debug/limpiar-pendientes', async (req, res) => {
+  if (String(req.query.token || '') !== 'harmonie2026') return res.status(403).json({ error: 'token' });
+  if (!db) return res.status(500).json({ error: 'sin db' });
+  let borradas = 0; const detalle = {};
+  try {
+    for (const col of ['citas', 'reservas_beni']) {
+      const s = await db.collection(col).where('estado', '==', 'pendiente_pago').get();
+      detalle[col] = s.size;
+      for (const d of s.docs) { await d.ref.delete(); borradas++; }
+    }
+    res.json({ ok: true, borradas: borradas, detalle: detalle });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 async function toolCrearCita(args, canal) {
   args = args || {};

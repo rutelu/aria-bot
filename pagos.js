@@ -227,9 +227,14 @@ async function procesarPago(deps, p) {
   } else {
     const conNombre = candidatas.filter(function (c) { return coincideNombre(p.titular, c.nombre); });
     if (conNombre.length === 1) { elegida = conNombre[0]; motivo = 'por nombre'; }
+    else if (conNombre.length > 1) {
+      // Varias con el mismo nombre → elige la MÁS RECIENTE (candidatas ya viene ordenada desc).
+      // Caso típico: el mismo cliente acaba de reservar y paga en el acto.
+      elegida = conNombre[0]; motivo = 'por nombre (la más reciente de ' + conNombre.length + ')';
+    }
     else {
-      console.log('💳 pago ' + id + ' ambiguo (' + candidatas.length + ' pendientes) → aviso a Julio');
-      await avisarJulio(deps, '🤔 Llegó un pago pero hay ' + candidatas.length + ' reservas pendientes y no puedo decidir con certeza.\n' + resumenPago(p) + '\n👉 Confirmá vos a mano cuál corresponde.');
+      console.log('💳 pago ' + id + ' ambiguo (' + candidatas.length + ' pendientes, ninguna coincide por nombre) → aviso a Julio');
+      await avisarJulio(deps, '🤔 Llegó un pago pero hay ' + candidatas.length + ' reservas pendientes y ninguna coincide por nombre.\n' + resumenPago(p) + '\n👉 Confirmá vos a mano cuál corresponde.');
       await guardar({ resultado: 'ambiguo', pendientes: candidatas.length });
       return;
     }
