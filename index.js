@@ -839,12 +839,14 @@ async function toolCrearReserva(args, cfg, canal) {
     especialista: cfg.especialista || 'Equipo Harmonie', especialidad: cfg.especialidad || '',
     especialidadId: cfg.especialidadId || '',
     nombre: nombre, telefono: telefono, email: '', notas: args.tratamiento || '',
-    estado: 'confirmada', canal: canal || 'chat',
+    servicio: args.tratamiento || 'Consulta',
+    estado: 'pendiente_pago', canal: canal || 'chat',
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
   await batch.commit();
 
-  return { ok: true, id: slotId, mensaje: 'Reserva confirmada: ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
+  enviarLinkPago(telefono, { nombre: nombre, fecha: fecha, hora: hora, sede: subsede });
+  return { ok: true, id: slotId, mensaje: 'Reserva creada en ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP: depósito de 50 bolivianos para confirmar (no es cobro de la consulta, se reembolsa en su tratamiento). Queda confirmada apenas pague.' };
 }
 
 // ── REAGENDAR / CANCELAR reservas (Plan B) ──
@@ -1119,6 +1121,18 @@ async function toolConsultarDisponibilidadSede(args) {
   return { sede: sede, direccion: sc.direccion, disponibilidad: out };
 }
 
+// Enlace de la pasarela de pago + mensaje al cliente por WhatsApp (reserva presencial → depósito Bs 50).
+const PAGO_URL = process.env.PAGO_URL || 'https://harmonieinstitute.com/pago.html';
+function enviarLinkPago(telefono, c) {
+  const tel = String(telefono || '').replace(/\D/g, '');
+  if (!tel) return;
+  const nombre = String((c && c.nombre) || '').split(/\s+/)[0] || '';
+  const msg = 'Hola ' + nombre + ' 💛 Para CONFIRMAR tu reserva en HARMONIE'
+    + (c && c.fecha ? (' (' + c.fecha + (c.hora ? ' ' + c.hora : '') + (c.sede ? ' · ' + c.sede : '') + ')') : '')
+    + ' necesitas un depósito de Bs 50.\nNO es el cobro de la consulta: es solo para confirmar tu reserva y se DESCUENTA dentro de tu tratamiento.\n\nPagá acá 👉 ' + PAGO_URL + '\n\nApenas pagues, tu reserva queda confirmada automáticamente. ¡Te esperamos!';
+  try { waSend(tel, msg).catch(function () {}); } catch (e) { console.error('enviarLinkPago:', e.message); }
+}
+
 async function toolCrearCita(args, canal) {
   args = args || {};
   if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
@@ -1150,17 +1164,23 @@ async function toolCrearCita(args, canal) {
   if (await especialistaOcupado(espId, fecha, hora, virtual ? 20 : 60)) {
     return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otra hora libre.' };
   }
+  // Presencial pide depósito de Bs 50 (queda pendiente_pago hasta pagar); virtual es gratis.
+  const esPresencial = (modalidad !== 'virtual');
   const cita = {
     nombre: nombre, telefono: telefono, email: args.email || '',
     servicio: servicio,
     especialidadId: espId, especialidadNombre: (_ESPS[espId] || ''),
     fecha: fecha, hora: hora, sede: sede, modalidad: modalidad,
-    estado: 'confirmada', canal: canal || 'voz',
+    estado: esPresencial ? 'pendiente_pago' : 'confirmada', canal: canal || 'voz',
     timestamp: admin.firestore.FieldValue.serverTimestamp()
   };
   const ref = await db.collection('citas').add(cita);
   try { notificarNuevaCita({ id: ref.id, nombre: nombre, telefono: telefono, sede: sede, fecha: fecha, hora: hora, modalidad: modalidad, servicio: cita.servicio, canal: cita.canal }); } catch (e) {}
-  return { ok: true, id: ref.id, mensaje: 'Cita confirmada: ' + (modalidad === 'virtual' ? 'videollamada' : sede) + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
+  if (esPresencial) {
+    enviarLinkPago(telefono, { nombre: nombre, fecha: fecha, hora: hora, sede: sede });
+    return { ok: true, id: ref.id, mensaje: 'Reserva creada en ' + sede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP: es un depósito de 50 bolivianos para confirmar la reserva, NO es el cobro de la consulta y se reembolsa dentro de su tratamiento. Queda confirmada apenas pague.' };
+  }
+  return { ok: true, id: ref.id, mensaje: 'Cita confirmada: videollamada (gratis), ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
 }
 
 async function toolBuscarCita(args) {
