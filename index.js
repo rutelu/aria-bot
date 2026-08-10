@@ -1175,30 +1175,6 @@ function enviarLinkPago(telefono, c) {
   } catch (e) { console.error('💳 enviarLinkPago:', e.message); }
 }
 
-// TEMPORAL (limpieza de pruebas): borra TODAS las citas + reservas de campaña + cupos ocupados.
-// El sitio está en construcción (sin tráfico real), así que todo es data de prueba. Protegido con token. QUITAR tras usar.
-app.get('/debug/limpiar-todo', async (req, res) => {
-  if (String(req.query.token || '') !== 'harmonie2026') return res.status(403).json({ error: 'token' });
-  if (!db) return res.status(500).json({ error: 'sin db' });
-  let borrados = 0; const detalle = {};
-  try {
-    for (const col of ['citas', 'reservas_beni', 'cupos_ocupados']) {
-      const snap = await db.collection(col).get();
-      detalle[col] = snap.size;
-      let docs = snap.docs;
-      while (docs.length) {
-        const batch = db.batch();
-        docs.slice(0, 400).forEach(function (d) { batch.delete(d.ref); });
-        await batch.commit();
-        borrados += Math.min(400, docs.length);
-        docs = docs.slice(400);
-      }
-    }
-    console.log('🧹 limpiar-todo: borrados ' + borrados + ' docs', JSON.stringify(detalle));
-    res.json({ ok: true, borrados: borrados, detalle: detalle });
-  } catch (e) { console.error('🧹 limpiar-todo:', e.message); res.status(500).json({ error: e.message }); }
-});
-
 // ── EXPIRACIÓN DE RESERVAS SIN PAGO ─────────────────────────────────────────
 // La reserva presencial queda APARTADA 60 min esperando el depósito. Recordatorios
 // a los 30 y 45 min por WhatsApp; a los 60 min se ELIMINA y se libera el cupo.
