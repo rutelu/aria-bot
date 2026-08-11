@@ -301,7 +301,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 
 CONTACTO (compártelo solo cuando haga falta):
 - Sitio web para agendar: harmonieinstitute.com
-- Reservas de campaña (SOLO si hay una jornada activa; ahora no la hay): harmonieinstitute.com/beni
+- Reservas de campaña (SOLO si hay una jornada activa; ahora no la hay): harmonieinstitute.com/oruro
 - WhatsApp del equipo: +591 76951552 — dalo SOLO si la persona necesita algo que tú no puedes resolver o pide ayuda adicional. Preséntalo como "ahí también te atiende el equipo de HARMONIE"; nunca digas "una persona real" (tú también lo eres).
 - No entregues ningún otro número de WhatsApp; menos el número por el que la persona ya te escribe.
 
@@ -327,7 +327,7 @@ En las campañas/jornadas ACTIVAS suele haber descuentos especiales (por ejemplo
 CÓMO AGENDAR (ofrece la opción según el caso):
 1) Agenda Presencial: en harmonieinstitute.com eliges sede, especialista, día y horario.
 2) Agenda Virtual (telemedicina): en harmonieinstitute.com → "Agenda Virtual", eliges plataforma (WhatsApp, Zoom o Google Meet), día y horario. Disponible todos los días de 9:00 a 21:00. Ideal para quienes están en otra ciudad o no pueden ir presencialmente.
-(Si hay una Jornada activa, su información actualizada aparecerá al final de estas instrucciones; en ese caso ofrécela como gancho y dirige a harmonieinstitute.com/beni.)
+(Si hay una Jornada activa, su información actualizada aparecerá al final de estas instrucciones; en ese caso ofrécela como gancho y dirige a harmonieinstitute.com/oruro.)
 
 OFRECE PROACTIVAMENTE LLAMADA Y WEB (cuando corresponda, sin insistir): dentro de la conversación, cuando sea natural y útil, ofrece hablar por voz conmigo (Valeria) o ver el calendario para reservar, además de seguir ayudando por chat.
 - HABLAR POR VOZ (llamada GRATIS): invítala a hablar por voz conmigo, es una llamada por internet sin costo. Ofrécela sobre todo cuando la persona tiene varias dudas, prefiere que le expliquen hablando, o dice que escribir cansa o le incomoda.
@@ -621,7 +621,7 @@ function buildBeniSection(cfg, dispo) {
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
-  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "puedes agendar tú misma acá 👉 harmonieinstitute.com/beni" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola; su cupo queda asegurado con el depósito de Bs 50 reembolsable.\n';
+  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "puedes agendar tú misma acá 👉 harmonieinstitute.com/oruro" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola; su cupo queda asegurado con el depósito de Bs 50 reembolsable.\n';
   s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad y día (usa SOLO las fechas vigentes que se listan arriba), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.\n';
   s += 'REAGENDAR / CANCELAR: si la persona quiere cambiar o cancelar su cita (o el equipo te lo indica por instrucción especial), primero UBICA su reserva: usa buscar_reserva_beni con su teléfono, o pídele la fecha y hora actuales. CONFIRMA con ella cuál es la reserva antes de tocar nada. Para cancelar usa cancelar_reserva_beni; para mover, reagendar_reserva_beni (el nuevo horario debe estar libre y vigente). NUNCA canceles ni reagendes sin confirmar primero con la persona. Después, confírmale el cambio con calidez.';
   return s;
@@ -1637,7 +1637,7 @@ async function waSendCallButton(to, url, bodyText) {
 function extraerMarcadorLlamada(text) {
   if (!text) return { texto: text, url: null };
   const m = text.match(/\[\[\s*LLAMAR\s*:\s*(beni|web)\s*\]\]/i);
-  const url = m ? (m[1].toLowerCase() === 'beni' ? 'https://harmonieinstitute.com/beni' : 'https://harmonieinstitute.com') : null;
+  const url = m ? (m[1].toLowerCase() === 'beni' ? 'https://harmonieinstitute.com/oruro' : 'https://harmonieinstitute.com') : null;
   const texto = text.replace(/\[\[\s*LLAMAR\s*:\s*(beni|web)\s*\]\]/ig, '').trim();
   return { texto: texto, url: url };
 }
