@@ -168,15 +168,16 @@ const BENI_SEED = {
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'oruro-2026-08b',
+  campaignVersion: 'oruro-2026-08c',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   subsedes: [
     { id: 'Oruro', nombre: 'Oruro', direccion: 'Clínica Santiago, c. Rodríguez entre Brasil y Teferina', telefonos: ['+591 76951552'] }
   ],
   dias: [
-    { fecha: '2026-08-10', label: 'Lunes 10 de agosto', subsede: 'Oruro' },
-    { fecha: '2026-08-11', label: 'Martes 11 de agosto', subsede: 'Oruro' }
+    { fecha: '2026-08-13', label: 'Jueves 13 de agosto', subsede: 'Oruro' },
+    { fecha: '2026-08-14', label: 'Viernes 14 de agosto', subsede: 'Oruro' },
+    { fecha: '2026-08-15', label: 'Sábado 15 de agosto', subsede: 'Oruro' }
   ],
   horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
 };
@@ -289,7 +290,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - Te presentas y hablas como una persona del equipo de HARMONIE, con naturalidad y calidez. NUNCA digas que eres un bot, una IA, un asistente automático ni una "asistente virtual". Si te preguntan si eres un robot o un bot, no lo confirmes: responde con calidez que eres Valeria, de HARMONIE, y sigue ayudando. Si te preguntan de dónde eres o datos personales, responde con naturalidad y coherencia que eres boliviana, de La Paz, parte del equipo de HARMONIE — nunca rompas esa identidad.
 - NO le repitas a la persona el número de WhatsApp por el que ya te está escribiendo (es redundante). Tu llamado a la acción principal es invitar a agendar por la web.
 - Solo hablas de HARMONIE: tratamientos, especialistas, sedes, campañas/jornadas y el agendamiento. Si preguntan otra cosa, redirige con amabilidad.
-- COBERTURA NACIONAL Y CAMPAÑAS (REGLA GLOBAL PERMANENTE): HARMONIE realiza TODOS sus tratamientos —incluidas las CIRUGÍAS estéticas— en sus 8 sedes principales (La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni). NUNCA digas que algo "solo se hace en La Paz". Además hacemos CAMPAÑAS de forma PERMANENTE, rotando por distintas sedes y subsedes del país. Si preguntan si habrá campañas futuras (de cirugías estéticas o de cualquier tratamiento) en el Beni o en cualquier zona, responde con entusiasmo que SÍ: trabajamos permanentemente con campañas en todas las sedes y subsedes, y próximamente se aperturarán nuevas sedes y subsedes; invítala con calidez a dejarte sus datos para avisarle de la próxima campaña que le interese. ESTADO ACTUAL DE CAMPAÑAS (IMPORTANTE): las jornadas de Beni (junio) y de Oruro y Sucre (fines de junio) YA FINALIZARON; en este momento NO hay ninguna campaña/jornada activa (si la hubiera, su información aparecería al final de estas instrucciones). Si preguntan por esas campañas, di con calidez y naturalidad que YA PASARON/finalizaron, y ofrece agendar una valoración o dejar sus datos para avisarle de la próxima. NUNCA ofrezcas fechas, descuentos ni cupos de una campaña que ya pasó. Si lo que pide no entra en una campaña vigente, recuérdale que igual lo realizamos en nuestras sedes y puede agendar una valoración.
+- COBERTURA NACIONAL Y CAMPAÑAS (REGLA GLOBAL PERMANENTE): HARMONIE realiza TODOS sus tratamientos —incluidas las CIRUGÍAS estéticas— en sus 8 sedes principales (La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni). NUNCA digas que algo "solo se hace en La Paz". Además hacemos CAMPAÑAS de forma PERMANENTE, rotando por distintas sedes y subsedes del país. Si preguntan si habrá campañas futuras (de cirugías estéticas o de cualquier tratamiento) en el Beni o en cualquier zona, responde con entusiasmo que SÍ: trabajamos permanentemente con campañas en todas las sedes y subsedes, y próximamente se aperturarán nuevas sedes y subsedes; invítala con calidez a dejarte sus datos para avisarle de la próxima campaña que le interese. ESTADO ACTUAL DE CAMPAÑAS (IMPORTANTE): las jornadas de Beni (junio) y la anterior de Oruro y Sucre (fines de junio) YA FINALIZARON. La información de la campaña VIGENTE (si la hay) aparece al final de estas instrucciones bajo "JORNADA ACTIVA": guíate SIEMPRE por esa sección para saber ciudad, fechas y descuentos actuales. Si preguntan por campañas PASADAS, di con calidez que YA PASARON/finalizaron, y ofrece agendar una valoración o dejar sus datos para avisarle de la próxima. NUNCA ofrezcas fechas, descuentos ni cupos de una campaña que ya pasó. Si lo que pide no entra en una campaña vigente, recuérdale que igual lo realizamos en nuestras sedes y puede agendar una valoración.
 - IDENTIFICA Y RESPONDE SEGÚN EL ORIGEN (regla permanente, SIEMPRE): cada vez que sepas DESDE DÓNDE te contacta la persona —por el contexto [ORIGEN DE ESTE CONTACTO], el primer mensaje, el anuncio en que hizo clic, la sección de la web, una promoción o un tratamiento puntual—, reconócelo con calidez al inicio (ej. "¡Hola! Soy Valeria, del equipo de HARMONIE. Veo que escribes por nuestra jornada en tu ciudad…") Y ADAPTA TODA la conversación a ese origen: habla de lo que a esa persona le interesa según de dónde viene y oriéntala a la acción que corresponde (reservar tu cupo en la jornada de tu ciudad, agendar una valoración, etc.). Mantén presente ese origen durante toda la charla, no solo en el saludo. Si NO sabes el origen, saluda normal y pregunta en qué ayudar — nunca inventes un origen.
 - NUNCA das diagnósticos médicos ni prometes resultados garantizados. Para eso, ofreces agendar una consulta de valoración.
 - PRECIOS: puedes dar los PRECIOS DE REFERENCIA listados más abajo (son aproximados; el valor final se define en la valoración). Destaca siempre la calidad de nuestros tratamientos, la experiencia y la garantía de resultados, con las técnicas más avanzadas. La reserva PRESENCIAL se asegura con un depósito de Bs 50 REEMBOLSABLE (se descuenta dentro del tratamiento); la videollamada es GRATIS. Durante una campaña/jornada ACTIVA la valoración no tiene costo y hay promociones, pero el depósito de Bs 50 reembolsable para asegurar el cupo se mantiene. Para tratamientos no listados, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
@@ -321,7 +322,7 @@ PRECIOS DE REFERENCIA (aproximados; el valor final se define en la valoración. 
 - Botox: a partir de Bs 800, según las áreas y las unidades.
 - Micropigmentación: cejas Bs 800, labios Bs 800, párpados superior o inferior Bs 400; otras pigmentaciones, previa valoración.
 - Aparatología (HIFU, láser), facial y corporal y otros tratamientos: precio previa valoración.
-En las campañas/jornadas ACTIVAS suele haber descuentos especiales (por ejemplo 40% por traer un recomendado que se atienda) y la valoración es GRATIS; para asegurar el cupo se pide un depósito reembolsable de Bs 50 (se descuenta en el tratamiento). Fuera de campaña aplican los precios de referencia y la valoración normal.
+En las campañas/jornadas ACTIVAS suele haber descuentos especiales (por ejemplo descuentos por venir sola/solo o por traer un recomendado que se atienda) y la valoración es GRATIS; para asegurar el cupo se pide un depósito reembolsable de Bs 50 (se descuenta en el tratamiento). Fuera de campaña aplican los precios de referencia y la valoración normal.
 
 CÓMO AGENDAR (ofrece la opción según el caso):
 1) Agenda Presencial: en harmonieinstitute.com eliges sede, especialista, día y horario.
@@ -330,7 +331,7 @@ CÓMO AGENDAR (ofrece la opción según el caso):
 
 OFRECE PROACTIVAMENTE LLAMADA Y WEB (cuando corresponda, sin insistir): dentro de la conversación, cuando sea natural y útil, ofrece hablar por voz conmigo (Valeria) o ver el calendario para reservar, además de seguir ayudando por chat.
 - HABLAR POR VOZ (llamada GRATIS): invítala a hablar por voz conmigo, es una llamada por internet sin costo. Ofrécela sobre todo cuando la persona tiene varias dudas, prefiere que le expliquen hablando, o dice que escribir cansa o le incomoda.
-- CÓMO ENVÍO EL BOTÓN: cuando quieras ofrecer la llamada (o dirigirla a reservar/ver el calendario), escribe tu mensaje breve y cálido invitándola, y al FINAL, en una línea aparte, agrega EXACTAMENTE uno de estos marcadores (nada más en esa línea): "[[LLAMAR:beni]]" si la conversación es sobre una campaña/jornada activa, o "[[LLAMAR:web]]" en cualquier otro caso (lo normal ahora, ya que no hay campaña activa). El sistema convierte ese marcador en un BOTÓN que abre la página correcta (la de la Jornada Oruro y Sucre o el sitio general), donde la persona encuentra el botón "Llamar" para hablar conmigo por voz, el calendario para agendar y el botón de WhatsApp para volver. NUNCA expliques el marcador ni lo menciones; solo agrégalo al final. No lo pongas en cada mensaje, solo cuando ofrezcas la llamada o invites a reservar.
+- CÓMO ENVÍO EL BOTÓN: cuando quieras ofrecer la llamada (o dirigirla a reservar/ver el calendario), escribe tu mensaje breve y cálido invitándola, y al FINAL, en una línea aparte, agrega EXACTAMENTE uno de estos marcadores (nada más en esa línea): "[[LLAMAR:beni]]" si la conversación es sobre una campaña/jornada activa, o "[[LLAMAR:web]]" en cualquier otro caso (lo normal ahora, ya que no hay campaña activa). El sistema convierte ese marcador en un BOTÓN que abre la página correcta (la de la Jornada Oruro o el sitio general), donde la persona encuentra el botón "Llamar" para hablar conmigo por voz, el calendario para agendar y el botón de WhatsApp para volver. NUNCA expliques el marcador ni lo menciones; solo agrégalo al final. No lo pongas en cada mensaje, solo cuando ofrezcas la llamada o invites a reservar.
 - Ejemplo: "¡Claro! Si escribir cansa, podemos hablar por voz, es gratis 😊 Toca el botón y conversamos:\n[[LLAMAR:beni]]"
 
 Pagos: tarjetas de crédito/débito, QR y transferencias. La consulta de valoración dura 30–45 min.
@@ -547,14 +548,14 @@ const CONTACTOS_BENI = {
 
 function buildBeniSection(cfg, dispo) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
-  let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en dos ciudades (Oruro y Sucre), pero son CAMPAÑAS SEPARADAS y cada persona pertenece a UNA sola ciudad (la de su anuncio/origen). Engancha con la jornada de SU ciudad apenas pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de SU ciudad: la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. NUNCA menciones las dos ciudades juntas ni ofrezcas fechas de la otra ciudad. No repitas lo ya dicho:\n';
-  s += 'Nuestro especialista en medicina estética atiende presencialmente en Oruro y Sucre (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
+  let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en Oruro. Engancha con la jornada apenas la persona pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de Oruro: la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. No repitas lo ya dicho:\n';
+  s += 'Nuestro especialista en medicina estética atiende presencialmente en Oruro (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
   var _hoyISO = fechaBoliviaISO();
   var _mananaISO = (function(){ var d = new Date(Date.now() - 4*60*60*1000); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); })();
-  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana sábado 27"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron; ofrece SOLO los días vigentes listados. Di siempre el día de la semana CON su fecha y localidad exactos.\n';
+  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana viernes 14"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron; ofrece SOLO los días vigentes listados. Di siempre el día de la semana CON su fecha y localidad exactos.\n';
   var _vig = (cfg.dias || []).filter(function(d){ return d.fecha >= _hoyISO; });
   var _pas = (cfg.dias || []).filter(function(d){ return d.fecha < _hoyISO; });
-  s += 'DÍAS DISPONIBLES POR CIUDAD (ofrece SOLO los de la ciudad de la persona —según su origen—; NUNCA menciones ni ofrezcas los de la otra ciudad):\n';
+  s += 'DÍAS DISPONIBLES:\n';
   if (!_vig.length) s += '- (Ya no quedan fechas disponibles; la jornada finalizó.)\n';
   (cfg.subsedes || []).forEach(function(sub) {
     const dias = _vig.filter(function(d){ return d.subsede === sub.id; }).map(function(d){
@@ -609,10 +610,10 @@ function buildBeniSection(cfg, dispo) {
   });
 
   // Precios y contexto durante la campaña
-  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO DEL RECOMENDADO cuando sea natural: traer un recomendado que se atienda da 40% de descuento (cada persona obtiene su propio 40% al traer a su recomendado). Durante la Jornada Oruro y Sucre la valoración es GRATIS y NO se cobra anticipo para reservar.\n';
-  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Oruro y Sucre es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
-  s += '\nQUÉ INCLUYE LA JORNADA ORURO Y SUCRE (MUY IMPORTANTE): la Jornada Oruro y Sucre cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
-  s += 'FUERA DE ESTA CAMPAÑA (cirugías y otros tratamientos no contemplados): si preguntan por CIRUGÍAS estéticas (rinoplastia, lipo, mamoplastia, etc.) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Oruro y Sucre, y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías estéticas. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo.\n';
+  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO cuando sea natural (está descrita arriba en "Promo"): venir sola/solo da 20% de descuento, y traer un recomendado que se atienda da 50% de descuento a quien invita. Durante la Jornada Oruro la valoración es GRATIS y se pide un depósito reembolsable de Bs 50 para reservar (se descuenta en el tratamiento).\n';
+  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Oruro es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
+  s += '\nQUÉ INCLUYE LA JORNADA ORURO (MUY IMPORTANTE): la Jornada Oruro cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
+  s += 'FUERA DE ESTA CAMPAÑA (cirugías y otros tratamientos no contemplados): si preguntan por CIRUGÍAS estéticas (rinoplastia, lipo, mamoplastia, etc.) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Oruro, y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías estéticas. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo.\n';
   if (cfg.prevaloraciones === true) {
     s += 'PRE-VALORACIONES EN ESTA CAMPAÑA (sí incluida): aunque la cirugía en sí no se realiza en la jornada, en ESTA campaña el especialista de Harmonie (experto, parte del equipo) SÍ puede hacer una PRE-VALORACIÓN de cualquier tratamiento quirúrgico durante la jornada, para orientar a la persona y planificar su cirugía. Por eso, si alguien pregunta por una cirugía, ADEMÁS de aclarar lo anterior, ofrécele con entusiasmo agendar una PRE-VALORACIÓN con el especialista en la jornada (es un gran beneficio: aprovecha que está presente). Ofrece la pre-valoración SOLO porque esta campaña la incluye; en campañas que no la incluyan, no la ofrezcas.\n';
   }
@@ -643,22 +644,22 @@ function typingDelay(text) {
 const BENI_TOOLS = [
   {
     name: 'consultar_disponibilidad_beni',
-    description: 'Consulta los días y horarios LIBRES de la Jornada Oruro y Sucre. Úsala cuando la persona pregunte por disponibilidad, qué días hay, o quiera reservar. Devuelve los cupos libres por sub-sede y fecha.',
+    description: 'Consulta los días y horarios LIBRES de la Jornada Oruro. Úsala cuando la persona pregunte por disponibilidad, qué días hay, o quiera reservar. Devuelve los cupos libres por sub-sede y fecha.',
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['Oruro', 'Sucre'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
+        subsede: { type: 'string', enum: ['Oruro'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
         fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Opcional; si se omite, devuelve todos los días de la campaña.' }
       }
     }
   },
   {
     name: 'crear_reserva_beni',
-    description: 'Crea (confirma) una reserva en la Jornada Oruro y Sucre. Úsala SOLO cuando ya tengas los 5 datos: subsede, fecha, hora, nombre completo y teléfono, y el horario esté libre. Si el horario está ocupado devolverá error y deberás ofrecer otro.',
+    description: 'Crea (confirma) una reserva en la Jornada Oruro. Úsala SOLO cuando ya tengas los 5 datos: subsede, fecha, hora, nombre completo y teléfono, y el horario esté libre. Si el horario está ocupado devolverá error y deberás ofrecer otro.',
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['Oruro', 'Sucre'] },
+        subsede: { type: 'string', enum: ['Oruro'] },
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM en 24h, ej 09:00, 16:00' },
         nombre: { type: 'string', description: 'Nombre completo del paciente' },
@@ -767,7 +768,7 @@ function resolverFecha(fechaArg, subsede, cfg) {
 
 async function toolConsultarDisponibilidad(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro y Sucre aún no está publicada.' };
+  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro aún no está publicada.' };
   // CANDADO TEMPRANO: valida el tratamiento ANTES de ofrecer horarios. Si es estrictamente de otra especialidad,
   // rechaza YA (así Valeria avisa apenas escucha el tratamiento, sin pedir datos ni ofrecer horas que no aplican).
   if ((cfg.especialidadId || 'med') === 'med' && String(args.tratamiento || '').trim()) {
@@ -782,7 +783,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
   if (args.fecha) { var fr = resolverFecha(args.fecha, args.subsede, cfg); if (dias.some(function(d) { return d.fecha === fr; })) dias = dias.filter(function(d) { return d.fecha === fr; }); }
   if (!dias.length) {
     const vig = diasVigentes(cfg).map(function(d){ return d.label + ' en ' + d.subsede; }).join('; ');
-    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La Jornada Oruro y Sucre ya finalizó; no quedan fechas disponibles.' };
+    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La Jornada Oruro ya finalizó; no quedan fechas disponibles.' };
   }
 
   // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
@@ -814,7 +815,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
 
 async function toolCrearReserva(args, cfg, canal) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro y Sucre aún no está publicada.' };
+  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro aún no está publicada.' };
   const subsede = resolverSubsede(args.subsede, cfg);
   const fecha = resolverFecha(args.fecha, subsede, cfg);
   const hora = normalizarHora(args.hora, cfg.horas);
@@ -836,7 +837,7 @@ async function toolCrearReserva(args, cfg, canal) {
   }
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
   const horaOk = (cfg.horas || []).includes(hora);
-  if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Oruro y Sucre. Ofrece un día y hora válidos de la campaña.' };
+  if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Oruro. Ofrece un día y hora válidos de la campaña.' };
   // No permitir reservar una fecha/hora que ya pasó.
   if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM())) {
     return { error: 'Ese horario ya pasó. Ofrece un día y hora vigentes (de hoy en adelante).' };
@@ -919,7 +920,7 @@ async function toolCancelarReserva(args, cfg) {
 // Reagenda una reserva: libera el cupo viejo y ocupa el nuevo (debe estar libre y vigente).
 async function toolReagendarReserva(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro y Sucre no está publicada.' };
+  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro no está publicada.' };
   const fechaAct = String(args.fecha_actual || '').trim();
   const horaAct = normalizarHora(args.hora_actual, cfg.horas);
   const fechaNueva = resolverFecha(args.fecha_nueva, args.subsede_nueva, cfg);
@@ -937,7 +938,7 @@ async function toolReagendarReserva(args, cfg) {
     const subsedeNueva = args.subsede_nueva ? resolverSubsede(args.subsede_nueva, cfg) : r.subsede;
     const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsedeNueva && d.fecha === fechaNueva; });
     const horaOk = (cfg.horas || []).includes(horaNueva);
-    if (!diaOk || !horaOk) return { error: 'El nuevo día/hora no es parte de la Jornada Oruro y Sucre vigente. Ofrece un día y hora válidos.' };
+    if (!diaOk || !horaOk) return { error: 'El nuevo día/hora no es parte de la Jornada Oruro vigente. Ofrece un día y hora válidos.' };
     if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM())) {
       return { error: 'El nuevo horario ya pasó. Ofrece uno de hoy en adelante.' };
     }
@@ -1422,23 +1423,21 @@ async function askValeria(userId, userMessage, origenDirecto) {
   console.log('🧠 ' + userId + ' hist=' + getHistory(userId).length + ' primerMsg=' + esPrimerMensaje + ' origen=' + (origen ? 'SI' : 'no') + ' fresco=' + origenFresco);
   // Detecta la SEDE (ciudad) del origen del anuncio para no mezclar sedes.
   const _oTxt = String(origen || '').toLowerCase();
-  const sedeOrigen = _oTxt.indexOf('oruro') !== -1 ? 'Oruro' : (_oTxt.indexOf('sucre') !== -1 ? 'Sucre' : '');
+  const sedeOrigen = origen ? 'Oruro' : ''; // campaña actual: SOLO Oruro (si viene de un anuncio de la jornada, es Oruro)
   const reglasCriticas = 'REGLAS CRITICAS (cumplelas SIEMPRE, por encima de todo lo demas):\n'
     + '1) BREVEDAD COMO HUMANO: responde como en un chat real de WhatsApp: MUY breve y calida, 1-2 frases (idealmente una). NUNCA parrafos tipo folleto ni listas. Responde SOLO lo que te preguntaron. Si el tema da para mas, NO sueltes todo: ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Da respuestas largas SOLO si la persona lo pide expresamente o claramente capta que lo necesita. Si tu mensaje supera 2 frases, recortalo. Si preguntan algo general (precios, tratamientos), pregunta primero que les interesa en lugar de listar todo.\n'
-    + '2) NO MEZCLES SEDES (CRITICO): Oruro y Sucre son CIUDADES DISTINTAS, cada una con SU propia jornada. NUNCA digas "Oruro y Sucre" juntas ni menciones ambas ciudades en un mismo mensaje. Habla SOLO de la ciudad que corresponde a esta persona (ver punto ORIGEN). De los dias que veras mas abajo, ofrece UNICAMENTE los de esa ciudad. Menciona la otra ciudad SOLO si la persona pregunta expresamente por ella. (Distintas subsedes/puntos dentro de una MISMA ciudad si pueden mencionarse juntos.)\n'
+    + '2) JORNADA EN ORURO: la campaña vigente es SOLO en Oruro. Ofrece unicamente los dias de Oruro que veras mas abajo. (Distintas subsedes/puntos dentro de Oruro si pueden mencionarse juntos.)\n'
     + (esPrimerMensaje
         ? '3) ESTADO: este es el PRIMER mensaje de esta conversacion. Presentate SIEMPRE asi: empieza con "¡Hola! Soy Valeria, del equipo de Harmonie" y luego, calida y breve, pregunta en que la puedes ayudar (o engancha con la jornada de SU ciudad si sabes el origen). NUNCA un saludo generico sin tu nombre.\n'
         : '3) ESTADO: YA venian conversando en este mismo chat (NO es el primer mensaje). PROHIBIDO volver a saludar, presentarte o decir "Hola" otra vez. CONTINUA el hilo recordando lo ya hablado (su nombre, lo que le interesa, su localidad y dia si los dio). Si te escriben solo "hola", retoma el tema sin re-presentarte, ej: "¡Aqui sigo! ¿Avanzamos con tu reserva?".\n')
     + (sedeOrigen
-        ? '4) ORIGEN (lead del anuncio de ' + sedeOrigen + '): esta persona viene de la jornada en ' + sedeOrigen + ' (' + origen + '). Habla SOLO de ' + sedeOrigen + ': reconoce con calidez que escribe por la jornada en ' + sedeOrigen + ', ofrecele sus fechas vigentes en ' + sedeOrigen + ', el 40% de descuento por traer un recomendado y la valoracion GRATIS, e invitala a reservar su cupo. NUNCA menciones la otra ciudad ni respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por ' + sedeOrigen + '.\n'
-        : (origen
-            ? '4) ORIGEN: viene de un anuncio de la jornada pero NO sabes de que ciudad. Si pregunta por fechas o por reservar, preguntale PRIMERO con calidez "¿Te gustaria atenderte en Oruro o en Sucre?" antes de dar dias. Nunca ofrezcas ambas ciudades como un combo.\n'
-            : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, pregunta primero en que ciudad (Oruro o Sucre) quiere atenderse.\n'))
+        ? '4) ORIGEN (lead del anuncio de la jornada de Oruro): esta persona viene de la jornada en Oruro (' + origen + '). Reconoce con calidez que escribe por la jornada en Oruro, ofrecele sus fechas vigentes en Oruro, el descuento por traer un recomendado (50%) y la valoracion GRATIS, e invitala a reservar su cupo. NO respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por la jornada de Oruro.\n'
+        : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, cuentale que la jornada vigente es en Oruro y ofrecele sus fechas.\n')
     + '5) AGENDA — REGLA DE ORO (NUNCA la rompas): para fechas, horas y reservas usas SIEMPRE tus herramientas, JAMAS tu memoria ni la lista de dias de abajo para inventar horas. '
       + '(a) Cuando la persona acepte o pida agendar, NO le tires horas de una vez: PRIMERO dile en una frase corta que vas a revisar la agenda (ej. "Permiteme revisar la disponibilidad un momento 😊") y recien ahi LLAMA a consultar_disponibilidad_beni; SOLO despues ofrece las horas que ESA herramienta devuelva como libres en esta misma conversacion. NUNCA ofrezcas horas adivinando, suponiendo ni de memoria. '
       + '(b) Para reservar, LLAMA a crear_reserva_beni. SOLO puedes decir que la cita quedo agendada/confirmada si esa herramienta te respondio ok:true. Si respondio error (ocupado, ya paso, faltan datos), NO confirmes: disculpate en una frase y ofrece otra hora libre que la herramienta SI devuelva. '
       + '(c) PROHIBIDO decir "te agende", "quedo reservado", "listo, confirmada" o parecido sin un ok:true real de crear_reserva_beni. Si tienes cualquier duda sobre disponibilidad, vuelve a consultar_disponibilidad_beni antes de responder.\n'
-    + '6) PROMO DEL 40% (REGLA EXACTA, nunca la cambies ni la interpretes distinto): el 40% de descuento es SOLO para QUIEN TRAE a un recomendado que se atienda. Es decir: la persona trae a un invitado que se atiende y ELLA (la que invita) gana 40% en SU propio tratamiento. El invitado NO gana 40% por el simple hecho de venir; el invitado gana su propio 40% UNICAMENTE si a su vez trae a OTRO recomendado que se atienda (asi en cadena, cada quien por su propio invitado). PROHIBIDO decir "los dos ganan", "ambos ganan el 40%", "traes a un amigo y los dos tienen 40%" o similar. El beneficio es de quien invita, uno por uno.\n';
+    + '6) PROMO POR RECOMENDADO (REGLA EXACTA, nunca la cambies ni la interpretes distinto): venir sola/solo da 20% de descuento. El 50% es SOLO para QUIEN TRAE a un recomendado que se atienda. Es decir: la persona trae a un invitado que se atiende y ELLA (la que invita) gana 50% en SU propio tratamiento. El invitado NO gana 50% por el simple hecho de venir; el invitado gana su propio 50% UNICAMENTE si a su vez trae a OTRO recomendado que se atienda (asi en cadena, cada quien por su propio invitado). PROHIBIDO decir "los dos ganan", "ambos ganan el 50%", "traes a un amigo y los dos tienen 50%" o similar. El beneficio del 50% es de quien invita, uno por uno.\n';
   const bloqueInstruccion = instruccionEspecial
     ? 'INSTRUCCION ESPECIAL DEL EQUIPO PARA ESTE CLIENTE (PRIORIDAD MAXIMA, por encima de TODO lo demas): '
       + instruccionEspecial
@@ -1531,7 +1530,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
     }
 
     // Si se agotó el bucle sin respuesta final.
-    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Oruro y Sucre 😊 Atendemos en Oruro el sábado 27 y domingo 28 de junio, y en Sucre el lunes 29, martes 30 de junio, miércoles 1 y jueves 2 de julio. ¿Qué localidad y día te quedan mejor?';
+    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Oruro 😊 Atendemos en Oruro el jueves 13, viernes 14 y sábado 15 de agosto, en Clínica Santiago. ¿Qué día te queda mejor?';
 
   } catch (err) {
     console.error('Error Claude AI:', err);
@@ -1881,7 +1880,7 @@ app.post('/chat', async (req, res) => {
 
     const webNote = '\n\n---\n[CANAL: CHAT WEB de harmonieinstitute.com — REGLAS DE ESTE CANAL (PRIORIDAD MÁXIMA, por encima de todo lo de arriba):\n'
       + '1) Preséntate y refiérete a ti misma como "asistente de Harmonie". NUNCA digas "asistente virtual".\n'
-      + '2) NO menciones ni ofrezcas NINGUNA campaña ni "Jornada" (Oruro, Sucre, Beni u otra): ESAS CAMPAÑAS YA TERMINARON. Ignora por completo cualquier instrucción de arriba que hable de una "campaña actual/activa" o de la "Jornada Oruro y Sucre". Habla SIEMPRE de los tratamientos y las 8 sedes de forma general, sin fechas de campaña ni el 40%.\n'
+      + '2) CAMPAÑAS EN EL CHAT WEB: este canal es general y nacional, así que NO promociones la jornada de forma proactiva. Habla de los tratamientos y las 8 sedes de forma general. Si la persona pregunta EXPRESAMENTE si hay una campaña/jornada activa, puedes contarle con calidez que sí hay una jornada en Oruro y que puede ver las fechas y reservar en el calendario (usa el botón [[AGENDAR]]); si es de otra ciudad, ofrécele dejar sus datos para la próxima campaña. Tú NO des fechas concretas ni los descuentos en este chat; que lo vea en el calendario.\n'
       + '3) AYUDA AQUÍ MISMO, en este chat: responde sus dudas con calidez y resuélvelas tú directamente. NO derives a WhatsApp de forma proactiva ni repitas "escríbenos por WhatsApp". SOLO menciona el WhatsApp (' + WA + ') si la persona pide EXPRESAMENTE hablar con alguien del equipo.\n'
       + '4) AGENDAR (MUY IMPORTANTE): NUNCA digas que "no tienes acceso al calendario" ni te disculpes por no poder agendar. Cuando la persona quiera reservar/agendar (o sea el momento natural para invitarla), hazlo con calidez y al FINAL de tu mensaje, en una línea aparte y sola, escribe EXACTAMENTE el marcador [[AGENDAR]] (nada más en esa línea; NUNCA lo expliques, menciones ni lo pongas en cada mensaje). El sistema convierte ese marcador en un botón "Agendar" que abre el calendario del sitio, donde la persona elige AGENDA VIRTUAL (consulta/valoración ONLINE por videollamada, sin salir de casa) o PRESENCIAL en las sedes. Ofrece ambas y destaca la virtual. En este canal NO uses los marcadores [[LLAMAR:...]].\n'
       + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
@@ -1968,7 +1967,7 @@ app.get('/wa-check', async (req, res) => {
   res.json(out);
 });
 
-// Lectura de la config de la Jornada Oruro y Sucre (datos públicos de campaña)
+// Lectura de la config de la Jornada Oruro (datos públicos de campaña)
 app.get('/beni-config', async (req, res) => {
   if (!db) return res.status(503).json({ error: 'Firebase no conectado' });
   try {
@@ -1988,7 +1987,7 @@ app.get('/terms', (req, res) => {
 });
 
 // ══════════════════════════════════════════
-// RECORDATORIOS AUTOMÁTICOS — Jornada Oruro y Sucre (plantilla WhatsApp aprobada por Meta)
+// RECORDATORIOS AUTOMÁTICOS — Jornada Oruro (plantilla WhatsApp aprobada por Meta)
 // 24h antes de la cita + el mismo día a partir de las 8:00 AM (hora Bolivia, UTC-4).
 // Lee reservas_beni, envía la plantilla y marca el doc para no duplicar.
 // ══════════════════════════════════════════
@@ -2017,7 +2016,7 @@ async function enviarPlantillaRecordatorio(r, cfg) {
   if (!to || to.length < 8) { console.warn('Recordatorio: teléfono inválido', r.telefono); return false; }
   const dia = ((cfg && cfg.dias) || []).find(function (x) { return x.fecha === r.fecha; });
   const diaLabel = (dia && dia.label) || r.fecha;
-  const lugar = r.lugar || r.subsede || 'la sede de la Jornada Oruro y Sucre';
+  const lugar = r.lugar || r.subsede || 'la sede de la Jornada Oruro';
   const nombre = (r.nombre || 'paciente').trim().split(/\s+/)[0]; // primer nombre, más cálido
   try {
     const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
@@ -2106,7 +2105,7 @@ function _seguimientoMsg(n, chat, cfg) {
   const nombre = (chat && chat.nombre) ? (' ' + String(chat.nombre).split(' ')[0]) : '';
   return n === 0
     ? '¡Hola' + nombre + '! 😊 Quedé pendiente de ayudarte con tu cita' + enSede + '. ¿Retomamos? Tengo cupos y la valoración es gratis. ¿Te muestro los horarios?'
-    : '¡Hola de nuevo! Solo para avisarte que la promo de 40% por traer un recomendado sigue disponible' + enSede + '. Si quieres, te aparto un cupo hoy. 💛';
+    : '¡Hola de nuevo! Solo para avisarte que la promo por traer un recomendado sigue disponible' + enSede + '. Si quieres, te aparto un cupo hoy. 💛';
 }
 async function _enviarPorCanal(chatId, msg) {
   const canal = chatId.split('_')[0];
@@ -2380,7 +2379,7 @@ app.get('/disponibilidad', async (req, res) => {
 // reservas_beni la usan TANTO la web como Valeria (chat/voz), así que un solo watcher las capta todas.
 function notificarNuevaReserva(r) {
   if (!r) return;
-  const txt = '🗓️ NUEVA RESERVA — Jornada Oruro y Sucre\n'
+  const txt = '🗓️ NUEVA RESERVA — Jornada Oruro\n'
     + '👤 ' + (r.nombre || '(sin nombre)') + '\n'
     + '📞 ' + (r.telefono || '-') + '\n'
     + '📍 ' + (r.subsede || r.lugar || '-') + '\n'
