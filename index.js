@@ -2546,6 +2546,20 @@ app.get('/debug/aviso-reservados', async (req, res) => {
   res.json(r);
 });
 
+// DIAGNÓSTICO (solo lectura): lista los cupos_ocupados (bloqueos + reservas) para ver el id exacto.
+// GET /debug/cupos?key=cupos-ver-8x
+app.get('/debug/cupos', async (req, res) => {
+  if (req.query.key !== 'cupos-ver-8x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  try {
+    const snap = await db.collection('cupos_ocupados').get();
+    const out = [];
+    snap.forEach(function (d) { const c = d.data() || {}; out.push({ id: d.id, jornadaId: c.jornadaId, fecha: c.fecha, hora: c.hora, ocupado: c.ocupado }); });
+    out.sort(function (a, b) { return (a.id > b.id) ? 1 : -1; });
+    res.json({ total: snap.size, cupos: out });
+  } catch (e) { res.status(200).json({ error: e.message }); }
+});
+
 // AVISO MASIVO (una sola vez): informa a los chats que se RETIRÓ el depósito para reservar.
 // GET /debug/aviso-sin-deposito?key=aviso-nodep-9x[&dry=1]
 // - dry=1 → NO envía, solo cuenta a quiénes llegaría (revisar antes).
