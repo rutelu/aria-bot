@@ -168,7 +168,7 @@ const BENI_SEED = {
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true,
-  campaignVersion: 'oruro-2026-08c',
+  campaignVersion: 'oruro-2026-08d',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   subsedes: [
@@ -179,7 +179,7 @@ const BENI_SEED = {
     { fecha: '2026-08-14', label: 'Viernes 14 de agosto', subsede: 'Oruro' },
     { fecha: '2026-08-15', label: 'Sábado 15 de agosto', subsede: 'Oruro' }
   ],
-  horas: ['09:00','10:00','11:00','12:00','15:00','16:00','17:00','18:00','19:00']
+  horas: ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00']
 };
 
 async function seedBeniConfig() {
