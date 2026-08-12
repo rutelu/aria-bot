@@ -2407,6 +2407,30 @@ function iniciarWatcherReservas() {
   console.log('👀 Watcher de reservas activo → avisa a WhatsApp ' + ADMIN_WHATSAPP + ' + Telegram');
 }
 
+// TEMPORAL: liberar cupos de PRUEBA de la campaña Oruro (SOLO fechas 13/14/15 ago). Quitar tras usar.
+app.get('/debug/limpiar-pruebas-oruro', async (req, res) => {
+  if (req.query.key !== 'oruro-limpia-8x') return res.status(403).json({ error: 'clave incorrecta' });
+  if (!db) return res.status(503).json({ error: 'Firebase no conectado' });
+  try {
+    const FECHAS = ['2026-08-13', '2026-08-14', '2026-08-15'];
+    async function borrar(snap) {
+      const docs = snap.docs; let n = 0;
+      for (let i = 0; i < docs.length; i += 400) {
+        const b = db.batch();
+        docs.slice(i, i + 400).forEach(function (d) { b.delete(d.ref); });
+        await b.commit(); n += Math.min(400, docs.length - i);
+      }
+      return n;
+    }
+    const rs = await db.collection('reservas_beni').where('fecha', 'in', FECHAS).get();
+    const detalle = rs.docs.map(function (d) { const x = d.data(); return { id: d.id, fecha: x.fecha, hora: x.hora, nombre: x.nombre, telefono: x.telefono, tratamiento: x.tratamiento || '', estado: x.estado || '' }; });
+    const nRes = await borrar(rs);
+    const cs = await db.collection('cupos_ocupados').where('fecha', 'in', FECHAS).get();
+    const nCup = await borrar(cs);
+    res.json({ ok: true, reservas_borradas: nRes, cupos_liberados: nCup, detalle: detalle });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`);
   iniciarWatcherReservas();
