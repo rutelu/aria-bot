@@ -170,7 +170,7 @@ const BENI_SEED = {
   publicada: true,
   campaignVersion: 'oruro-2026-08c',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
-  promo: 'Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
+  promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   subsedes: [
     { id: 'Oruro', nombre: 'Oruro', direccion: 'Clínica Santiago, c. Rodríguez entre Brasil y Teferina', telefonos: ['+591 76951552'] }
   ],
@@ -231,7 +231,7 @@ const ESPECIALIDADES = {
       'Botox (aplicación quirúrgica)',
       'Rellenos faciales avanzados',
       'Procedimientos faciales y corporales',
-      'Consulta y valoración — Bs 50 (reembolsable)',
+      'Consulta y valoración',
     ]
   },
   fisio: {
@@ -610,7 +610,7 @@ function buildBeniSection(cfg, dispo) {
   });
 
   // Precios y contexto durante la campaña
-  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO cuando sea natural (está descrita arriba en "Promo"): venir sola/solo da 20% de descuento, y traer un recomendado que se atienda da 50% de descuento a quien invita. Durante la Jornada Oruro NO se pide depósito para reservar: la reserva queda registrada y se envía un recordatorio para confirmar la cita.\n';
+  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO cuando sea natural (está descrita arriba en "Promo"): venir sola/solo da 20% de descuento, y traer un recomendado que se atienda da 50% de descuento a quien invita. Durante la Jornada Oruro NO se pide depósito para reservar: la reserva queda registrada y se envía un recordatorio para confirmar la cita. Además, en esta Jornada Oruro la VALORACIÓN/consulta presencial es GRATIS (sin costo): menciónalo con calidez como un beneficio de la campaña.\n';
   s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Oruro es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
   s += '\nQUÉ INCLUYE LA JORNADA ORURO (MUY IMPORTANTE): la Jornada Oruro cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
   s += 'FUERA DE ESTA CAMPAÑA (cirugías y otros tratamientos no contemplados): si preguntan por CIRUGÍAS estéticas (rinoplastia, lipo, mamoplastia, etc.) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Oruro, y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías estéticas. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo.\n';
