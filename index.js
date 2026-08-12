@@ -2407,6 +2407,22 @@ function iniciarWatcherReservas() {
   console.log('👀 Watcher de reservas activo → avisa a WhatsApp ' + ADMIN_WHATSAPP + ' + Telegram');
 }
 
+// TEMPORAL (solo lectura): listar reservas reales de la campaña Oruro (13/14/15 ago). Quitar tras usar.
+app.get('/debug/reservas-oruro', async (req, res) => {
+  if (req.query.key !== 'oruro-ver-8x') return res.status(403).json({ error: 'clave incorrecta' });
+  if (!db) return res.status(503).json({ error: 'Firebase no conectado' });
+  try {
+    const FECHAS = ['2026-08-13', '2026-08-14', '2026-08-15'];
+    const rs = await db.collection('reservas_beni').where('fecha', 'in', FECHAS).get();
+    const out = rs.docs.map(function (d) {
+      const x = d.data();
+      return { id: d.id, fecha: x.fecha, hora: x.hora, nombre: x.nombre, telefono: x.telefono, tratamiento: x.tratamiento || '', salud: x.salud || '', canal: x.canal || '', estado: x.estado || '', createdAt: (x.createdAt && x.createdAt.toDate) ? x.createdAt.toDate().toISOString() : '' };
+    });
+    out.sort(function (a, b) { return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
+    res.json({ total: out.length, reservas: out });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`);
   iniciarWatcherReservas();
