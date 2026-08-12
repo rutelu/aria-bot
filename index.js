@@ -1243,8 +1243,17 @@ function iniciarWatcherExpiraciones() {
   setInterval(function () { revisarExpiraciones().catch(function () {}); }, 2 * 60 * 1000);
 }
 
+// Fecha "2026-08-13" -> "jueves 13 de agosto" (sin depender de locale del server)
+function _fechaEs(fecha) {
+  const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const dt = new Date(String(fecha) + 'T12:00:00-04:00');
+  if (isNaN(dt.getTime())) return fecha;
+  return dias[dt.getUTCDay()] + ' ' + dt.getUTCDate() + ' de ' + meses[dt.getUTCMonth()];
+}
+
 // ── RECORDATORIO DE CONFIRMACIÓN ──
-// Como ya NO hay depósito, cada reserva CONFIRMADA (presencial) recibe UN recordatorio ~24h antes de la cita
+// Como ya NO hay depósito, cada reserva CONFIRMADA (presencial) recibe recordatorios ~8h y ~2h antes de la cita
 // pidiéndole que confirme su asistencia (reduce ausencias). Solo se envía en horario activo (8-22h Bolivia).
 async function revisarRecordatoriosConfirmar() {
   if (!db) return;
@@ -1277,7 +1286,7 @@ async function revisarRecordatoriosConfirmar() {
         } else if (horasFalta <= 8 && !c.recordatorioConfirmarAt) {
           // Recordatorio de CONFIRMACIÓN, ~8h antes
           await d.ref.update({ recordatorioConfirmarAt: new Date() });
-          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + fecha + ' a las ' + hora + '. Por favor respóndeme *SÍ* para CONFIRMAR tu asistencia, o escríbeme si necesitas reprogramar. ¡Te esperamos! 🌸').catch(function () {});
+          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + _fechaEs(fecha) + ' a las ' + hora + '. Por favor respóndeme *SÍ* para CONFIRMAR tu asistencia, o escríbeme si necesitas reprogramar. ¡Te esperamos! 🌸').catch(function () {});
           console.log('🔔 recordatorio confirmar 8h → ' + col + '/' + d.id);
         }
       } catch (e) { console.error('🔔 recordatorio ' + d.id + ':', e.message); }
@@ -2231,8 +2240,12 @@ async function correrSeguimientos(dryRun, ignoraTiempo) {
 
 // Arranca a los 30s y luego cada 20 minutos
 if (db) {
-  setTimeout(correrRecordatorios, 30000);
-  setInterval(correrRecordatorios, 20 * 60 * 1000);
+  // ⛔ DESACTIVADO: recordatorio por PLANTILLA de Meta 'recordatorio_jornada_beni' — su texto fijo
+  // dice "Jornada Beni de ARMONNIZA" (marca vieja + campaña equivocada) y confunde. Lo reemplaza el
+  // watcher de recordatorios de texto libre (revisarRecordatoriosConfirmar: 8h + 2h antes, marca "Harmonie").
+  // Para reactivarlo hace falta una PLANTILLA nueva aprobada en Meta y setear WA_TEMPLATE_RECORDATORIO.
+  // setTimeout(correrRecordatorios, 30000);
+  // setInterval(correrRecordatorios, 20 * 60 * 1000);
   setTimeout(correrSeguimientos, 60000);
   setInterval(correrSeguimientos, 20 * 60 * 1000);
 }
