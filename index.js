@@ -908,8 +908,8 @@ async function toolCancelarReserva(args, cfg) {
     }
     const r = rdoc.data();
     const batch = db.batch();
-    batch.delete(db.collection('cupos_ocupados').doc(slotId)); // libera el cupo (la web lo verá libre)
-    batch.set(db.collection('reservas_beni').doc(slotId), { estado: 'cancelada', canceladaAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.delete(db.collection('cupos_ocupados').doc(slotId));  // libera el cupo (la web lo verá libre)
+    batch.delete(db.collection('reservas_beni').doc(slotId));   // BORRA el doc (id determinista): así el horario se puede volver a reservar
     await batch.commit();
     console.log('🗑️ Reserva cancelada: ' + slotId + ' (' + (r.nombre || '?') + ')');
     return { ok: true, mensaje: 'Reserva cancelada: ' + (r.subsede || '') + ' ' + fecha + ' ' + hora + '. El cupo quedó libre.' };
@@ -946,8 +946,8 @@ async function toolReagendarReserva(args, cfg) {
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === subsedeNueva; }) || {};
     const lugar = sub.direccion ? (subsedeNueva + ' — ' + sub.direccion) : subsedeNueva;
     const batch = db.batch();
-    batch.delete(db.collection('cupos_ocupados').doc(oldSlot)); // libera viejo
-    batch.set(db.collection('reservas_beni').doc(oldSlot), { estado: 'reagendada', reagendadaAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    batch.delete(db.collection('cupos_ocupados').doc(oldSlot)); // libera cupo viejo
+    batch.delete(db.collection('reservas_beni').doc(oldSlot));  // BORRA el doc viejo (id determinista): el horario viejo vuelve a estar libre para reservar
     batch.set(db.collection('cupos_ocupados').doc(newSlot), { jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, ocupado: true });
     batch.set(db.collection('reservas_beni').doc(newSlot), {
       jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, lugar: lugar, subsede: subsedeNueva,
@@ -2541,6 +2541,28 @@ app.get('/debug/aviso-reservados', async (req, res) => {
           await new Promise(function (rs) { setTimeout(rs, 300); });
         } catch (e) { r.errores++; console.error('aviso-res ' + d.id + ':', e.message); }
       }
+    }
+  } catch (e) { return res.status(200).json({ error: e.message, parcial: r }); }
+  res.json(r);
+});
+
+// LIMPIEZA (una vez): borra reservas_beni huérfanas con estado 'cancelada'/'reagendada' que bloquean
+// re-reservar su horario (id determinista). También borra su cupo por si quedó. GET /debug/limpiar-canceladas?key=limpia-canc-8x[&dry=1]
+app.get('/debug/limpiar-canceladas', async (req, res) => {
+  if (req.query.key !== 'limpia-canc-8x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const dry = req.query.dry === '1';
+  const r = { encontradas: 0, borradas: 0, dry: dry, ids: [] };
+  try {
+    const snap = await db.collection('reservas_beni').where('estado', 'in', ['cancelada', 'reagendada']).get();
+    for (const d of snap.docs) {
+      r.encontradas++; if (r.ids.length < 50) r.ids.push(d.id);
+      if (dry) continue;
+      const batch = db.batch();
+      batch.delete(d.ref);
+      batch.delete(db.collection('cupos_ocupados').doc(d.id)); // por si quedó un cupo suelto
+      await batch.commit();
+      r.borradas++;
     }
   } catch (e) { return res.status(200).json({ error: e.message, parcial: r }); }
   res.json(r);
