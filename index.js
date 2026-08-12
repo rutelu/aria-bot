@@ -293,7 +293,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - COBERTURA NACIONAL Y CAMPAÑAS (REGLA GLOBAL PERMANENTE): HARMONIE realiza TODOS sus tratamientos —incluidas las CIRUGÍAS estéticas— en sus 8 sedes principales (La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni). NUNCA digas que algo "solo se hace en La Paz". Además hacemos CAMPAÑAS de forma PERMANENTE, rotando por distintas sedes y subsedes del país. Si preguntan si habrá campañas futuras (de cirugías estéticas o de cualquier tratamiento) en el Beni o en cualquier zona, responde con entusiasmo que SÍ: trabajamos permanentemente con campañas en todas las sedes y subsedes, y próximamente se aperturarán nuevas sedes y subsedes; invítala con calidez a dejarte sus datos para avisarle de la próxima campaña que le interese. ESTADO ACTUAL DE CAMPAÑAS (IMPORTANTE): las jornadas de Beni (junio) y la anterior de Oruro y Sucre (fines de junio) YA FINALIZARON. La información de la campaña VIGENTE (si la hay) aparece al final de estas instrucciones bajo "JORNADA ACTIVA": guíate SIEMPRE por esa sección para saber ciudad, fechas y descuentos actuales. Si preguntan por campañas PASADAS, di con calidez que YA PASARON/finalizaron, y ofrece agendar una valoración o dejar sus datos para avisarle de la próxima. NUNCA ofrezcas fechas, descuentos ni cupos de una campaña que ya pasó. Si lo que pide no entra en una campaña vigente, recuérdale que igual lo realizamos en nuestras sedes y puede agendar una valoración.
 - IDENTIFICA Y RESPONDE SEGÚN EL ORIGEN (regla permanente, SIEMPRE): cada vez que sepas DESDE DÓNDE te contacta la persona —por el contexto [ORIGEN DE ESTE CONTACTO], el primer mensaje, el anuncio en que hizo clic, la sección de la web, una promoción o un tratamiento puntual—, reconócelo con calidez al inicio (ej. "¡Hola! Soy Valeria, del equipo de HARMONIE. Veo que escribes por nuestra jornada en tu ciudad…") Y ADAPTA TODA la conversación a ese origen: habla de lo que a esa persona le interesa según de dónde viene y oriéntala a la acción que corresponde (reservar tu cupo en la jornada de tu ciudad, agendar una valoración, etc.). Mantén presente ese origen durante toda la charla, no solo en el saludo. Si NO sabes el origen, saluda normal y pregunta en qué ayudar — nunca inventes un origen.
 - NUNCA das diagnósticos médicos ni prometes resultados garantizados. Para eso, ofreces agendar una consulta de valoración.
-- PRECIOS: puedes dar los PRECIOS DE REFERENCIA listados más abajo (son aproximados; el valor final se define en la valoración). Destaca siempre la calidad de nuestros tratamientos, la experiencia y la garantía de resultados, con las técnicas más avanzadas. La reserva PRESENCIAL se asegura con un depósito de Bs 50 REEMBOLSABLE (se descuenta dentro del tratamiento); la videollamada es GRATIS. Durante una campaña/jornada ACTIVA la valoración no tiene costo y hay promociones, pero el depósito de Bs 50 reembolsable para asegurar el cupo se mantiene. Para tratamientos no listados, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
+- PRECIOS: puedes dar los PRECIOS DE REFERENCIA listados más abajo (son aproximados; el valor final se define en la valoración). Destaca siempre la calidad de nuestros tratamientos, la experiencia y la garantía de resultados, con las técnicas más avanzadas. La reserva PRESENCIAL se asegura con un depósito de Bs 50 REEMBOLSABLE (se descuenta dentro del tratamiento); la videollamada es GRATIS. Durante una campaña/jornada ACTIVA hay promociones, y el depósito de Bs 50 reembolsable (se descuenta en el tratamiento) asegura el cupo. Para tratamientos no listados, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
 - Toda cirugía estética requiere consulta de valoración previa obligatoria.
 - Si no sabes algo con certeza, no improvises: ofrece agendar o derivar por WhatsApp +591 76951552.
 - LONGITUD DE RESPUESTA (regla clave): por defecto responde como en un chat real de WhatsApp: MUY breve, 1-2 oraciones (idealmente una). Nunca párrafos largos tipo folleto. Da lo esencial y, cuando el tema dé para más (un tratamiento, cómo es un procedimiento, qué incluye, cuidados, etc.), OFRECE ampliar con una pregunta corta del estilo "¿Quieres que te lo explique con más detalle?". Solo si la persona pide más detalle (o responde que sí) puedes dar una respuesta más larga y completa. Cierra invitando a agendar solo cuando sea natural, sin sonar insistente. NO repitas información que ya diste antes en la misma conversación (fechas, sedes, precios): si ya lo mencionaste, no lo vuelvas a recitar.
@@ -322,7 +322,7 @@ PRECIOS DE REFERENCIA (aproximados; el valor final se define en la valoración. 
 - Botox: a partir de Bs 800, según las áreas y las unidades.
 - Micropigmentación: cejas Bs 800, labios Bs 800, párpados superior o inferior Bs 400; otras pigmentaciones, previa valoración.
 - Aparatología (HIFU, láser), facial y corporal y otros tratamientos: precio previa valoración.
-En las campañas/jornadas ACTIVAS suele haber descuentos especiales (por ejemplo descuentos por venir sola/solo o por traer un recomendado que se atienda) y la valoración es GRATIS; para asegurar el cupo se pide un depósito reembolsable de Bs 50 (se descuenta en el tratamiento). Fuera de campaña aplican los precios de referencia y la valoración normal.
+En las campañas/jornadas ACTIVAS suele haber descuentos especiales (por ejemplo descuentos por venir sola/solo o por traer un recomendado que se atienda); para asegurar el cupo se pide un depósito reembolsable de Bs 50 (se descuenta en el tratamiento). Fuera de campaña aplican los precios de referencia y la valoración normal.
 
 CÓMO AGENDAR (ofrece la opción según el caso):
 1) Agenda Presencial: en harmonieinstitute.com eliges sede, especialista, día y horario.
@@ -548,7 +548,7 @@ const CONTACTOS_BENI = {
 
 function buildBeniSection(cfg, dispo) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
-  let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en Oruro. Engancha con la jornada apenas la persona pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de Oruro: la promoción/descuento vigente y la valoración GRATIS, e invítala a reservar su cupo. No repitas lo ya dicho:\n';
+  let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en Oruro. Engancha con la jornada apenas la persona pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de Oruro: la promoción/descuento vigente, e invítala a reservar su cupo. No repitas lo ya dicho:\n';
   s += 'Nuestro especialista en medicina estética atiende presencialmente en Oruro (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
   var _hoyISO = fechaBoliviaISO();
   var _mananaISO = (function(){ var d = new Date(Date.now() - 4*60*60*1000); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); })();
@@ -610,7 +610,7 @@ function buildBeniSection(cfg, dispo) {
   });
 
   // Precios y contexto durante la campaña
-  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO cuando sea natural (está descrita arriba en "Promo"): venir sola/solo da 20% de descuento, y traer un recomendado que se atienda da 50% de descuento a quien invita. Durante la Jornada Oruro la valoración es GRATIS y se pide un depósito reembolsable de Bs 50 para reservar (se descuenta en el tratamiento).\n';
+  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO cuando sea natural (está descrita arriba en "Promo"): venir sola/solo da 20% de descuento, y traer un recomendado que se atienda da 50% de descuento a quien invita. Durante la Jornada Oruro se pide un depósito reembolsable de Bs 50 para reservar (se descuenta en el tratamiento).\n';
   s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Oruro es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
   s += '\nQUÉ INCLUYE LA JORNADA ORURO (MUY IMPORTANTE): la Jornada Oruro cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
   s += 'FUERA DE ESTA CAMPAÑA (cirugías y otros tratamientos no contemplados): si preguntan por CIRUGÍAS estéticas (rinoplastia, lipo, mamoplastia, etc.) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Oruro, y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías estéticas. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo.\n';
@@ -873,7 +873,7 @@ async function toolCrearReserva(args, cfg, canal) {
   await batch.commit();
 
   enviarLinkPago(telefono, { nombre: nombre, fecha: fecha, hora: hora, sede: subsede });
-  return { ok: true, id: slotId, mensaje: 'Reserva creada en ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. La CONSULTA de valoración es gratis; LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP con el depósito de 50 bolivianos REEMBOLSABLE que asegura el cupo y se descuenta dentro de su tratamiento. Dile que le enviaste el enlace y que su reserva queda confirmada apenas pague. NO le digas que "no se paga nada por adelantado".' };
+  return { ok: true, id: slotId, mensaje: 'Reserva creada en ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. LE ENVIÉ EL ENLACE DE PAGO A SU WHATSAPP con el depósito de 50 bolivianos REEMBOLSABLE que asegura el cupo y se descuenta dentro de su tratamiento. Dile que le enviaste el enlace y que su reserva queda confirmada apenas pague. NO le digas que "no se paga nada por adelantado".' };
 }
 
 // ── REAGENDAR / CANCELAR reservas (Plan B) ──
@@ -1177,9 +1177,23 @@ function enviarLinkPago(telefono, c) {
 }
 
 // ── EXPIRACIÓN DE RESERVAS SIN PAGO ─────────────────────────────────────────
-// La reserva presencial queda APARTADA 60 min esperando el depósito. Recordatorios
-// a los 30 y 45 min por WhatsApp; a los 60 min se ELIMINA y se libera el cupo.
-const HOLD_MIN = 60, REM1_MIN = 30, REM2_MIN = 45;
+// La reserva presencial queda APARTADA esperando el depósito: 2 horas de HORARIO ACTIVO (8-22h Bolivia; de
+// noche PAUSA, no libera ni mensajea). Recordatorios a los 60 y 100 min activos; a los 120 min activos se ELIMINA y libera.
+const HOLD_MIN = 120, REM1_MIN = 60, REM2_MIN = 100;
+// Ventana de horario activo (Bolivia UTC-4): SOLO se liberan cupos y se mandan recordatorios entre 8:00 y 22:00.
+// El "reloj" de expiración cuenta únicamente minutos DENTRO de esa ventana (de noche se pausa), así todos
+// reciben 2 horas reales de día para pagar y quien reserva de madrugada tiene hasta la mañana.
+function _minutosActivos(startMs, nowMs) {
+  if (!startMs || nowMs <= startMs) return 0;
+  const OFF = 4 * 3600 * 1000, DAY = 24 * 3600 * 1000, H1 = 8 * 3600 * 1000, H2 = 22 * 3600 * 1000;
+  const s = startMs - OFF, n = nowMs - OFF; // pasar a hora local Bolivia
+  let active = 0;
+  for (let d = Math.floor(s / DAY) * DAY; d < n; d += DAY) {
+    const a = Math.max(s, d + H1), b = Math.min(n, d + H2);
+    if (b > a) active += (b - a);
+  }
+  return active / 60000;
+}
 function _tsMs(ts) {
   if (!ts) return 0;
   if (typeof ts.toMillis === 'function') return ts.toMillis();
@@ -1198,7 +1212,7 @@ async function revisarExpiraciones() {
       const c = d.data();
       const t = _tsMs(c.timestamp || c.createdAt || c.creadoAt);
       if (!t) continue;
-      const edadMin = (ahora - t) / 60000;
+      const edadMin = _minutosActivos(t, ahora); // minutos SOLO de horario activo (8-22h); de noche pausa
       const tel = String(c.telefono || '').replace(/\D/g, '');
       const nom = String(c.nombre || '').split(/\s+/)[0] || '';
       const cuando = (c.fecha || '') + (c.hora ? (' a las ' + c.hora) : '') + ((c.sede || c.subsede) ? (' · ' + (c.sede || c.subsede)) : '');
@@ -1213,19 +1227,19 @@ async function revisarExpiraciones() {
           console.log('⏳ reserva ' + col + '/' + d.id + ' EXPIRADA (sin pago) y liberada');
         } else if (edadMin >= REM2_MIN && !c.recordatorio2At) {
           await d.ref.update({ recordatorio2At: new Date() });
-          if (tel) waSend(tel, 'Hola ' + nom + ' ⏳ Te quedan unos 15 minutos para asegurar tu reserva' + ref + '. Completa tu depósito de Bs 50 aquí 👉 ' + PAGO_URL + ' o se liberará automáticamente.').catch(function () {});
-          console.log('⏳ recordatorio 2 (45min) → ' + col + '/' + d.id);
+          if (tel) waSend(tel, 'Hola ' + nom + ' ⏳ Te quedan los últimos minutos para asegurar tu reserva' + ref + '. Completa tu depósito de Bs 50 aquí 👉 ' + PAGO_URL + ' o se liberará automáticamente.').catch(function () {});
+          console.log('⏳ recordatorio 2 (' + REM2_MIN + 'min activos) → ' + col + '/' + d.id);
         } else if (edadMin >= REM1_MIN && !c.recordatorio1At) {
           await d.ref.update({ recordatorio1At: new Date() });
-          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Tu reserva' + ref + ' está apartada esperando tu depósito de Bs 50. Complétalo aquí 👉 ' + PAGO_URL + '. La mantenemos unos 30 minutos más.').catch(function () {});
-          console.log('⏳ recordatorio 1 (30min) → ' + col + '/' + d.id);
+          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Tu reserva' + ref + ' está apartada esperando tu depósito de Bs 50. Complétalo aquí 👉 ' + PAGO_URL + '. La mantenemos un rato más.').catch(function () {});
+          console.log('⏳ recordatorio 1 (' + REM1_MIN + 'min activos) → ' + col + '/' + d.id);
         }
       } catch (e) { console.error('⏳ exp ' + d.id + ':', e.message); }
     }
   }
 }
 function iniciarWatcherExpiraciones() {
-  console.log('⏳ Watcher de expiración activo (aparta ' + HOLD_MIN + 'min; recordatorios ' + REM1_MIN + '/' + REM2_MIN + 'min)');
+  console.log('⏳ Watcher de expiración activo (aparta ' + HOLD_MIN + 'min ACTIVOS 8-22h; recordatorios ' + REM1_MIN + '/' + REM2_MIN + 'min; pausa 22-8h)');
   revisarExpiraciones().catch(function () {});
   setInterval(function () { revisarExpiraciones().catch(function () {}); }, 2 * 60 * 1000);
 }
@@ -1431,7 +1445,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
         ? '3) ESTADO: este es el PRIMER mensaje de esta conversacion. Presentate SIEMPRE asi: empieza con "¡Hola! Soy Valeria, del equipo de Harmonie" y luego, calida y breve, pregunta en que la puedes ayudar (o engancha con la jornada de SU ciudad si sabes el origen). NUNCA un saludo generico sin tu nombre.\n'
         : '3) ESTADO: YA venian conversando en este mismo chat (NO es el primer mensaje). PROHIBIDO volver a saludar, presentarte o decir "Hola" otra vez. CONTINUA el hilo recordando lo ya hablado (su nombre, lo que le interesa, su localidad y dia si los dio). Si te escriben solo "hola", retoma el tema sin re-presentarte, ej: "¡Aqui sigo! ¿Avanzamos con tu reserva?".\n')
     + (sedeOrigen
-        ? '4) ORIGEN (lead del anuncio de la jornada de Oruro): esta persona viene de la jornada en Oruro (' + origen + '). Reconoce con calidez que escribe por la jornada en Oruro, ofrecele sus fechas vigentes en Oruro, el descuento por traer un recomendado (50%) y la valoracion GRATIS, e invitala a reservar su cupo. NO respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por la jornada de Oruro.\n'
+        ? '4) ORIGEN (lead del anuncio de la jornada de Oruro): esta persona viene de la jornada en Oruro (' + origen + '). Reconoce con calidez que escribe por la jornada en Oruro, ofrecele sus fechas vigentes en Oruro, el descuento por traer un recomendado (50%), e invitala a reservar su cupo. NO respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por la jornada de Oruro.\n'
         : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, cuentale que la jornada vigente es en Oruro y ofrecele sus fechas.\n')
     + '5) AGENDA — REGLA DE ORO (NUNCA la rompas): para fechas, horas y reservas usas SIEMPRE tus herramientas, JAMAS tu memoria ni la lista de dias de abajo para inventar horas. '
       + '(a) Cuando la persona acepte o pida agendar, NO le tires horas de una vez: PRIMERO dile en una frase corta que vas a revisar la agenda (ej. "Permiteme revisar la disponibilidad un momento 😊") y recien ahi LLAMA a consultar_disponibilidad_beni; SOLO despues ofrece las horas que ESA herramienta devuelva como libres en esta misma conversacion. NUNCA ofrezcas horas adivinando, suponiendo ni de memoria. '
@@ -2104,7 +2118,7 @@ function _seguimientoMsg(n, chat, cfg) {
   const enSede = sede ? (' en ' + sede) : '';
   const nombre = (chat && chat.nombre) ? (' ' + String(chat.nombre).split(' ')[0]) : '';
   return n === 0
-    ? '¡Hola' + nombre + '! 😊 Quedé pendiente de ayudarte con tu cita' + enSede + '. ¿Retomamos? Tengo cupos y la valoración es gratis. ¿Te muestro los horarios?'
+    ? '¡Hola' + nombre + '! 😊 Quedé pendiente de ayudarte con tu cita' + enSede + '. ¿Retomamos? Tengo cupos disponibles. ¿Te muestro los horarios?'
     : '¡Hola de nuevo! Solo para avisarte que la promo por traer un recomendado sigue disponible' + enSede + '. Si quieres, te aparto un cupo hoy. 💛';
 }
 async function _enviarPorCanal(chatId, msg) {
