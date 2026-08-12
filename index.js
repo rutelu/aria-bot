@@ -1243,6 +1243,53 @@ function iniciarWatcherExpiraciones() {
   setInterval(function () { revisarExpiraciones().catch(function () {}); }, 2 * 60 * 1000);
 }
 
+// ── RECORDATORIO DE CONFIRMACIÓN ──
+// Como ya NO hay depósito, cada reserva CONFIRMADA (presencial) recibe UN recordatorio ~24h antes de la cita
+// pidiéndole que confirme su asistencia (reduce ausencias). Solo se envía en horario activo (8-22h Bolivia).
+async function revisarRecordatoriosConfirmar() {
+  if (!db) return;
+  const hBol = new Date(Date.now() - 4 * 3600 * 1000).getUTCHours();
+  if (hBol < 8 || hBol >= 22) return; // no molestar de noche
+  const ahora = Date.now();
+  for (const col of ['reservas_beni', 'citas']) {
+    let snap;
+    try { snap = await db.collection(col).where('estado', '==', 'confirmada').get(); }
+    catch (e) { console.error('🔔 query ' + col + ':', e.message); continue; }
+    for (const d of snap.docs) {
+      const c = d.data();
+      if (c.modalidad === 'virtual') continue;      // solo presencial
+      const fecha = c.fecha, hora = c.hora;
+      if (!fecha || !hora) continue;
+      const citaMs = Date.parse(fecha + 'T' + (String(hora).length === 5 ? hora : ('0' + hora)) + ':00-04:00');
+      if (isNaN(citaMs)) continue;
+      const horasFalta = (citaMs - ahora) / 3600000;
+      if (horasFalta <= 0) continue; // la cita ya pasó
+      const tel = String(c.telefono || '').replace(/\D/g, '');
+      const nom = String(c.nombre || '').split(/\s+/)[0] || '';
+      const sede = c.sede || c.subsede || c.lugar || '';
+      const sedeTxt = sede ? (' — ' + sede) : '';
+      try {
+        if (horasFalta <= 2 && !c.recordatorio2hAt) {
+          // Recordatorio SIMPLE, ~2h antes
+          await d.ref.update({ recordatorio2hAt: new Date() });
+          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Tu cita en Harmonie' + sedeTxt + ' es hoy a las ' + hora + ' (en aproximadamente 2 horas). ¡Te esperamos! 🌸').catch(function () {});
+          console.log('🔔 recordatorio 2h → ' + col + '/' + d.id);
+        } else if (horasFalta <= 8 && !c.recordatorioConfirmarAt) {
+          // Recordatorio de CONFIRMACIÓN, ~8h antes
+          await d.ref.update({ recordatorioConfirmarAt: new Date() });
+          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + fecha + ' a las ' + hora + '. Por favor respóndeme *SÍ* para CONFIRMAR tu asistencia, o escríbeme si necesitas reprogramar. ¡Te esperamos! 🌸').catch(function () {});
+          console.log('🔔 recordatorio confirmar 8h → ' + col + '/' + d.id);
+        }
+      } catch (e) { console.error('🔔 recordatorio ' + d.id + ':', e.message); }
+    }
+  }
+}
+function iniciarWatcherRecordatorios() {
+  console.log('🔔 Watcher de recordatorios activo (confirmar ~8h antes + simple ~2h antes, 8-22h)');
+  revisarRecordatoriosConfirmar().catch(function () {});
+  setInterval(function () { revisarRecordatoriosConfirmar().catch(function () {}); }, 10 * 60 * 1000);
+}
+
 async function toolCrearCita(args, canal) {
   args = args || {};
   if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
@@ -2419,6 +2466,46 @@ function iniciarWatcherReservas() {
   console.log('👀 Watcher de reservas activo → avisa a WhatsApp ' + ADMIN_WHATSAPP + ' + Telegram');
 }
 
+// AVISO MASIVO (una sola vez): informa a los chats que se RETIRÓ el depósito para reservar.
+// GET /debug/aviso-sin-deposito?key=aviso-nodep-9x[&dry=1]
+// - dry=1 → NO envía, solo cuenta a quiénes llegaría (revisar antes).
+// - Respeta la ventana de 24h de Meta (wa/fb/ig) para NO arriesgar el número: fuera de 24h se omite.
+// - Telegram no tiene ventana. Marca aviso_nodep_at para no reenviar dos veces.
+app.get('/debug/aviso-sin-deposito', async (req, res) => {
+  if (req.query.key !== 'aviso-nodep-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const dry = req.query.dry === '1';
+  const H24 = 24 * 60 * 60 * 1000;
+  const ahora = Date.now();
+  const MSG = '¡Hola! 💛 Te escribo del equipo de *Harmonie*. ¡Buenas noticias! Por esta jornada RETIRAMOS la condición de depósito para reservar: ya *no necesitas pagar nada por adelantado* para asegurar tu cita. Te enviaremos un recordatorio para que confirmes tu reserva. Si quieres agendar o tienes alguna duda, aquí estoy para ayudarte 😊';
+  const r = { total: 0, enviados: 0, omitidos_24h: 0, ya_avisados: 0, errores: 0, dry: dry, muestra: [] };
+  try {
+    const snap = await db.collection('valeria_chats').get();
+    for (const doc of snap.docs) {
+      r.total++;
+      const c = doc.data() || {};
+      const userId = doc.id;
+      if (c.aviso_nodep_at) { r.ya_avisados++; continue; }
+      const canal = userId.split('_')[0];
+      const lastUser = (c.lastUserMsgAt && c.lastUserMsgAt.toMillis) ? c.lastUserMsgAt.toMillis() : null;
+      // Ventana de 24h para canales de Meta (protege el número de WhatsApp)
+      if (canal !== 'tg') {
+        if (!lastUser || (ahora - lastUser) >= H24) { r.omitidos_24h++; continue; }
+      }
+      if (r.muestra.length < 20) r.muestra.push(userId);
+      if (dry) continue;
+      try {
+        await _enviarPorCanal(userId, MSG);
+        logMensaje(userId, 'valeria', MSG);
+        await doc.ref.update({ aviso_nodep_at: admin.firestore.FieldValue.serverTimestamp() });
+        r.enviados++;
+        await new Promise(function (rs) { setTimeout(rs, 300); }); // suave, para no gatillar antispam
+      } catch (e) { r.errores++; console.error('aviso-nodep ' + userId + ':', e.message); }
+    }
+  } catch (e) { return res.status(200).json({ error: e.message, parcial: r }); }
+  res.json(r);
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Valeria Bot corriendo en puerto ${PORT}`);
   iniciarWatcherReservas();
@@ -2449,4 +2536,5 @@ app.listen(PORT, () => {
     } catch (e) { console.error('⚠️ no pude iniciar el watcher de pagos:', e.message); }
   }
   iniciarWatcherExpiraciones(); // Aparta la reserva 60min; recordatorios 30/45min; expira sin pago
+  iniciarWatcherRecordatorios(); // Recordatorio de confirmación ~8h antes + recordatorio simple ~2h antes
 });
