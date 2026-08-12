@@ -2496,8 +2496,9 @@ app.get('/debug/aviso-reservados', async (req, res) => {
   if (req.query.key !== 'aviso-res-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.status(200).json({ error: 'sin db' });
   const dry = req.query.dry === '1';
-  const r = { confirmadas: 0, reconfirmadas: 0, enviados: 0, ya_avisados: 0, sin_tel: 0, errores: 0, dry: dry, muestra: [] };
+  const r = { confirmadas: 0, reconfirmadas: 0, enviados: 0, ya_avisados: 0, pasadas: 0, sin_tel: 0, errores: 0, dry: dry, muestra: [] };
   const ESTADOS = ['confirmada', 'pendiente_pago', 'expirada', 'liberada'];
+  const ahora = Date.now();
   try {
     for (const col of ['reservas_beni', 'citas']) {
       let snap;
@@ -2509,6 +2510,11 @@ app.get('/debug/aviso-reservados', async (req, res) => {
         const tel = String(c.telefono || '').replace(/\D/g, '');
         const nom = String(c.nombre || '').split(/\s+/)[0] || '';
         const fecha = c.fecha || '', hora = c.hora || '', sede = c.sede || c.subsede || c.lugar || '';
+        // No avisar de reservas que ya pasaron (no tiene sentido "confirmar" una cita vencida)
+        if (fecha) {
+          const citaMs = Date.parse(fecha + 'T' + (hora ? (String(hora).length === 5 ? hora : ('0' + hora)) : '23:59') + ':00-04:00');
+          if (!isNaN(citaMs) && citaMs < ahora - 60 * 60 * 1000) { r.pasadas++; continue; }
+        }
         const eraConfirmada = c.estado === 'confirmada';
         if (eraConfirmada) r.confirmadas++; else r.reconfirmadas++;
         const msg = '¡Hola ' + nom + '! 💛 Te escribo del equipo de *Harmonie*. Decidimos *retirar el depósito de Bs 50*: tu reserva quedó *CONFIRMADA*' + (fecha ? (' para el ' + fecha + (hora ? (' a las ' + hora) : '')) : '') + (sede ? (' en ' + sede) : '') + '. No necesitas pagar nada por adelantado. Si deseas cancelar o reprogramar, puedes hacerlo ahora respondiéndome a este mensaje. ¡Te esperamos! 🌸';
