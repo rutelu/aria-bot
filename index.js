@@ -2466,6 +2466,67 @@ function iniciarWatcherReservas() {
   console.log('👀 Watcher de reservas activo → avisa a WhatsApp ' + ADMIN_WHATSAPP + ' + Telegram');
 }
 
+// DIAGNÓSTICO (solo lectura): cuenta los estados de las reservas para saber a quién alcanzamos.
+// GET /debug/estados-reservas?key=diag-9x
+app.get('/debug/estados-reservas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const out = {};
+  try {
+    for (const col of ['reservas_beni', 'citas']) {
+      const snap = await db.collection(col).get();
+      const by = {}; const sample = [];
+      snap.docs.forEach(function (d) {
+        const c = d.data() || {};
+        const e = c.estado || '(sin estado)';
+        by[e] = (by[e] || 0) + 1;
+        if (sample.length < 15) sample.push({ id: d.id, estado: e, fecha: c.fecha || '', hora: c.hora || '', tel: String(c.telefono || '').slice(-4), avisado: !!c.aviso_confirmada_at });
+      });
+      out[col] = { total: snap.size, estados: by, sample: sample };
+    }
+  } catch (e) { return res.status(200).json({ error: e.message }); }
+  res.json(out);
+});
+
+// AVISO ESPECIAL a quien YA tiene reserva (confirmada) o cuya reserva seguía pendiente:
+// depósito retirado → su reserva queda CONFIRMADA para su hora; si desea, puede cancelar/reprogramar ahora.
+// (Las reservas expiradas por las 2h ya fueron BORRADAS por el sistema; si sobrevive alguna 'pendiente_pago', se re-confirma.)
+// GET /debug/aviso-reservados?key=aviso-res-9x[&dry=1]
+app.get('/debug/aviso-reservados', async (req, res) => {
+  if (req.query.key !== 'aviso-res-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const dry = req.query.dry === '1';
+  const r = { confirmadas: 0, reconfirmadas: 0, enviados: 0, ya_avisados: 0, sin_tel: 0, errores: 0, dry: dry, muestra: [] };
+  const ESTADOS = ['confirmada', 'pendiente_pago', 'expirada', 'liberada'];
+  try {
+    for (const col of ['reservas_beni', 'citas']) {
+      let snap;
+      try { snap = await db.collection(col).where('estado', 'in', ESTADOS).get(); }
+      catch (e) { console.error('aviso-res query ' + col + ':', e.message); continue; }
+      for (const d of snap.docs) {
+        const c = d.data() || {};
+        if (c.aviso_confirmada_at) { r.ya_avisados++; continue; }
+        const tel = String(c.telefono || '').replace(/\D/g, '');
+        const nom = String(c.nombre || '').split(/\s+/)[0] || '';
+        const fecha = c.fecha || '', hora = c.hora || '', sede = c.sede || c.subsede || c.lugar || '';
+        const eraConfirmada = c.estado === 'confirmada';
+        if (eraConfirmada) r.confirmadas++; else r.reconfirmadas++;
+        const msg = '¡Hola ' + nom + '! 💛 Te escribo del equipo de *Harmonie*. Decidimos *retirar el depósito de Bs 50*: tu reserva quedó *CONFIRMADA*' + (fecha ? (' para el ' + fecha + (hora ? (' a las ' + hora) : '')) : '') + (sede ? (' en ' + sede) : '') + '. No necesitas pagar nada por adelantado. Si deseas cancelar o reprogramar, puedes hacerlo ahora respondiéndome a este mensaje. ¡Te esperamos! 🌸';
+        if (r.muestra.length < 20) r.muestra.push({ col: col, id: d.id, estado: c.estado, tel: tel.slice(-4) });
+        if (dry) continue;
+        try {
+          const upd = { aviso_confirmada_at: admin.firestore.FieldValue.serverTimestamp() };
+          if (!eraConfirmada) { upd.estado = 'confirmada'; } // depósito retirado → se re-confirma
+          await d.ref.update(upd);
+          if (tel) { await waSend(tel, msg); r.enviados++; } else r.sin_tel++;
+          await new Promise(function (rs) { setTimeout(rs, 300); });
+        } catch (e) { r.errores++; console.error('aviso-res ' + d.id + ':', e.message); }
+      }
+    }
+  } catch (e) { return res.status(200).json({ error: e.message, parcial: r }); }
+  res.json(r);
+});
+
 // AVISO MASIVO (una sola vez): informa a los chats que se RETIRÓ el depósito para reservar.
 // GET /debug/aviso-sin-deposito?key=aviso-nodep-9x[&dry=1]
 // - dry=1 → NO envía, solo cuenta a quiénes llegaría (revisar antes).
@@ -2478,7 +2539,15 @@ app.get('/debug/aviso-sin-deposito', async (req, res) => {
   const H24 = 24 * 60 * 60 * 1000;
   const ahora = Date.now();
   const MSG = '¡Hola! 💛 Te escribo del equipo de *Harmonie*. ¡Buenas noticias! Por esta jornada RETIRAMOS la condición de depósito para reservar: ya *no necesitas pagar nada por adelantado* para asegurar tu cita. Te enviaremos un recordatorio para que confirmes tu reserva. Si quieres agendar o tienes alguna duda, aquí estoy para ayudarte 😊';
-  const r = { total: 0, enviados: 0, omitidos_24h: 0, ya_avisados: 0, errores: 0, dry: dry, muestra: [] };
+  const r = { total: 0, enviados: 0, omitidos_24h: 0, ya_avisados: 0, con_reserva: 0, errores: 0, dry: dry, muestra: [] };
+  // Quien ya tiene reserva recibe el mensaje ESPECIAL (aviso-reservados), no el genérico: junto sus teléfonos para omitirlos.
+  const telsReserva = new Set();
+  try {
+    for (const col of ['reservas_beni', 'citas']) {
+      const rs = await db.collection(col).where('estado', 'in', ['confirmada', 'pendiente_pago', 'expirada', 'liberada']).get();
+      rs.docs.forEach(function (d) { const t = String((d.data() || {}).telefono || '').replace(/\D/g, '').slice(-8); if (t) telsReserva.add(t); });
+    }
+  } catch (e) { console.error('aviso-nodep tels reserva:', e.message); }
   try {
     const snap = await db.collection('valeria_chats').get();
     for (const doc of snap.docs) {
@@ -2487,6 +2556,9 @@ app.get('/debug/aviso-sin-deposito', async (req, res) => {
       const userId = doc.id;
       if (c.aviso_nodep_at) { r.ya_avisados++; continue; }
       const canal = userId.split('_')[0];
+      const contacto = userId.split('_').slice(1).join('_');
+      const last8 = String(contacto).replace(/\D/g, '').slice(-8);
+      if (last8 && last8.length >= 7 && telsReserva.has(last8)) { r.con_reserva++; continue; } // le llega el mensaje especial
       const lastUser = (c.lastUserMsgAt && c.lastUserMsgAt.toMillis) ? c.lastUserMsgAt.toMillis() : null;
       // Ventana de 24h para canales de Meta (protege el número de WhatsApp)
       if (canal !== 'tg') {
