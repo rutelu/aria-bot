@@ -1288,13 +1288,18 @@ async function revisarRecordatoriosConfirmar() {
           await d.ref.update({ recordatorioConfirmarAt: new Date() });
           if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + _fechaEs(fecha) + ' a las ' + hora + '. Por favor respóndeme *SÍ* para CONFIRMAR tu asistencia, o escríbeme si necesitas reprogramar. ¡Te esperamos! 🌸').catch(function () {});
           console.log('🔔 recordatorio confirmar 8h → ' + col + '/' + d.id);
+        } else if (horasFalta <= 20 && !c.recordatorio20hAt) {
+          // Recordatorio ~20h antes (víspera): primer aviso + pedir confirmación
+          await d.ref.update({ recordatorio20hAt: new Date() });
+          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + _fechaEs(fecha) + ' a las ' + hora + '. Responde *SÍ* para confirmar tu asistencia. ¡Te esperamos! 🌸').catch(function () {});
+          console.log('🔔 recordatorio 20h → ' + col + '/' + d.id);
         }
       } catch (e) { console.error('🔔 recordatorio ' + d.id + ':', e.message); }
     }
   }
 }
 function iniciarWatcherRecordatorios() {
-  console.log('🔔 Watcher de recordatorios activo (confirmar ~8h antes + simple ~2h antes, 7-23h)');
+  console.log('🔔 Watcher de recordatorios activo (~20h + ~8h confirmar + ~2h simple antes de la cita, 7-23h)');
   revisarRecordatoriosConfirmar().catch(function () {});
   setInterval(function () { revisarRecordatoriosConfirmar().catch(function () {}); }, 10 * 60 * 1000);
 }
