@@ -2539,15 +2539,19 @@ app.get('/debug/fix-tel', async (req, res) => {
   if (req.query.key !== 'fixtel-8x') return res.status(403).json({ error: 'no' });
   if (!db) return res.status(200).json({ error: 'sin db' });
   const q = String(req.query.nombre || '').toLowerCase().trim();
+  const modo = String(req.query.modo || '').trim();
   const out = { chats: [], reserva: null, actualizado: false };
   try {
-    // Busca chats cuyo nombre contenga el texto
+    // Busca chats por nombre, o lista los que reservaron (modo=reservo)
     const snap = await db.collection('valeria_chats').get();
     snap.forEach(function (d) {
       const c = d.data() || {};
-      if (q && String(c.nombre || '').toLowerCase().indexOf(q) !== -1) {
-        const contacto = String(d.id).split('_').slice(1).join('_');
-        out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto });
+      const contacto = String(d.id).split('_').slice(1).join('_');
+      const ua = (c.ultimaActividad && c.ultimaActividad.toDate) ? c.ultimaActividad.toDate().toISOString().slice(0, 16) : '';
+      if (modo === 'reservo') {
+        if (c.reservoOk === true) out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto, ult: ua });
+      } else if (q && String(c.nombre || '').toLowerCase().indexOf(q) !== -1) {
+        out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto, ult: ua });
       }
     });
     // Estado actual de la reserva (si se pasó slot)
