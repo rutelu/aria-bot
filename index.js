@@ -2540,20 +2540,33 @@ app.get('/debug/fix-tel', async (req, res) => {
   if (!db) return res.status(200).json({ error: 'sin db' });
   const q = String(req.query.nombre || '').toLowerCase().trim();
   const modo = String(req.query.modo || '').trim();
+  const msgq = String(req.query.msg || '').toLowerCase().trim(); // buscar en los MENSAJES de los chats
   const out = { chats: [], reserva: null, actualizado: false };
   try {
-    // Busca chats por nombre, o lista los que reservaron (modo=reservo)
     const snap = await db.collection('valeria_chats').get();
-    snap.forEach(function (d) {
-      const c = d.data() || {};
-      const contacto = String(d.id).split('_').slice(1).join('_');
-      const ua = (c.ultimaActividad && c.ultimaActividad.toDate) ? c.ultimaActividad.toDate().toISOString().slice(0, 16) : '';
-      if (modo === 'reservo') {
-        if (c.reservoOk === true) out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto, ult: ua });
-      } else if (q && String(c.nombre || '').toLowerCase().indexOf(q) !== -1) {
-        out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto, ult: ua });
+    if (msgq) {
+      // Recorre los últimos mensajes de cada chat y busca el texto
+      for (const d of snap.docs) {
+        const contacto = String(d.id).split('_').slice(1).join('_');
+        try {
+          const ms = await db.collection('valeria_chats').doc(d.id).collection('mensajes').orderBy('ts', 'desc').limit(20).get();
+          let hit = false;
+          ms.forEach(function (mm) { if (String((mm.data() || {}).texto || '').toLowerCase().indexOf(msgq) !== -1) hit = true; });
+          if (hit) out.chats.push({ id: d.id, nombre: (d.data() || {}).nombre || '', telefono: contacto });
+        } catch (e) {}
       }
-    });
+    } else {
+      snap.forEach(function (d) {
+        const c = d.data() || {};
+        const contacto = String(d.id).split('_').slice(1).join('_');
+        const ua = (c.ultimaActividad && c.ultimaActividad.toDate) ? c.ultimaActividad.toDate().toISOString().slice(0, 16) : '';
+        if (modo === 'reservo') {
+          if (c.reservoOk === true) out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto, ult: ua });
+        } else if (q && String(c.nombre || '').toLowerCase().indexOf(q) !== -1) {
+          out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto, ult: ua });
+        }
+      });
+    }
     // Estado actual de la reserva (si se pasó slot)
     const slot = String(req.query.slot || '').trim();
     if (slot) {
