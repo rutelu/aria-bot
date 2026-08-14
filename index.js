@@ -2533,6 +2533,49 @@ app.get('/debug/estados-reservas', async (req, res) => {
 // depósito retirado → su reserva queda CONFIRMADA para su hora; si desea, puede cancelar/reprogramar ahora.
 // (Las reservas expiradas por las 2h ya fueron BORRADAS por el sistema; si sobrevive alguna 'pendiente_pago', se re-confirma.)
 // GET /debug/aviso-reservados?key=aviso-res-9x[&dry=1]
+// TEMPORAL (una vez): rellena el chatId de reservas viejas (sin chatId) buscando el NOMBRE de la reserva
+// en los mensajes de cada chat. Sirve para enlazar reservas hechas por Messenger/Instagram antes del fix.
+// GET /debug/backfill-chatid?key=backfill-8x[&dry=1]
+app.get('/debug/backfill-chatid', async (req, res) => {
+  if (req.query.key !== 'backfill-8x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const dry = req.query.dry === '1';
+  const r = { candidatas: 0, matcheadas: 0, actualizadas: 0, dry: dry, detalle: [] };
+  try {
+    // Reservas sin chatId, con canal de chat (no web/voz), con nombre
+    const rs = await db.collection('reservas_beni').get();
+    const pend = [];
+    rs.forEach(function (d) {
+      const c = d.data() || {};
+      const nom = String(c.nombre || '').trim();
+      if (!c.chatId && c.canal && c.canal !== 'voz' && nom.length >= 4) pend.push({ id: d.id, nombre: nom.toLowerCase() });
+    });
+    r.candidatas = pend.length;
+    if (!pend.length) return res.json(r);
+    // Recorre chats una vez; para cada uno arma el texto de sus últimos mensajes y busca los nombres pendientes
+    const chatsSnap = await db.collection('valeria_chats').get();
+    for (const cd of chatsSnap.docs) {
+      if (!pend.some(function (p) { return !p._chatId; })) break; // ya se asignaron todas
+      let blob = '';
+      try {
+        const ms = await db.collection('valeria_chats').doc(cd.id).collection('mensajes').orderBy('ts', 'desc').limit(40).get();
+        ms.forEach(function (mm) { blob += ' ' + String((mm.data() || {}).texto || '').toLowerCase(); });
+      } catch (e) { continue; }
+      for (const p of pend) {
+        if (!p._chatId && blob.indexOf(p.nombre) !== -1) { p._chatId = cd.id; }
+      }
+    }
+    for (const p of pend) {
+      if (p._chatId) {
+        r.matcheadas++;
+        if (r.detalle.length < 40) r.detalle.push({ reserva: p.id, chatId: p._chatId });
+        if (!dry) { try { await db.collection('reservas_beni').doc(p.id).update({ chatId: p._chatId }); r.actualizadas++; } catch (e) {} }
+      }
+    }
+  } catch (e) { return res.status(200).json({ error: e.message, parcial: r }); }
+  res.json(r);
+});
+
 // TEMPORAL: encuentra el chat de una persona por nombre y (opcional) corrige el teléfono de su reserva.
 // GET /debug/fix-tel?key=fixtel-8x&nombre=eva[&slot=beni_2026-08-15_1500&telefono=59171234567]
 app.get('/debug/fix-tel', async (req, res) => {
