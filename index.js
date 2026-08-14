@@ -813,15 +813,18 @@ async function toolConsultarDisponibilidad(args, cfg) {
   return { disponibilidad: result, promo: cfg.promo };
 }
 
-async function toolCrearReserva(args, cfg, canal) {
+async function toolCrearReserva(args, cfg, canal, telFallback) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro aún no está publicada.' };
   const subsede = resolverSubsede(args.subsede, cfg);
   const fecha = resolverFecha(args.fecha, subsede, cfg);
   const hora = normalizarHora(args.hora, cfg.horas);
-  const nombre = (args.nombre || '').trim(), telefono = (args.telefono || '').trim();
-  if (!subsede || !fecha || !hora || !nombre || !telefono) {
-    return { error: 'Faltan datos. Necesito localidad, día, hora, nombre completo y teléfono.' };
+  const nombre = (args.nombre || '').trim();
+  // Teléfono: usa el que dictó; si viene vacío o es texto (ej. "whatsapp actual"), cae al número de quien llama/escribe (telFallback).
+  let telefono = String(args.telefono || '').trim();
+  if (String(telefono).replace(/\D/g, '').length < 7) telefono = String(telFallback || '').replace(/\D/g, '');
+  if (!subsede || !fecha || !hora || !nombre || String(telefono).replace(/\D/g, '').length < 7) {
+    return { error: 'Faltan datos válidos. Necesito localidad, día, hora, nombre completo y un TELÉFONO con números reales. Usa el número de quien llama o escribe; NO pongas textos como "whatsapp actual" ni dejes el teléfono vacío.' };
   }
   // CANDADO: la campaña la cubre MEDICINA ESTÉTICA. Rechaza SOLO los tratamientos estrictamente de otra
   // especialidad (masajes, limpieza de piel, cirugías); los overlaps (peeling, dermapen, aparatología,
@@ -1450,7 +1453,7 @@ async function notificarHumano(userId, motivo) {
 async function ejecutarTool(block, cfg, canal, userId) {
   try {
     if (block.name === 'consultar_disponibilidad_beni') return await toolConsultarDisponibilidad(block.input || {}, cfg);
-    if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal);
+    if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal, String(userId || '').split('_').slice(1).join('_'));
     if (block.name === 'buscar_reserva_beni') return await toolBuscarReserva(block.input || {});
     if (block.name === 'cancelar_reserva_beni') return await toolCancelarReserva(block.input || {}, cfg);
     if (block.name === 'reagendar_reserva_beni') return await toolReagendarReserva(block.input || {}, cfg);
@@ -2385,7 +2388,7 @@ app.post('/beni/reservar', async (req, res) => {
   console.log('📞 [Vapi reservar] body:', JSON.stringify(req.body || {}));
   try {
     const cfg = await getBeniConfig();
-    const r = await toolCrearReserva(req.body || {}, cfg, 'voz');
+    const r = await toolCrearReserva(req.body || {}, cfg, 'voz', (req.body && (req.body.telefono_origen || req.body.numero_llamada)) || '');
     console.log('📞 [Vapi reservar] resp:', JSON.stringify(r).substring(0, 200));
     res.json(r);
   } catch (e) { console.error('/beni/reservar:', e.message); res.status(200).json({ error: 'No pude crear la reserva ahora.' }); }
