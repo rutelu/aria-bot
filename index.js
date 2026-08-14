@@ -813,7 +813,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
   return { disponibilidad: result, promo: cfg.promo };
 }
 
-async function toolCrearReserva(args, cfg, canal, telFallback) {
+async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Oruro aún no está publicada.' };
   const subsede = resolverSubsede(args.subsede, cfg);
@@ -870,7 +870,7 @@ async function toolCrearReserva(args, cfg, canal, telFallback) {
     especialidadId: cfg.especialidadId || '',
     nombre: nombre, telefono: telefono, email: '', notas: args.tratamiento || '',
     servicio: args.tratamiento || 'Consulta',
-    estado: 'confirmada', canal: canal || 'chat',
+    estado: 'confirmada', canal: canal || 'chat', chatId: chatId || '',
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
   await batch.commit();
@@ -1453,7 +1453,7 @@ async function notificarHumano(userId, motivo) {
 async function ejecutarTool(block, cfg, canal, userId) {
   try {
     if (block.name === 'consultar_disponibilidad_beni') return await toolConsultarDisponibilidad(block.input || {}, cfg);
-    if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal, String(userId || '').split('_').slice(1).join('_'));
+    if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal, String(userId || '').split('_').slice(1).join('_'), userId);
     if (block.name === 'buscar_reserva_beni') return await toolBuscarReserva(block.input || {});
     if (block.name === 'cancelar_reserva_beni') return await toolCancelarReserva(block.input || {}, cfg);
     if (block.name === 'reagendar_reserva_beni') return await toolReagendarReserva(block.input || {}, cfg);
