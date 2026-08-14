@@ -2533,6 +2533,39 @@ app.get('/debug/estados-reservas', async (req, res) => {
 // depósito retirado → su reserva queda CONFIRMADA para su hora; si desea, puede cancelar/reprogramar ahora.
 // (Las reservas expiradas por las 2h ya fueron BORRADAS por el sistema; si sobrevive alguna 'pendiente_pago', se re-confirma.)
 // GET /debug/aviso-reservados?key=aviso-res-9x[&dry=1]
+// TEMPORAL: encuentra el chat de una persona por nombre y (opcional) corrige el teléfono de su reserva.
+// GET /debug/fix-tel?key=fixtel-8x&nombre=eva[&slot=beni_2026-08-15_1500&telefono=59171234567]
+app.get('/debug/fix-tel', async (req, res) => {
+  if (req.query.key !== 'fixtel-8x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const q = String(req.query.nombre || '').toLowerCase().trim();
+  const out = { chats: [], reserva: null, actualizado: false };
+  try {
+    // Busca chats cuyo nombre contenga el texto
+    const snap = await db.collection('valeria_chats').get();
+    snap.forEach(function (d) {
+      const c = d.data() || {};
+      if (q && String(c.nombre || '').toLowerCase().indexOf(q) !== -1) {
+        const contacto = String(d.id).split('_').slice(1).join('_');
+        out.chats.push({ id: d.id, nombre: c.nombre || '', telefono: contacto });
+      }
+    });
+    // Estado actual de la reserva (si se pasó slot)
+    const slot = String(req.query.slot || '').trim();
+    if (slot) {
+      const rd = await db.collection('reservas_beni').doc(slot).get();
+      if (rd.exists) out.reserva = { id: slot, nombre: rd.data().nombre, telefono: rd.data().telefono };
+      // Si además se pasó un teléfono, lo corrige
+      const tel = String(req.query.telefono || '').replace(/\D/g, '');
+      if (tel.length >= 8 && rd.exists) {
+        await db.collection('reservas_beni').doc(slot).update({ telefono: tel });
+        out.actualizado = true; out.reserva.telefono_nuevo = tel;
+      }
+    }
+  } catch (e) { return res.status(200).json({ error: e.message, parcial: out }); }
+  res.json(out);
+});
+
 app.get('/debug/aviso-reservados', async (req, res) => {
   if (req.query.key !== 'aviso-res-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.status(200).json({ error: 'sin db' });
