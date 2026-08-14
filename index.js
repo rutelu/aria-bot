@@ -1258,7 +1258,7 @@ function _fechaEs(fecha) {
 async function revisarRecordatoriosConfirmar() {
   if (!db) return;
   const hBol = new Date(Date.now() - 4 * 3600 * 1000).getUTCHours();
-  if (hBol < 8 || hBol >= 22) return; // no molestar de noche
+  if (hBol < 7 || hBol >= 23) return; // horario de silencio 23:00–07:00 (no molestar el sueño)
   const ahora = Date.now();
   for (const col of ['reservas_beni', 'citas']) {
     let snap;
@@ -1294,7 +1294,7 @@ async function revisarRecordatoriosConfirmar() {
   }
 }
 function iniciarWatcherRecordatorios() {
-  console.log('🔔 Watcher de recordatorios activo (confirmar ~8h antes + simple ~2h antes, 8-22h)');
+  console.log('🔔 Watcher de recordatorios activo (confirmar ~8h antes + simple ~2h antes, 7-23h)');
   revisarRecordatoriosConfirmar().catch(function () {});
   setInterval(function () { revisarRecordatoriosConfirmar().catch(function () {}); }, 10 * 60 * 1000);
 }
@@ -2206,6 +2206,7 @@ async function _enviarPorCanal(chatId, msg) {
 async function correrSeguimientos(dryRun, ignoraTiempo) {
   if (!db) return [];
   if (!dryRun && process.env.SEGUIMIENTO_ACTIVO !== 'true') return []; // envío real solo si está activo; el dry-run corre igual
+  if (!dryRun) { const _hBol = new Date(Date.now() - 4 * 3600 * 1000).getUTCHours(); if (_hBol < 7 || _hBol >= 23) return []; } // horario de silencio 23:00–07:00
   const candidatos = [];
   try {
     const cfg = await getBeniConfig();
