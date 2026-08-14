@@ -1515,7 +1515,25 @@ async function askValeria(userId, userMessage, origenDirecto) {
   // asi Valeria ve las horas verdaderamente libres y no las adivina de la lista completa.
   let dispoBeni = null;
   try { dispoBeni = await toolConsultarDisponibilidad(sedeOrigen ? { subsede: sedeOrigen } : {}, beniCfg); } catch (e) { console.error('dispo prompt:', e.message); }
-  const systemPrompt = bloqueInstruccion + reglasCriticas
+  // ¿Esta persona YA tiene una reserva activa de la jornada? Se la informamos a Valeria para que la RECONOZCA
+  // (y no trate "ya agendé / mi cita del sábado 11" como un pedido nuevo ni diga que ese horario no está libre).
+  let bloqueReserva = '';
+  try {
+    const _contacto = String(userId || '').split('_').slice(1).join('_');
+    const _tel8 = String(_contacto).replace(/\D/g, '').slice(-8);
+    if (db && _tel8 && _tel8.length >= 7) {
+      const _hoy = fechaBoliviaISO();
+      let _rsv = null;
+      const _snap = await db.collection('reservas_beni').where('estado', '==', 'confirmada').get();
+      _snap.forEach(function (d) { const r = d.data(); const rt = String(r.telefono || '').replace(/\D/g, '').slice(-8); if (rt === _tel8 && (r.fecha || '') >= _hoy && !_rsv) _rsv = r; });
+      if (_rsv) {
+        const _dia = ((beniCfg && beniCfg.dias) || []).find(function (x) { return x.fecha === _rsv.fecha; });
+        const _lbl = (_dia && _dia.label) || _rsv.fecha;
+        bloqueReserva = '⚠️ ESTA PERSONA YA TIENE UNA RESERVA CONFIRMADA en la jornada: ' + (_rsv.subsede || 'Oruro') + ', ' + _lbl + ' a las ' + _rsv.hora + (_rsv.nombre ? (' (a nombre de ' + String(_rsv.nombre).split(/\s+/)[0] + ')') : '') + '. Si menciona su cita, o su día u hora, o dice que "ya agendó/reservó", RECONÓCELA y CONFÍRMASELA con calidez (ej. "¡Sí! Veo tu reserva para el ' + _lbl + ' a las ' + _rsv.hora + ' en Oruro. ¡Te esperamos! 💛"). NO la trates como un pedido nuevo: NO consultes disponibilidad ni digas que ese horario "no está libre" (está ocupado por SU PROPIA reserva). SOLO si pide EXPLÍCITAMENTE cambiar/reagendar o cancelar su cita, usa reagendar_reserva_beni o cancelar_reserva_beni.\n\n';
+      }
+    }
+  } catch (e) { console.error('reserva activa prompt:', e.message); }
+  const systemPrompt = bloqueReserva + bloqueInstruccion + reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
     + buildBeniSection(beniCfg, dispoBeni);
