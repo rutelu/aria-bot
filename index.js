@@ -539,6 +539,43 @@ async function getBeniConfig() {
   return _beniCache.data;
 }
 
+// ── Pausar agendamiento por especialidad × modalidad (config/especialidades, editado desde el panel) ──
+let _espPauCache = { data: null, ts: 0 };
+async function getEspPausadas() {
+  if (!db) return {};
+  const now = Date.now();
+  if (_espPauCache.data && (now - _espPauCache.ts) < 30000) return _espPauCache.data; // cache 30s
+  try {
+    const snap = await db.collection('config').doc('especialidades').get();
+    _espPauCache = { data: (snap.exists ? (snap.data() || {}) : {}), ts: now };
+  } catch (e) { console.error('getEspPausadas error:', e.message); }
+  return _espPauCache.data || {};
+}
+// Devuelve la nota si la especialidad está pausada para esa modalidad ('presencial'/'virtual'), o null.
+async function espPausadaNota(espId, modalidad) {
+  const p = await getEspPausadas();
+  const e = p && p[espId];
+  if (e && e[modalidad] === true) {
+    return (e.nota && String(e.nota).trim()) || ('Por el momento no estamos agendando esa especialidad ' + (modalidad === 'virtual' ? 'en videollamada' : 'presencial') + '. Ofrécele otra opción con calidez.');
+  }
+  return null;
+}
+// Texto para el prompt: qué especialidades están pausadas y en qué modalidad.
+async function buildEspPausadasSection() {
+  const p = await getEspPausadas();
+  const NOM = { med: 'Medicina Estética', fisio: 'Fisio-Estética', cir: 'Cirugías Estéticas', cos: 'Cosmiatría' };
+  const lineas = [];
+  Object.keys(NOM).forEach(function(k) {
+    const e = p[k] || {};
+    const mods = [];
+    if (e.presencial === true) mods.push('presencial');
+    if (e.virtual === true) mods.push('videollamada');
+    if (mods.length) lineas.push('- ' + NOM[k] + ': PAUSADA en ' + mods.join(' y ') + (e.nota ? ' (motivo: ' + String(e.nota).trim() + ')' : ''));
+  });
+  if (!lineas.length) return '';
+  return '\n\n[ESPECIALIDADES PAUSADAS — NO agendes ni ofrezcas estas especialidades en las modalidades indicadas. Si alguien las pide, explícalo con calidez usando el motivo y ofrece otra opción o tomar sus datos para avisarle cuando se reactive]:\n' + lineas.join('\n');
+}
+
 // Mapa de contactos secundarios por número (nombre + rol). Valeria SOLO los da si la
 // persona insiste en hablar con un encargado/humano; en el orden del array de la sub-sede.
 const CONTACTOS_BENI = {
@@ -838,6 +875,8 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
       return { error: 'El tratamiento "' + args.tratamiento + '" es estrictamente de ' + _fuera + ', fuera del alcance de esta campaña de medicina estética. NO lo agendes en la campaña: explícalo con calidez y ofrécele una cita normal con crear_cita (videollamada gratis o presencial en una sede).' };
     }
   }
+  // Especialidad de la campaña pausada (presencial) → rechazar con la nota
+  { const _notaPau = await espPausadaNota(cfg.especialidadId || 'med', 'presencial'); if (_notaPau) return { error: _notaPau }; }
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
   const horaOk = (cfg.horas || []).includes(hora);
   if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Oruro. Ofrece un día y hora válidos de la campaña.' };
@@ -1334,6 +1373,8 @@ async function toolCrearCita(args, canal) {
   // así dos especialistas distintos pueden atender a la misma hora, pero el mismo no se dobla.
   const servicio = args.servicio || args.tratamiento || 'Consulta';
   const espId = _espKeyFromText(args.especialidad || servicio);
+  // Especialidad pausada para esta modalidad → rechazar con la nota (config/especialidades)
+  { const _notaPau = await espPausadaNota(espId, modalidad); if (_notaPau) return { error: _notaPau }; }
   // Cruce por ESPECIALISTA (presencial+virtual+campaña) con solapamiento: no doble-agendar al mismo especialista.
   if (await especialistaOcupado(espId, fecha, hora, virtual ? 20 : 60)) {
     return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otra hora libre.' };
@@ -1542,10 +1583,12 @@ async function askValeria(userId, userMessage, origenDirecto) {
       }
     }
   } catch (e) { console.error('reserva activa prompt:', e.message); }
+  const espPauSection = await buildEspPausadasSection();
   const systemPrompt = bloqueReserva + bloqueInstruccion + reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
-    + buildBeniSection(beniCfg, dispoBeni);
+    + buildBeniSection(beniCfg, dispoBeni)
+    + espPauSection;
   if (instruccionEspecial) console.log('📝 Instrucción especial activa para ' + userId + ': ' + instruccionEspecial.substring(0, 80));
 
   // Copia de trabajo del historial (los turnos de herramientas NO se persisten,
@@ -1980,7 +2023,7 @@ app.post('/chat', async (req, res) => {
       + '4) AGENDAR (MUY IMPORTANTE): NUNCA digas que "no tienes acceso al calendario" ni te disculpes por no poder agendar. Cuando la persona quiera reservar/agendar (o sea el momento natural para invitarla), hazlo con calidez y al FINAL de tu mensaje, en una línea aparte y sola, escribe EXACTAMENTE el marcador [[AGENDAR]] (nada más en esa línea; NUNCA lo expliques, menciones ni lo pongas en cada mensaje). El sistema convierte ese marcador en un botón "Agendar" que abre el calendario del sitio, donde la persona elige AGENDA VIRTUAL (consulta/valoración ONLINE por videollamada, sin salir de casa) o PRESENCIAL en las sedes. Ofrece ambas y destaca la virtual. En este canal NO uses los marcadores [[LLAMAR:...]].\n'
       + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
       + '6) MANTÉN EL HILO: recuerda lo que la persona ya te dijo en esta conversación y continúa desde ahí; si ya venían hablando, NO te vuelvas a presentar ni reinicies.]';
-    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + webNote;
+    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + webNote + (await buildEspPausadasSection());
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
