@@ -2570,7 +2570,7 @@ app.get('/debug/catchup', async (req, res) => {
       if (EXCLUIR.includes(d.id)) continue; // saltar números internos
       const item = { userId: d.id, canal: c.canal || null, nombre: c.nombre || null, origen: c.origen || null, ultimoTexto: String(c.ultimoTexto || '').slice(0, 80) };
       if (!dry) {
-        try { await _enviarPorCanal(d.id, MSG); logMensaje(d.id, 'assistant', MSG); item.enviado = true; }
+        try { await _enviarPorCanal(d.id, MSG); logMensaje(d.id, 'valeria', MSG); item.enviado = true; }
         catch (e) { item.enviado = false; item.error = String((e && e.message) || e); }
       }
       items.push(item);
