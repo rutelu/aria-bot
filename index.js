@@ -296,7 +296,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - PRECIOS: puedes dar los PRECIOS DE REFERENCIA listados más abajo (son aproximados; el valor final se define en la valoración). Destaca siempre la calidad de nuestros tratamientos, la experiencia y la garantía de resultados, con las técnicas más avanzadas. Para RESERVAR el equipo de Harmonie decidió retirar el depósito: NO se pide depósito ni pago por adelantado (ni presencial ni en campaña); la reserva queda registrada y se envía un recordatorio para que la persona confirme su cita. La videollamada es GRATIS. Durante una campaña/jornada ACTIVA hay promociones. NUNCA pidas depósito ni menciones enlaces de pago para reservar. Para tratamientos no listados, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
 - Toda cirugía estética requiere consulta de valoración previa obligatoria.
 - Si no sabes algo con certeza, no improvises: ofrece agendar o derivar por WhatsApp +591 76951552.
-- LONGITUD DE RESPUESTA (regla clave): por defecto responde como en un chat real de WhatsApp: MUY breve, 1-2 oraciones (idealmente una). Nunca párrafos largos tipo folleto. Da lo esencial y, cuando el tema dé para más (un tratamiento, cómo es un procedimiento, qué incluye, cuidados, etc.), OFRECE ampliar con una pregunta corta del estilo "¿Quieres que te lo explique con más detalle?". Solo si la persona pide más detalle (o responde que sí) puedes dar una respuesta más larga y completa. Cierra invitando a agendar solo cuando sea natural, sin sonar insistente. NO repitas información que ya diste antes en la misma conversación (fechas, sedes, precios): si ya lo mencionaste, no lo vuelvas a recitar.
+- ESTILO Y LONGITUD (REGLA #1, la MÁS importante, por encima de todo): respondé como un HUMANO real por WhatsApp, cálida y natural. MÁXIMO 1-2 frases por mensaje (idealmente UNA). JAMÁS párrafos, listas ni textos tipo folleto. No sueltes toda la info de golpe: decí lo justo y OFRECÉ ampliar con una pregunta corta ("¿Te cuento más?" / "¿Querés que te explique el detalle?"). Da respuestas largas SOLO si la persona las pide expresamente. Esto aplica SIEMPRE, sin excepción: también al saludar, al redirigir de una campaña que ya pasó, al ofrecer una jornada o al hablar de precios — TODO en 1-2 frases. Si tu mensaje supera 2 frases, recortalo antes de enviar. Cierra invitando a agendar solo cuando sea natural, sin sonar insistente. NO repitas información que ya diste antes en la misma conversación (fechas, sedes, precios).
 - MEMORIA DEL CHAT (MUY IMPORTANTE — no pierdas el hilo): recuerda TODO lo que la persona ya te dijo en esta conversación (su nombre, teléfono, localidad, día y hora elegidos, el tratamiento que le interesa, etc.). NUNCA vuelvas a preguntar un dato que ya te dieron ni repitas una pregunta ya respondida. Si ya tienes algunos datos para reservar, pide SOLO lo que falta. Jamás reinicies la conversación ni "empieces de cero": continúa siempre desde donde quedaron.
 
 CONTACTO (compártelo solo cuando haga falta):
@@ -2549,6 +2549,32 @@ function iniciarWatcherReservas() {
   }, function(err) { console.error('watcher reservas_beni:', err.message); });
   console.log('👀 Watcher de reservas activo → avisa a WhatsApp ' + ADMIN_WHATSAPP + ' + Telegram');
 }
+
+// CATCH-UP: responde a los chats que quedaron SIN RESPUESTA dentro de las últimas 24h
+// (por defecto DRY: solo lista; con &send=1 envía). GET /debug/catchup?key=diag-9x[&send=1][&horas=24]
+app.get('/debug/catchup', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'no db' });
+  const dry = req.query.send !== '1';
+  const horas = Math.min(parseInt(req.query.horas || '24', 10) || 24, 24); // nunca más de 24h (regla WhatsApp)
+  const desde = admin.firestore.Timestamp.fromMillis(Date.now() - horas * 60 * 60 * 1000);
+  const MSG = '¡Hola! 😊 Disculpá la demora en responderte, ya estoy acá para ayudarte 💛 ¿En qué te ayudo? Si escribís por la Jornada de Cochabamba (jueves 20, viernes 21 y sábado 22 de agosto), contame qué tratamiento te interesa y te ayudo a reservar tu cupo.';
+  try {
+    const snap = await db.collection('valeria_chats').where('lastUserMsgAt', '>=', desde).get();
+    const items = [];
+    for (const d of snap.docs) {
+      const c = d.data() || {};
+      if (c.ultimoRol !== 'user') continue; // solo los SIN respuesta (el último que habló fue el cliente)
+      const item = { userId: d.id, canal: c.canal || null, nombre: c.nombre || null, origen: c.origen || null, ultimoTexto: String(c.ultimoTexto || '').slice(0, 80) };
+      if (!dry) {
+        try { await _enviarPorCanal(d.id, MSG); logMensaje(d.id, 'assistant', MSG); item.enviado = true; }
+        catch (e) { item.enviado = false; item.error = String((e && e.message) || e); }
+      }
+      items.push(item);
+    }
+    res.json({ dry: dry, horas: horas, total: items.length, items: items });
+  } catch (e) { res.json({ error: String((e && e.message) || e) }); }
+});
 
 // DIAGNÓSTICO (solo lectura): cuenta los estados de las reservas para saber a quién alcanzamos.
 // GET /debug/estados-reservas?key=diag-9x
