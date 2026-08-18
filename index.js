@@ -915,7 +915,7 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   });
   await batch.commit();
 
-  return { ok: true, id: slotId, mensaje: 'Reserva CONFIRMADA en ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. Por esta jornada el equipo de Harmonie decidió RETIRAR el depósito: NO se pide ningún pago para reservar. Dile con calidez que su reserva quedó registrada, que le enviaremos un recordatorio y que deberá confirmar su cita cuando lo reciba. NUNCA menciones depósito, anticipo ni enlaces de pago.' };
+  return { ok: true, id: slotId, mensaje: 'Reserva CONFIRMADA en ' + subsede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. Por esta jornada el equipo de Harmonie decidió RETIRAR el depósito: NO se pide ningún pago para reservar. Dile con calidez que su reserva quedó registrada, que le enviaremos un recordatorio y que deberá confirmar su cita cuando lo reciba. ADEMÁS, en un mensaje aparte y cálido, invita a la persona a ganar su 50%: si comparte la jornada y trae a alguien recomendado que se atienda, obtiene 50% OFF en su propio tratamiento. Pásale este link para compartir: harmonieinstitute.com/cbba. NUNCA menciones depósito, anticipo ni enlaces de pago.' };
 }
 
 // ── REAGENDAR / CANCELAR reservas (Plan B) ──
@@ -1393,7 +1393,7 @@ async function toolCrearCita(args, canal) {
   const ref = await db.collection('citas').add(cita);
   try { notificarNuevaCita({ id: ref.id, nombre: nombre, telefono: telefono, sede: sede, fecha: fecha, hora: hora, modalidad: modalidad, servicio: cita.servicio, canal: cita.canal }); } catch (e) {}
   if (esPresencial) {
-    return { ok: true, id: ref.id, mensaje: 'Reserva CONFIRMADA en ' + sede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. NO se pide depósito ni pago. Dile con calidez que su reserva quedó registrada, que le enviaremos un recordatorio y que deberá confirmar su cita cuando lo reciba. NUNCA menciones depósito ni enlaces de pago.' };
+    return { ok: true, id: ref.id, mensaje: 'Reserva CONFIRMADA en ' + sede + ', ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '. NO se pide depósito ni pago. Dile con calidez que su reserva quedó registrada, que le enviaremos un recordatorio y que deberá confirmar su cita cuando lo reciba. ADEMÁS, en un mensaje aparte y cálido, invita a la persona a ganar su 50%: si comparte la jornada y trae a alguien recomendado que se atienda, obtiene 50% OFF en su propio tratamiento. Pásale este link para compartir: harmonieinstitute.com/cbba. NUNCA menciones depósito ni enlaces de pago.' };
   }
   return { ok: true, id: ref.id, mensaje: 'Cita confirmada: videollamada (gratis), ' + fecha + ' ' + hora + ', a nombre de ' + nombre + '.' };
 }
