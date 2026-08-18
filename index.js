@@ -2550,24 +2550,6 @@ function iniciarWatcherReservas() {
   console.log('👀 Watcher de reservas activo → avisa a WhatsApp ' + ADMIN_WHATSAPP + ' + Telegram');
 }
 
-// DIAGNÓSTICO TEMPORAL: prueba la API de Anthropic y devuelve el error exacto (sin exponer la clave).
-// GET /debug/claude-test?key=diag-9x
-app.get('/debug/claude-test', async (req, res) => {
-  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
-  try {
-    const KEY = process.env.ANTHROPIC_API_KEY;
-    if (!KEY) return res.json({ ok: false, reason: 'no ANTHROPIC_API_KEY env' });
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 20, messages: [{ role: 'user', content: 'di solo: ok' }] })
-    });
-    const status = r.status;
-    const data = await r.json();
-    res.json({ httpStatus: status, ok: !data.error, error: data.error || null, sample: (data.content && data.content[0] && data.content[0].text) || null, keyLen: KEY.length, keyPrefix: KEY.slice(0, 8) });
-  } catch (e) { res.json({ ok: false, exception: String((e && e.message) || e) }); }
-});
-
 // DIAGNÓSTICO (solo lectura): cuenta los estados de las reservas para saber a quién alcanzamos.
 // GET /debug/estados-reservas?key=diag-9x
 app.get('/debug/estados-reservas', async (req, res) => {
