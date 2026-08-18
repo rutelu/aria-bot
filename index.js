@@ -2560,11 +2560,13 @@ app.get('/debug/catchup', async (req, res) => {
   const desde = admin.firestore.Timestamp.fromMillis(Date.now() - horas * 60 * 60 * 1000);
   const MSG = '¡Hola! 😊 Disculpá la demora en responderte, ya estoy acá para ayudarte 💛 ¿En qué te ayudo? Si escribís por la Jornada de Cochabamba (jueves 20, viernes 21 y sábado 22 de agosto), contame qué tratamiento te interesa y te ayudo a reservar tu cupo.';
   try {
+    const EXCLUIR = ['wa_59178922666', 'wa_59176951552']; // números internos (notificaciones/reservas), NO son leads
     const snap = await db.collection('valeria_chats').where('lastUserMsgAt', '>=', desde).get();
     const items = [];
     for (const d of snap.docs) {
       const c = d.data() || {};
       if (c.ultimoRol !== 'user') continue; // solo los SIN respuesta (el último que habló fue el cliente)
+      if (EXCLUIR.includes(d.id)) continue; // saltar números internos
       const item = { userId: d.id, canal: c.canal || null, nombre: c.nombre || null, origen: c.origen || null, ultimoTexto: String(c.ultimoTexto || '').slice(0, 80) };
       if (!dry) {
         try { await _enviarPorCanal(d.id, MSG); logMensaje(d.id, 'assistant', MSG); item.enviado = true; }
