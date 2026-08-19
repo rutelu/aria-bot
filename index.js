@@ -2537,14 +2537,35 @@ function notificarNuevaReserva(r) {
   console.log('🗓️ Notificada nueva reserva: ' + (r.nombre || '?') + ' ' + (r.fecha || '') + ' ' + (r.hora || ''));
 }
 
+// Marca reservoOk en el/los chat(s) de quien reservó (por chatId y por wa_<tel>), venga la reserva
+// de la web, chat o voz → el SEGUIMIENTO automático deja de insistirle (ya reservó; solo le tocan recordatorios).
+async function _marcarReservoOk(r) {
+  if (!db || !r) return;
+  try {
+    const cfg = await getBeniConfig();
+    const ver = (cfg && cfg.campaignVersion) || '';
+    const ids = [];
+    if (r.chatId) ids.push(String(r.chatId));
+    let tel = String(r.telefono || '').replace(/\D/g, '');
+    if (tel.length === 8) tel = '591' + tel; // local boliviano → internacional
+    if (tel.length >= 10) ids.push('wa_' + tel);
+    ids.forEach(function (id) {
+      // update (no set): solo marca chats que YA existen; no crea docs vacíos para reservas web sin chat.
+      db.collection('valeria_chats').doc(id).update({ reservoOk: true, reservoCampaign: ver }).catch(function () {});
+    });
+  } catch (e) { console.error('_marcarReservoOk:', e.message); }
+}
+
 function iniciarWatcherReservas() {
   if (!db) { console.warn('⚠️ Watcher de reservas inactivo (sin Firestore)'); return; }
   let init = false;
   db.collection('reservas_beni').onSnapshot(function(snap) {
     snap.docChanges().forEach(function(ch) {
       if (ch.type !== 'added') return;
-      if (!init) return; // ignora las reservas que ya existían al arrancar (evita spam al reiniciar)
-      notificarNuevaReserva(ch.doc.data());
+      const r = ch.doc.data();
+      _marcarReservoOk(r); // marca "ya reservó" en su chat → el seguimiento no le insiste (backfill + nuevas)
+      if (!init) return; // las que ya existían al arrancar: solo backfill, sin re-notificar al equipo
+      notificarNuevaReserva(r);
     });
     init = true;
   }, function(err) { console.error('watcher reservas_beni:', err.message); });
