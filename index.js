@@ -2131,6 +2131,7 @@ app.get('/terms', (req, res) => {
 // Lee reservas_beni, envía la plantilla y marca el doc para no duplicar.
 // ══════════════════════════════════════════
 const WA_TEMPLATE_RECORDATORIO = process.env.WA_TEMPLATE_RECORDATORIO || 'recordatorio_jornada_beni';
+const WA_TEMPLATE_CONFIRMACION = process.env.WA_TEMPLATE_CONFIRMACION || 'confirmacion_jornada';
 const WA_TEMPLATE_LANG = process.env.WA_TEMPLATE_LANG || 'es';
 
 // 8 dígitos -> 591XXXXXXXX (Bolivia). Si ya viene con 591, se respeta.
@@ -2185,6 +2186,45 @@ async function enviarPlantillaRecordatorio(r, cfg) {
     console.log('🔔 Recordatorio enviado a ' + to + ' (' + nombre + ', ' + diaLabel + ' ' + (r.hora || '') + ')');
     return true;
   } catch (e) { console.error('Recordatorio fetch error:', e.message); return false; }
+}
+
+// Confirmación de reserva al CLIENTE por WhatsApp (plantilla) — impresión profesional inmediata,
+// abre el hilo de chat (visible en el panel) y comunica el referido (20%/50%). La plantilla incluye
+// el botón "Compartir la jornada". NO se auto-gatea aquí: el watcher decide cuándo llamarla (env CONFIRMACION_ACTIVA).
+async function enviarConfirmacionReserva(r) {
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+  if (!WHATSAPP_TOKEN || !PHONE_ID || !r) return false;
+  const to = normalizarTelefono(r.telefono);
+  if (!to || to.length < 8) return false;
+  const cfg = await getBeniConfig();
+  const dia = ((cfg && cfg.dias) || []).find(function (x) { return x.fecha === r.fecha; });
+  const diaLabel = (dia && dia.label) || r.fecha || '';
+  const lugar = r.lugar || r.subsede || 'Beauty Clinic — Av. Ayacucho esq. calle La Paz';
+  const nombre = (r.nombre || 'paciente').trim().split(/\s+/)[0];
+  try {
+    const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to: to, type: 'template',
+        template: {
+          name: WA_TEMPLATE_CONFIRMACION, language: { code: WA_TEMPLATE_LANG },
+          components: [{ type: 'body', parameters: [
+            { type: 'text', text: nombre },
+            { type: 'text', text: diaLabel },
+            { type: 'text', text: String(r.hora || '') },
+            { type: 'text', text: lugar }
+          ] }]
+        }
+      })
+    });
+    const data = await resp.json();
+    if (data.error) { console.error('Confirmacion API error:', JSON.stringify(data.error)); return false; }
+    logMensaje('wa_' + to, 'valeria', '✅ Confirmación de reserva enviada: ' + diaLabel + ' ' + (r.hora || '') + ' · ' + lugar + '.');
+    console.log('✅ Confirmación enviada a ' + to + ' (' + nombre + ')');
+    return true;
+  } catch (e) { console.error('Confirmacion fetch error:', e.message); return false; }
 }
 
 let _recoRunning = false;
@@ -2326,6 +2366,15 @@ if (db) {
 app.get('/run-recordatorios', async (req, res) => {
   await correrRecordatorios();
   res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+// PRUEBA de la plantilla de confirmación (envía UNA, sin importar el flag CONFIRMACION_ACTIVA):
+// /debug/test-confirmacion?key=diag-9x&tel=76xxxxxx&nombre=Maria&fecha=2026-08-20&hora=15:00
+app.get('/debug/test-confirmacion', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const r = { telefono: req.query.tel || '', nombre: req.query.nombre || 'María', fecha: req.query.fecha || '', hora: req.query.hora || '15:00', subsede: req.query.lugar || 'Cochabamba' };
+  const ok = await enviarConfirmacionReserva(r);
+  res.json({ ok: ok, template: WA_TEMPLATE_CONFIRMACION, lang: WA_TEMPLATE_LANG, to: normalizarTelefono(r.telefono) });
 });
 
 // SIMULACIÓN (dry-run) del seguimiento: muestra a QUIÉNES les escribiría AHORA, SIN enviar nada. Para revisar antes de activar.
@@ -2566,6 +2615,8 @@ function iniciarWatcherReservas() {
       _marcarReservoOk(r); // marca "ya reservó" en su chat → el seguimiento no le insiste (backfill + nuevas)
       if (!init) return; // las que ya existían al arrancar: solo backfill, sin re-notificar al equipo
       notificarNuevaReserva(r);
+      // Confirmación al cliente por WhatsApp (solo web/voz; los de chat ya recibieron el saludo+referido de Valeria).
+      if (process.env.CONFIRMACION_ACTIVA === 'true' && (!r.canal || r.canal === 'voz')) enviarConfirmacionReserva(r).catch(function () {});
     });
     init = true;
   }, function(err) { console.error('watcher reservas_beni:', err.message); });
