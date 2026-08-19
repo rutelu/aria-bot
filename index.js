@@ -1283,7 +1283,7 @@ async function revisarExpiraciones() {
 function iniciarWatcherExpiraciones() {
   console.log('⏳ Watcher de expiración activo (aparta ' + HOLD_MIN + 'min ACTIVOS 8-22h; recordatorios ' + REM1_MIN + '/' + REM2_MIN + 'min; pausa 22-8h)');
   revisarExpiraciones().catch(function () {});
-  setInterval(function () { revisarExpiraciones().catch(function () {}); }, 2 * 60 * 1000);
+  setInterval(function () { revisarExpiraciones().catch(function () {}); }, 15 * 60 * 1000);
 }
 
 // Fecha "2026-08-13" -> "jueves 13 de agosto" (sin depender de locale del server)
@@ -1344,7 +1344,7 @@ async function revisarRecordatoriosConfirmar() {
 function iniciarWatcherRecordatorios() {
   console.log('🔔 Watcher de recordatorios activo (~20h + ~8h confirmar + ~2h simple antes de la cita, 7-23h)');
   revisarRecordatoriosConfirmar().catch(function () {});
-  setInterval(function () { revisarRecordatoriosConfirmar().catch(function () {}); }, 10 * 60 * 1000);
+  setInterval(function () { revisarRecordatoriosConfirmar().catch(function () {}); }, 30 * 60 * 1000);
 }
 
 async function toolCrearCita(args, canal) {
@@ -2319,7 +2319,7 @@ if (db) {
   // setTimeout(correrRecordatorios, 30000);
   // setInterval(correrRecordatorios, 20 * 60 * 1000);
   setTimeout(correrSeguimientos, 60000);
-  setInterval(correrSeguimientos, 20 * 60 * 1000);
+  setInterval(correrSeguimientos, 60 * 60 * 1000);
 }
 
 // Disparo manual para probar (no reenvía los ya marcados)
