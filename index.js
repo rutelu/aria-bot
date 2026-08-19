@@ -171,6 +171,8 @@ const BENI_SEED = {
   campaignVersion: 'cochabamba-2026-08a',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
+  ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
+  slug: 'cbba', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
   subsedes: [
     { id: 'Cochabamba', nombre: 'Cochabamba', direccion: 'Beauty Clinic — Av. Ayacucho esq. calle La Paz', telefonos: ['+591 76951552'] }
   ],
@@ -2197,11 +2199,15 @@ async function enviarConfirmacionReserva(r) {
   if (!WHATSAPP_TOKEN || !PHONE_ID || !r) return false;
   const to = normalizarTelefono(r.telefono);
   if (!to || to.length < 8) return false;
-  const cfg = await getBeniConfig();
-  const dia = ((cfg && cfg.dias) || []).find(function (x) { return x.fecha === r.fecha; });
+  const cfg = (await getBeniConfig()) || {};
+  const dia = ((cfg.dias) || []).find(function (x) { return x.fecha === r.fecha; });
   const diaLabel = (dia && dia.label) || r.fecha || '';
-  const lugar = r.lugar || r.subsede || 'Beauty Clinic — Av. Ayacucho esq. calle La Paz';
+  const sub = ((cfg.subsedes) || []).find(function (s) { return s.id === r.subsede; }) || ((cfg.subsedes) || [])[0] || {};
+  const lugar = sub.direccion || r.lugar || r.subsede || 'nuestra sede';
   const nombre = (r.nombre || 'paciente').trim().split(/\s+/)[0];
+  const campania = cfg.titulo || 'Jornada Harmonie';
+  const oferta = cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste un descuento especial; y si traes a un recomendado que se atienda, obtienes un beneficio mayor en tu tratamiento.';
+  const slug = cfg.slug || 'cbba';
   try {
     const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
       method: 'POST',
@@ -2210,12 +2216,17 @@ async function enviarConfirmacionReserva(r) {
         messaging_product: 'whatsapp', to: to, type: 'template',
         template: {
           name: WA_TEMPLATE_CONFIRMACION, language: { code: WA_TEMPLATE_LANG },
-          components: [{ type: 'body', parameters: [
-            { type: 'text', text: nombre },
-            { type: 'text', text: diaLabel },
-            { type: 'text', text: String(r.hora || '') },
-            { type: 'text', text: lugar }
-          ] }]
+          components: [
+            { type: 'body', parameters: [
+              { type: 'text', text: nombre },
+              { type: 'text', text: campania },
+              { type: 'text', text: diaLabel },
+              { type: 'text', text: String(r.hora || '') },
+              { type: 'text', text: lugar },
+              { type: 'text', text: oferta }
+            ] },
+            { type: 'button', sub_type: 'url', index: '0', parameters: [ { type: 'text', text: slug } ] }
+          ]
         }
       })
     });
