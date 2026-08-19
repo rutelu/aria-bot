@@ -2046,6 +2046,41 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// ── ENLAZAR CHAT WEB → hilo de WhatsApp por teléfono (Fase 2: continuidad del historial) ──
+// La web, al reservar, manda el historial del chat web + el teléfono; lo guardamos bajo wa_<tel>
+// SOLO si ese hilo aún no existe, para que la conversación previa aparezca en el panel y el WhatsApp.
+app.options('/link-chat-web', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.post('/link-chat-web', async (req, res) => {
+  _setChatCors(req, res);
+  try {
+    if (!db) return res.json({ ok: false });
+    const b = req.body || {};
+    let tel = String(b.tel || '').replace(/\D/g, '');
+    if (tel.length === 8) tel = '591' + tel; // local boliviano → internacional
+    if (tel.length < 10) return res.json({ ok: false, reason: 'tel' });
+    const msgs = (Array.isArray(b.mensajes) ? b.mensajes : []).slice(-20)
+      .map(function (m) { return { rol: (m && (m.rol || m.role) === 'user') ? 'user' : 'valeria', texto: String((m && (m.texto || m.content)) || '').slice(0, 2000) }; })
+      .filter(function (m) { return m.texto; });
+    if (!msgs.length) return res.json({ ok: false, reason: 'vacio' });
+    const chatId = 'wa_' + tel;
+    const chatRef = db.collection('valeria_chats').doc(chatId);
+    const prev = await chatRef.collection('mensajes').limit(1).get();
+    if (!prev.empty) return res.json({ ok: false, reason: 'ya_existe' }); // NO pisar una conversación real ya existente
+    const base = Date.now() - msgs.length * 1000;
+    const batch = db.batch();
+    msgs.forEach(function (m, i) {
+      const ref = chatRef.collection('mensajes').doc();
+      batch.set(ref, { rol: m.rol, texto: m.texto, ts: admin.firestore.Timestamp.fromMillis(base + i * 1000), origenLink: 'web' });
+    });
+    const meta = { canal: 'wa', contacto: tel, origen: 'chat web (previo a reservar)', ultimaActividad: admin.firestore.FieldValue.serverTimestamp() };
+    if (b.nombre) meta.nombre = String(b.nombre).slice(0, 80);
+    batch.set(chatRef, meta, { merge: true });
+    await batch.commit();
+    console.log('🔗 Chat web enlazado a ' + chatId + ' (' + msgs.length + ' msgs)');
+    res.json({ ok: true, linked: msgs.length });
+  } catch (e) { console.error('/link-chat-web:', e.message); res.json({ ok: false, error: e.message }); }
+});
+
 // ── CLASIFICADOR DE TRATAMIENTO → ESPECIALIDAD (para la Agenda Virtual del sitio) ──
 // Recibe el texto libre del paciente y devuelve med/fisio/cir/cosm. Si es vago o "no sé" → med.
 const _ESPS = {
