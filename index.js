@@ -912,6 +912,8 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
     especialidadId: cfg.especialidadId || '',
     nombre: nombre, telefono: telefono, email: '', notas: args.tratamiento || '',
     servicio: args.tratamiento || 'Consulta',
+    tratamiento: args.tratamiento || 'Consulta', // mismo campo que el formulario web (para la ficha del paciente)
+    salud: 'Por completar en la valoración presencial', // Valeria no pregunta salud/alergias; se llena en la ficha
     estado: 'confirmada', canal: canal || 'chat', chatId: chatId || '',
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
