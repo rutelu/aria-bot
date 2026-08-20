@@ -2243,8 +2243,8 @@ async function enviarConfirmacionReserva(r) {
   const lugar = sub.direccion || r.lugar || r.subsede || 'nuestra sede';
   const nombre = (r.nombre || 'paciente').trim().split(/\s+/)[0];
   const campania = cfg.titulo || 'Jornada Harmonie';
-  const oferta = cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste un descuento especial; y si traes a un recomendado que se atienda, obtienes un beneficio mayor en tu tratamiento.';
   const slug = cfg.slug || 'cbba';
+  const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.') + ' Compartí la jornada: https://harmonieinstitute.com/' + slug;
   try {
     const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
       method: 'POST',
