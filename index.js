@@ -2425,6 +2425,18 @@ app.get('/debug/test-confirmacion', async (req, res) => {
   res.json({ ok: ok, template: WA_TEMPLATE_CONFIRMACION, lang: WA_TEMPLATE_LANG, to: normalizarTelefono(r.telefono) });
 });
 
+// INSPECCIÓN de una plantilla (para diagnosticar el botón): /debug/tpl?key=diag-9x[&name=confirmacion_jornada]
+app.get('/debug/tpl', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN, WABA = process.env.WHATSAPP_WABA_ID;
+  if (!TOKEN || !WABA) return res.json({ error: 'faltan WHATSAPP_TOKEN/WHATSAPP_WABA_ID' });
+  const name = req.query.name || 'confirmacion_jornada';
+  try {
+    const r = await fetch(`https://graph.facebook.com/v25.0/${WABA}/message_templates?name=${encodeURIComponent(name)}&fields=name,status,components`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+    res.json(await r.json());
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 // SIMULACIÓN (dry-run) del seguimiento: muestra a QUIÉNES les escribiría AHORA, SIN enviar nada. Para revisar antes de activar.
 app.get('/dry-seguimiento', async (req, res) => {
   try {
