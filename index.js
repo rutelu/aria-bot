@@ -297,6 +297,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - NUNCA das diagnósticos médicos ni prometes resultados garantizados. Para eso, ofreces agendar una consulta de valoración.
 - PRECIOS: puedes dar los PRECIOS DE REFERENCIA listados más abajo (son aproximados; el valor final se define en la valoración). Destaca siempre la calidad de nuestros tratamientos, la experiencia y la garantía de resultados, con las técnicas más avanzadas. Para RESERVAR el equipo de Harmonie decidió retirar el depósito: NO se pide depósito ni pago por adelantado (ni presencial ni en campaña); la reserva queda registrada y se envía un recordatorio para que la persona confirme su cita. La videollamada es GRATIS. Durante una campaña/jornada ACTIVA hay promociones. NUNCA pidas depósito ni menciones enlaces de pago para reservar. Para tratamientos no listados, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
 - Toda cirugía estética requiere consulta de valoración previa obligatoria.
+- CIRUGÍAS = VALORACIÓN SOLO PRESENCIAL: la videollamada/virtual NO está habilitada para cirugías estéticas (ni menores ni mayores). Si alguien pide una videollamada para una cirugía, explícalo con calidez y ofrécele una valoración PRESENCIAL (en sede, o en la jornada si es una cirugía menor). NUNCA ofrezcas ni agendes una videollamada para una cirugía.
 - Si no sabes algo con certeza, no improvises: ofrece agendar o derivar por WhatsApp +591 76951552.
 - ESTILO Y LONGITUD (REGLA #1, la MÁS importante, por encima de todo): respondé como un HUMANO real por WhatsApp, cálida y natural. MÁXIMO 1-2 frases por mensaje (idealmente UNA). JAMÁS párrafos, listas ni textos tipo folleto. No sueltes toda la info de golpe: decí lo justo y OFRECÉ ampliar con una pregunta corta ("¿Te cuento más?" / "¿Querés que te explique el detalle?"). Da respuestas largas SOLO si la persona las pide expresamente. Esto aplica SIEMPRE, sin excepción: también al saludar, al redirigir de una campaña que ya pasó, al ofrecer una jornada o al hablar de precios — TODO en 1-2 frases. Si tu mensaje supera 2 frases, recortalo antes de enviar. Cierra invitando a agendar solo cuando sea natural, sin sonar insistente. NO repitas información que ya diste antes en la misma conversación (fechas, sedes, precios).
 - MEMORIA DEL CHAT (MUY IMPORTANTE — no pierdas el hilo): recuerda TODO lo que la persona ya te dijo en esta conversación (su nombre, teléfono, localidad, día y hora elegidos, el tratamiento que le interesa, etc.). NUNCA vuelvas a preguntar un dato que ya te dieron ni repitas una pregunta ya respondida. Si ya tienes algunos datos para reservar, pide SOLO lo que falta. Jamás reinicies la conversación ni "empieces de cero": continúa siempre desde donde quedaron.
@@ -615,10 +616,15 @@ function buildBeniSection(cfg, dispo) {
       s += '- ' + sub.nombre + ' (' + sub.direccion + '): ' + dias + ' (ya realizado)\n';
     });
   }
+  if (dispo && dispo.hora_actual_bolivia) {
+    s += 'HORA ACTUAL EN BOLIVIA AHORA: ' + dispo.hora_actual_bolivia + '. ⚠️ REGLA DE HORA VENCIDA: si la persona pide una hora de HOY anterior a esta hora (o que figure abajo como "ya pasaron"), NO digas que "no está disponible" ni que "está ocupada": dile con calidez que ESA HORA YA PASÓ / YA VENCIÓ y ofrécele horas posteriores.\n';
+  }
   if (dispo && Array.isArray(dispo.disponibilidad) && dispo.disponibilidad.length) {
     s += 'HORAS REALMENTE LIBRES AHORA (FUENTE DE VERDAD — ofrece SOLO estas horas; NUNCA ofrezcas una que no este en esta lista aunque la recuerdes de antes; y SIEMPRE confirma creando con crear_reserva_beni):\n';
     dispo.disponibilidad.forEach(function(r){
-      s += '- ' + r.label + ' en ' + r.subsede + ': ' + ((r.horas_libres && r.horas_libres.length) ? r.horas_libres.join(', ') : 'SIN cupos libres') + ' (turnos de 60 min)\n';
+      s += '- ' + r.label + ' en ' + r.subsede + ': ' + ((r.horas_libres && r.horas_libres.length) ? r.horas_libres.join(', ') : 'SIN cupos libres') + ' (turnos de 60 min)';
+      if (r.horas_ya_pasaron && r.horas_ya_pasaron.length) s += ' — HORAS QUE YA PASARON HOY (si pide una de estas, dile que YA VENCIÓ, no que está ocupada): ' + r.horas_ya_pasaron.join(', ');
+      s += '\n';
     });
   } else {
     s += 'HORAS LIBRES: por ahora no hay horas libres en los dias vigentes (o la jornada finalizo). NO ofrezcas ninguna hora; confirma con consultar_disponibilidad_beni.\n';
@@ -838,19 +844,25 @@ async function toolConsultarDisponibilidad(args, cfg) {
   const result = [];
   for (const d of dias) {
     let libres = horas.filter(function(h) { return !ocupados.has(beniSlotId(d.fecha, h)); });
-    // Si el día es HOY, no ofrecer horas que ya pasaron (deja un margen: el turno debe empezar después de la hora actual).
-    if (d.fecha === hoyISO) libres = libres.filter(function(h) { return h > ahoraHHMM; });
+    // Si el día es HOY: separa las horas que YA PASARON (para poder decir "esa hora ya venció", NO "ocupada").
+    let vencidas = [];
+    if (d.fecha === hoyISO) {
+      vencidas = libres.filter(function(h) { return h <= ahoraHHMM; });
+      libres = libres.filter(function(h) { return h > ahoraHHMM; });
+    }
     // MISMA regla que crear_reserva: excluir horas donde el ESPECIALISTA de la campaña ya está ocupado
     // por una cita general (presencial o virtual). Evita ofrecer horas que luego se rechazan al agendar.
     const libresReal = [];
     for (const h of libres) {
       if (!(await especialistaOcupado(cfg.especialidadId, d.fecha, h, 60))) libresReal.push(h);
     }
-    if (!libresReal.length) continue;
+    if (!libresReal.length && !vencidas.length) continue;
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === d.subsede; }) || {};
-    result.push({ subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libresReal });
+    const entry = { subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libresReal };
+    if (vencidas.length) entry.horas_ya_pasaron = vencidas; // horas de HOY que ya pasaron (vencidas, no ocupadas)
+    result.push(entry);
   }
-  return { disponibilidad: result, promo: cfg.promo };
+  return { disponibilidad: result, promo: cfg.promo, hora_actual_bolivia: ahoraHHMM };
 }
 
 async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
@@ -1185,6 +1197,13 @@ async function toolConsultarDisponibilidadSede(args) {
   const cfg = await getSedesConfig();
   const hoy = fechaBoliviaISO();
   if (esModalidadVirtual(args.modalidad) || esModalidadVirtual(args.sede)) {
+    // La videollamada NO está habilitada para CIRUGÍAS (valoración de cirugía = SIEMPRE presencial),
+    // ni para una especialidad pausada en virtual (config/especialidades, editado desde el panel).
+    const espId = _espKeyFromText(args.especialidad || args.tratamiento || args.servicio || '');
+    const _notaPau = await espPausadaNota(espId, 'virtual');
+    if (espId === 'cir' || _notaPau) {
+      return { modalidad: 'virtual', disponible: false, nota: _notaPau || 'La videollamada NO está habilitada para cirugías estéticas: la valoración de una cirugía es SIEMPRE presencial. Ofrece con calidez una valoración PRESENCIAL en sede (o en la jornada si es una cirugía menor). NO ofrezcas ni agendes videollamada para una cirugía.' };
+    }
     return { modalidad: 'virtual', nota: 'La videollamada está disponible TODOS los días, de 09:00 a 21:00 (WhatsApp, Zoom o Google Meet). Pregunta qué día y hora prefiere y crea la cita con crear_cita.', horas_referencia: cfg.horas };
   }
   const sede = resolverSedeGeneral(args.sede, cfg);
@@ -1195,14 +1214,18 @@ async function toolConsultarDisponibilidadSede(args) {
   if (!dias.length) {
     return { sede: sede, direccion: sc.direccion, disponibilidad: [], nota: 'Por ahora no hay fechas presenciales publicadas para ' + sede + '. Ofrece la videollamada (todos los días de 9 a 21) o toma sus datos para avisarle cuando se habiliten fechas.' };
   }
+  const ahoraHHMM = horaBoliviaHHMM();
   const out = [];
   for (const d of dias) {
     const ocup = (await gcalHorasOcupadas(sc.calendarId, d.fecha)).concat(await citasHorasOcupadas(sede, d.fecha));
     let libres = (cfg.horas || []).filter(function(h) { return ocup.indexOf(h) === -1; });
-    if (d.fecha === hoy) libres = libres.filter(function(h) { return h > horaBoliviaHHMM(); });
-    out.push({ fecha: d.fecha, label: d.label, horas_libres: libres });
+    let vencidas = [];
+    if (d.fecha === hoy) { vencidas = libres.filter(function(h) { return h <= ahoraHHMM; }); libres = libres.filter(function(h) { return h > ahoraHHMM; }); }
+    const entry = { fecha: d.fecha, label: d.label, horas_libres: libres };
+    if (vencidas.length) entry.horas_ya_pasaron = vencidas;
+    out.push(entry);
   }
-  return { sede: sede, direccion: sc.direccion, disponibilidad: out };
+  return { sede: sede, direccion: sc.direccion, disponibilidad: out, hora_actual_bolivia: ahoraHHMM };
 }
 
 // Enlace directo a la pasarela de pago del SITIO + mensaje al cliente por WhatsApp (reserva presencial → depósito Bs 50).
@@ -1378,6 +1401,8 @@ async function toolCrearCita(args, canal) {
   // así dos especialistas distintos pueden atender a la misma hora, pero el mismo no se dobla.
   const servicio = args.servicio || args.tratamiento || 'Consulta';
   const espId = _espKeyFromText(args.especialidad || servicio);
+  // Cirugías: la valoración es SIEMPRE presencial → nunca por videollamada.
+  if (virtual && espId === 'cir') return { error: 'La videollamada no está habilitada para cirugías estéticas: la valoración de una cirugía es SIEMPRE presencial. Ofrece una valoración PRESENCIAL en sede (o la jornada si es una cirugía menor). NO agendes videollamada para una cirugía.' };
   // Especialidad pausada para esta modalidad → rechazar con la nota (config/especialidades)
   { const _notaPau = await espPausadaNota(espId, modalidad); if (_notaPau) return { error: _notaPau }; }
   // Cruce por ESPECIALISTA (presencial+virtual+campaña) con solapamiento: no doble-agendar al mismo especialista.
