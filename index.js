@@ -2245,30 +2245,32 @@ async function enviarConfirmacionReserva(r) {
   const campania = cfg.titulo || 'Jornada Harmonie';
   const slug = cfg.slug || 'cbba';
   const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.') + ' Compartí la jornada: https://harmonieinstitute.com/' + slug;
-  try {
+  const bodyComp = { type: 'body', parameters: [
+    { type: 'text', text: nombre },
+    { type: 'text', text: campania },
+    { type: 'text', text: diaLabel },
+    { type: 'text', text: String(r.hora || '') },
+    { type: 'text', text: lugar },
+    { type: 'text', text: oferta }
+  ] };
+  const btnComp = { type: 'button', sub_type: 'url', index: '0', parameters: [ { type: 'text', text: slug } ] };
+  async function _sendTpl(components) {
     const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp', to: to, type: 'template',
-        template: {
-          name: WA_TEMPLATE_CONFIRMACION, language: { code: WA_TEMPLATE_LANG },
-          components: [
-            { type: 'body', parameters: [
-              { type: 'text', text: nombre },
-              { type: 'text', text: campania },
-              { type: 'text', text: diaLabel },
-              { type: 'text', text: String(r.hora || '') },
-              { type: 'text', text: lugar },
-              { type: 'text', text: oferta }
-            ] },
-            { type: 'button', sub_type: 'url', index: '0', parameters: [ { type: 'text', text: slug } ] }
-          ]
-        }
-      })
+      body: JSON.stringify({ messaging_product: 'whatsapp', to: to, type: 'template', template: { name: WA_TEMPLATE_CONFIRMACION, language: { code: WA_TEMPLATE_LANG }, components: components } })
     });
-    const data = await resp.json();
-    if (data.error) { console.error('Confirmacion API error:', JSON.stringify(data.error)); return false; }
+    return resp.json();
+  }
+  try {
+    // Intenta CON el parámetro del botón (plantilla con botón dinámico). Si el botón pasó a ESTÁTICO
+    // (ya no acepta parámetro), Meta devuelve error → reintenta SIN el componente de botón.
+    let data = await _sendTpl([bodyComp, btnComp]);
+    if (data && data.error) {
+      console.warn('Confirmacion con boton fallo, reintento sin boton:', (data.error && data.error.message));
+      data = await _sendTpl([bodyComp]);
+    }
+    if (data && data.error) { console.error('Confirmacion API error:', JSON.stringify(data.error)); return false; }
     logMensaje('wa_' + to, 'valeria', '✅ Confirmación de reserva enviada: ' + diaLabel + ' ' + (r.hora || '') + ' · ' + lugar + '.');
     console.log('✅ Confirmación enviada a ' + to + ' (' + nombre + ')');
     return true;
