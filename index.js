@@ -593,14 +593,19 @@ function buildBeniSection(cfg, dispo) {
   s += 'Nuestro especialista en medicina estética atiende presencialmente en Cochabamba (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
   var _hoyISO = fechaBoliviaISO();
   var _mananaISO = (function(){ var d = new Date(Date.now() - 4*60*60*1000); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); })();
-  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana viernes 14"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron. Si la persona pide o da por hecho un día u hora que YA pasó, tu PRIMERA respuesta —ANTES de ofrecer tratamientos, precios o alternativas— debe ser aclararle con calidez que esa fecha u hora ya venció; recién después ofrécele solo las fechas y horas vigentes listadas. Di siempre el día de la semana CON su fecha y localidad exactos.\n';
+  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana viernes 14"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron. Si la persona pide o da por hecho un día u hora que YA pasó, tu PRIMERA respuesta —ANTES de ofrecer tratamientos, precios o alternativas— debe ser aclararle con calidez que esa fecha u hora ya venció; recién después ofrécele solo las fechas y horas vigentes listadas. Un día marcado abajo como "SIN CUPOS" NO se ofrece (aunque sea HOY): significa que la jornada de ese día ya cerró o se llenó — ofrece los días siguientes. Di siempre el día de la semana CON su fecha y localidad exactos.\n';
   var _vig = (cfg.dias || []).filter(function(d){ return d.fecha >= _hoyISO; });
   var _pas = (cfg.dias || []).filter(function(d){ return d.fecha < _hoyISO; });
+  // Cruce con la disponibilidad EN VIVO: un día vigente que ya NO tiene horas libres (ej. HOY después de
+  // las 20:00) se marca SIN CUPOS para que Valeria NO lo ofrezca. Solo se marcan días presentes en dispo.
+  var _enDispo = (dispo && Array.isArray(dispo.disponibilidad)) ? new Set(dispo.disponibilidad.map(function(r){ return r.fecha; })) : null;
+  var _conCupo = (dispo && Array.isArray(dispo.disponibilidad)) ? new Set(dispo.disponibilidad.filter(function(r){ return r.horas_libres && r.horas_libres.length; }).map(function(r){ return r.fecha; })) : null;
   s += 'DÍAS DISPONIBLES:\n';
   if (!_vig.length) s += '- (Ya no quedan fechas disponibles; la jornada finalizó.)\n';
   (cfg.subsedes || []).forEach(function(sub) {
     const dias = _vig.filter(function(d){ return d.subsede === sub.id; }).map(function(d){
       var marca = d.fecha === _hoyISO ? ' (ES HOY)' : (d.fecha === _mananaISO ? ' (ES MAÑANA)' : '');
+      if (_enDispo && _enDispo.has(d.fecha) && !_conCupo.has(d.fecha)) marca += ' — ⚠️ SIN CUPOS, NO LO OFREZCAS (la jornada de este día ya cerró o se llenó)';
       return d.label + marca;
     }).join(', ');
     if (!dias) return;
