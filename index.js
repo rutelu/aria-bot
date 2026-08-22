@@ -593,7 +593,7 @@ function buildBeniSection(cfg, dispo) {
   s += 'Nuestro especialista en medicina estética atiende presencialmente en Cochabamba (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
   var _hoyISO = fechaBoliviaISO();
   var _mananaISO = (function(){ var d = new Date(Date.now() - 4*60*60*1000); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); })();
-  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana viernes 14"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron. Si la persona pide o da por hecho un día u hora que YA pasó, tu PRIMERA respuesta —ANTES de ofrecer tratamientos, precios o alternativas— debe ser aclararle con calidez que esa fecha u hora ya venció; recién después ofrécele solo las fechas y horas vigentes listadas. Un día marcado abajo como "SIN CUPOS" NO se ofrece (aunque sea HOY): significa que la jornada de ese día ya cerró o se llenó — ofrece los días siguientes. Di siempre el día de la semana CON su fecha y localidad exactos.\n';
+  s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana viernes 14"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron. Si la persona pide o da por hecho un día u hora que YA pasó, tu PRIMERA respuesta —ANTES de ofrecer tratamientos, precios o alternativas— debe ser aclararle con calidez que esa fecha u hora ya venció; recién después ofrécele solo las fechas y horas vigentes listadas. Un día marcado abajo como "SIN CUPOS" NO se ofrece (aunque sea HOY): significa que la jornada de ese día ya cerró o se llenó — ofrece los días siguientes. Di siempre el día de la semana CON su fecha y localidad exactos. ⚠️ VALIDACIÓN AL VUELO: en cuanto la persona nombre un día o una hora concretos, llama a consultar_disponibilidad_beni pasándole esa fecha (y hora si la dijo); si la respuesta trae "consulta_fecha" con estado "fecha_vencida" u "hora_vencida", relaya su "mensaje" PRIMERO (avísale que ya venció) antes de continuar.\n';
   var _vig = (cfg.dias || []).filter(function(d){ return d.fecha >= _hoyISO; });
   var _pas = (cfg.dias || []).filter(function(d){ return d.fecha < _hoyISO; });
   // Cruce con la disponibilidad EN VIVO: un día vigente que ya NO tiene horas libres (ej. HOY después de
@@ -695,12 +695,13 @@ function typingDelay(text) {
 const BENI_TOOLS = [
   {
     name: 'consultar_disponibilidad_beni',
-    description: 'Consulta los días y horarios LIBRES de la Jornada Cochabamba. Úsala cuando la persona pregunte por disponibilidad, qué días hay, o quiera reservar. Devuelve los cupos libres por sub-sede y fecha.',
+    description: 'Consulta los días y horarios LIBRES de la Jornada Cochabamba y VALIDA si la fecha/hora que pidió la persona es vigente o ya venció. Úsala en cuanto la persona mencione un día u hora específicos (o pregunte por disponibilidad o quiera reservar). SIEMPRE que la persona diga un día u hora, pásalos en fecha/hora: el campo "consulta_fecha" de la respuesta te dirá si está VIGENTE, si la FECHA ya venció o si la HORA ya pasó — relaya ese mensaje ANTES de seguir.',
     input_schema: {
       type: 'object',
       properties: {
         subsede: { type: 'string', enum: ['Cochabamba'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
-        fecha: { type: 'string', description: 'Fecha en formato YYYY-MM-DD. Opcional; si se omite, devuelve todos los días de la campaña.' }
+        fecha: { type: 'string', description: 'La fecha que mencionó la persona (ej. "jueves 20", "20", o YYYY-MM-DD). Pásala SIEMPRE que la persona nombre un día, para validar si venció.' },
+        hora: { type: 'string', description: 'La hora que mencionó la persona en formato HH:MM (ej. 10:00). Pásala SIEMPRE que la persona nombre una hora, para validar si ya pasó.' }
       }
     }
   },
@@ -828,13 +829,33 @@ async function toolConsultarDisponibilidad(args, cfg) {
       return { error: 'El tratamiento "' + args.tratamiento + '" es estrictamente de ' + _fuera + ', fuera del alcance de esta campaña de medicina estética. NO ofrezcas horarios de campaña para esto: díselo AHORA MISMO con calidez y ofrécele una cita normal con crear_cita (videollamada gratis o presencial en una sede).', fueraDeCampana: true };
     }
   }
+  const hoyISO = fechaBoliviaISO();
+  const ahoraHHMM = horaBoliviaHHMM();
+  // VEREDICTO DE FECHA/HORA (detección precisa de pasado/futuro EN EL MOMENTO en que la persona la menciona).
+  // Resuelve la fecha pedida contra TODOS los días de la campaña (incluidos los pasados) para decir con
+  // exactitud si ya venció, si no es de la jornada, o si está vigente. Valeria debe RELAYAR consulta_fecha.mensaje.
+  let consulta_fecha = null;
+  if (String(args.fecha || '').trim()) {
+    const frPed = resolverFecha(args.fecha, args.subsede, cfg);
+    const diaCfg = (cfg.dias || []).find(function(d) { return d.fecha === frPed; });
+    const horaPed = String(args.hora || '').trim() ? normalizarHora(args.hora, cfg.horas) : null;
+    if (diaCfg && frPed < hoyISO) {
+      consulta_fecha = { estado: 'fecha_vencida', fecha: frPed, label: diaCfg.label, mensaje: 'La fecha que pidió (' + diaCfg.label + ') YA PASÓ / ya venció. Aclárale eso PRIMERO con calidez y ofrécele SOLO los días vigentes.' };
+    } else if (diaCfg && frPed === hoyISO && horaPed && horaPed <= ahoraHHMM) {
+      consulta_fecha = { estado: 'hora_vencida', fecha: frPed, hora: horaPed, mensaje: 'Las ' + horaPed + ' de hoy YA PASARON (ahora son las ' + ahoraHHMM + '). Aclárale que esa hora ya venció y ofrécele horas posteriores (de hoy si quedan, o de otro día vigente).' };
+    } else if (diaCfg) {
+      consulta_fecha = { estado: 'vigente', fecha: frPed, label: diaCfg.label };
+    } else {
+      consulta_fecha = { estado: 'fuera_de_jornada', mensaje: 'Ese día NO es parte de la jornada. Ofrécele SOLO los días de la jornada que estén vigentes.' };
+    }
+  }
   const horas = cfg.horas || [];
   let dias = diasVigentes(cfg); // solo días de hoy en adelante (no ofrecer fechas pasadas)
   if (args.subsede) { var ss = resolverSubsede(args.subsede, cfg); dias = dias.filter(function(d) { return d.subsede === ss; }); }
   if (args.fecha) { var fr = resolverFecha(args.fecha, args.subsede, cfg); if (dias.some(function(d) { return d.fecha === fr; })) dias = dias.filter(function(d) { return d.fecha === fr; }); }
   if (!dias.length) {
     const vig = diasVigentes(cfg).map(function(d){ return d.label + ' en ' + d.subsede; }).join('; ');
-    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La Jornada Cochabamba ya finalizó; no quedan fechas disponibles.' };
+    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La Jornada Cochabamba ya finalizó; no quedan fechas disponibles.', hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
   }
 
   // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
@@ -844,8 +865,6 @@ async function toolConsultarDisponibilidad(args, cfg) {
     snap.forEach(function(doc) { ocupados.add(doc.id); });
   } catch (e) { console.error('cupos_ocupados read:', e.message); }
 
-  const hoyISO = fechaBoliviaISO();
-  const ahoraHHMM = horaBoliviaHHMM();
   const result = [];
   for (const d of dias) {
     let libres = horas.filter(function(h) { return !ocupados.has(beniSlotId(d.fecha, h)); });
@@ -867,7 +886,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
     if (vencidas.length) entry.horas_ya_pasaron = vencidas; // horas de HOY que ya pasaron (vencidas, no ocupadas)
     result.push(entry);
   }
-  return { disponibilidad: result, promo: cfg.promo, hora_actual_bolivia: ahoraHHMM };
+  return { disponibilidad: result, promo: cfg.promo, hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
 }
 
 async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
