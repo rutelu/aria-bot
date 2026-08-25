@@ -2310,7 +2310,8 @@ async function enviarConfirmacionReserva(r) {
   const nombre = (r.nombre || 'paciente').trim().split(/\s+/)[0];
   const campania = cfg.titulo || 'Jornada Harmonie';
   const slug = cfg.slug || 'cbba';
-  const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.') + ' Compartí la jornada: https://harmonieinstitute.com/' + slug;
+  const rutaCompartir = 'jornada'; // ruta UNIVERSAL permanente → siempre redirige a la campaña activa (no cambia por campaña)
+  const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.') + ' Compartí la jornada: https://harmonieinstitute.com/' + rutaCompartir;
   const bodyComp = { type: 'body', parameters: [
     { type: 'text', text: nombre },
     { type: 'text', text: campania },
@@ -2319,7 +2320,7 @@ async function enviarConfirmacionReserva(r) {
     { type: 'text', text: lugar },
     { type: 'text', text: oferta }
   ] };
-  const btnComp = { type: 'button', sub_type: 'url', index: '0', parameters: [ { type: 'text', text: slug } ] };
+  const btnComp = { type: 'button', sub_type: 'url', index: '0', parameters: [ { type: 'text', text: rutaCompartir } ] };
   async function _sendTpl(components) {
     const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
       method: 'POST',
