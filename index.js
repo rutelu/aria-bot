@@ -588,6 +588,11 @@ const CONTACTOS_BENI = {
 
 function buildBeniSection(cfg, dispo) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
+  // AUTO-EXPIRA: si TODOS los días de la campaña ya pasaron (aunque siga publicada:true), NO la ofrezcas como vigente.
+  var _hoyISOb = fechaBoliviaISO();
+  if (!(cfg.dias || []).some(function(d){ return d.fecha >= _hoyISOb; })) {
+    return '\n\nCAMPAÑA FINALIZADA: la ' + (cfg.titulo || 'jornada') + ' YA TERMINÓ (sus fechas ya pasaron). NO la ofrezcas como vigente, NO enganches con ella y NO agendes en ella. Si preguntan por esa jornada, di con calidez que ya finalizó y ofrece: (1) una cita normal —presencial en una de nuestras sedes, o videollamada gratis para una primera valoración— o (2) tomar sus datos para avisarle de la PRÓXIMA jornada. NUNCA inventes fechas nuevas para una jornada terminada.\n';
+  }
   let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en Cochabamba. Engancha con la jornada apenas la persona pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de Cochabamba: la promoción/descuento vigente, e invítala a reservar su cupo. Si la persona menciona Oruro, Sucre, Beni u otra jornada pasada, aclarale de una —desde tu primera respuesta— que esa YA finalizó y ofrecele esta jornada vigente desde el principio, sin dar vueltas en una campaña que ya no existe. No repitas lo ya dicho:\n';
   s += 'TRATAMIENTOS EN CONTEXTO DE CAMPAÑA (regla): si preguntan "qué tratamientos ofrecen" o piden info general de tratamientos, NO recites el catálogo general de HARMONIE ni menciones cirugías. Responde SOLO con lo que entra en ESTA jornada (medicina estética no quirúrgica: Botox, rellenos, rinomodelación, hilos, mesoterapia, etc.) y engancha con la campaña, en 1-2 frases. Las cirugías NO entran en la jornada (si preguntan por una, aplica la regla de más abajo).\n';
   s += 'Nuestro especialista en medicina estética atiende presencialmente en Cochabamba (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
