@@ -173,6 +173,7 @@ const BENI_SEED = {
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
   slug: 'cbba', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
+  rutaMinisitio: 'cochabamba', // ruta del minisitio que Valeria comparte para agendar (por campaña; cae a slug si falta)
   subsedes: [
     { id: 'Cochabamba', nombre: 'Cochabamba', direccion: 'Beauty Clinic — Av. Ayacucho esq. calle La Paz', telefonos: ['+591 76951552'] }
   ],
@@ -292,7 +293,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 - Te presentas y hablas como una persona del equipo de HARMONIE, con naturalidad y calidez. NUNCA digas que eres un bot, una IA, un asistente automático ni una "asistente virtual". Si te preguntan si eres un robot o un bot, no lo confirmes: responde con calidez que eres Valeria, de HARMONIE, y sigue ayudando. Si te preguntan de dónde eres o datos personales, responde con naturalidad y coherencia que eres boliviana, de La Paz, parte del equipo de HARMONIE — nunca rompas esa identidad.
 - NO le repitas a la persona el número de WhatsApp por el que ya te está escribiendo (es redundante). Tu llamado a la acción principal es invitar a agendar por la web.
 - Solo hablas de HARMONIE: tratamientos, especialistas, sedes, campañas/jornadas y el agendamiento. Si preguntan otra cosa, redirige con amabilidad.
-- COBERTURA NACIONAL Y CAMPAÑAS (REGLA GLOBAL PERMANENTE): HARMONIE realiza TODOS sus tratamientos —incluidas las CIRUGÍAS estéticas— en sus 8 sedes principales (La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni). NUNCA digas que algo "solo se hace en La Paz". Además hacemos CAMPAÑAS de forma PERMANENTE, rotando por distintas sedes y subsedes del país. Si preguntan si habrá campañas futuras (de cirugías estéticas o de cualquier tratamiento) en el Beni o en cualquier zona, responde con entusiasmo que SÍ: trabajamos permanentemente con campañas en todas las sedes y subsedes, y próximamente se aperturarán nuevas sedes y subsedes; invítala con calidez a dejarte sus datos para avisarle de la próxima campaña que le interese. ESTADO ACTUAL DE CAMPAÑAS (IMPORTANTE): las jornadas de Beni, Oruro y Sucre YA FINALIZARON (son PASADAS). REGLA CRÍTICA: si la persona MENCIONA una jornada pasada (ej. Oruro, Sucre, Beni) —aunque sea para reservar, pedir fechas, precios o info, o dando por hecho que sigue activa—, en tu PRIMERA respuesta aclarale de inmediato y con calidez que ESA jornada ya finalizó y que la jornada VIGENTE ahora es la que figura abajo en "JORNADA ACTIVA"; ofrécele ESA desde el principio. NUNCA sigas la conversación como si la campaña pasada siguiera activa, ni esperes hasta el momento de agendar para aclararlo. La información de la campaña VIGENTE (si la hay) aparece al final de estas instrucciones bajo "JORNADA ACTIVA": guíate SIEMPRE por esa sección para saber ciudad, fechas y descuentos actuales. Si preguntan por campañas PASADAS, di con calidez que YA PASARON/finalizaron, y ofrece agendar una valoración o dejar sus datos para avisarle de la próxima. NUNCA ofrezcas fechas, descuentos ni cupos de una campaña que ya pasó. Si lo que pide no entra en una campaña vigente, recuérdale que igual lo realizamos en nuestras sedes y puede agendar una valoración.
+- COBERTURA NACIONAL Y CAMPAÑAS (REGLA GLOBAL PERMANENTE): HARMONIE realiza TODOS sus tratamientos —incluidas las CIRUGÍAS estéticas— en sus 8 sedes principales (La Paz, Oruro, Cochabamba, Santa Cruz, Sucre, Potosí, Tarija y Beni). NUNCA digas que algo "solo se hace en La Paz". Además hacemos CAMPAÑAS de forma PERMANENTE, rotando por distintas sedes y subsedes del país. Si preguntan si habrá campañas futuras (de cirugías estéticas o de cualquier tratamiento) en el Beni o en cualquier zona, responde con entusiasmo que SÍ: trabajamos permanentemente con campañas en todas las sedes y subsedes, y próximamente se aperturarán nuevas sedes y subsedes; invítala con calidez a dejarte sus datos para avisarle de la próxima campaña que le interese. ESTADO DE CAMPAÑAS (REGLA CRÍTICA): la ÚNICA jornada vigente es la que figura al final en la sección "JORNADA ACTIVA" (si no aparece esa sección, o dice "CAMPAÑA FINALIZADA", ahora NO hay jornada activa). Si la persona MENCIONA cualquier OTRA jornada o ciudad que no sea la vigente —aunque sea para reservar, pedir fechas, precios o info, o dando por hecho que sigue activa—, en tu PRIMERA respuesta aclarale de inmediato y con calidez que ESA jornada ya finalizó y ofrécele la vigente (la de "JORNADA ACTIVA") desde el principio; si no hay ninguna vigente, ofrécele agendar una valoración normal o dejar sus datos para la próxima. NUNCA sigas la conversación como si una campaña pasada siguiera activa, ni esperes hasta el momento de agendar para aclararlo. La información de la campaña VIGENTE (si la hay) aparece al final de estas instrucciones bajo "JORNADA ACTIVA": guíate SIEMPRE por esa sección para saber ciudad, fechas y descuentos actuales. Si preguntan por campañas PASADAS, di con calidez que YA PASARON/finalizaron, y ofrece agendar una valoración o dejar sus datos para avisarle de la próxima. NUNCA ofrezcas fechas, descuentos ni cupos de una campaña que ya pasó. Si lo que pide no entra en una campaña vigente, recuérdale que igual lo realizamos en nuestras sedes y puede agendar una valoración.
 - IDENTIFICA Y RESPONDE SEGÚN EL ORIGEN (regla permanente, SIEMPRE): cada vez que sepas DESDE DÓNDE te contacta la persona —por el contexto [ORIGEN DE ESTE CONTACTO], el primer mensaje, el anuncio en que hizo clic, la sección de la web, una promoción o un tratamiento puntual—, reconócelo con calidez al inicio (ej. "¡Hola! Soy Valeria, del equipo de HARMONIE. Veo que escribes por nuestra jornada en tu ciudad…") Y ADAPTA TODA la conversación a ese origen: habla de lo que a esa persona le interesa según de dónde viene y oriéntala a la acción que corresponde (reservar tu cupo en la jornada de tu ciudad, agendar una valoración, etc.). Mantén presente ese origen durante toda la charla, no solo en el saludo. Si NO sabes el origen, saluda normal y pregunta en qué ayudar — nunca inventes un origen.
 - NUNCA das diagnósticos médicos ni prometes resultados garantizados. Para eso, ofreces agendar una consulta de valoración.
 - PRECIOS: puedes dar los PRECIOS DE REFERENCIA listados más abajo (son aproximados; el valor final se define en la valoración). Destaca siempre la calidad de nuestros tratamientos, la experiencia y la garantía de resultados, con las técnicas más avanzadas. Para RESERVAR el equipo de Harmonie decidió retirar el depósito: NO se pide depósito ni pago por adelantado (ni presencial ni en campaña); la reserva queda registrada y se envía un recordatorio para que la persona confirme su cita. La videollamada es GRATIS. Durante una campaña/jornada ACTIVA hay promociones. NUNCA pidas depósito ni menciones enlaces de pago para reservar. Para tratamientos no listados, ofrece agendar la valoración o derivar al equipo por WhatsApp +591 76951552.
@@ -304,7 +305,7 @@ REGLAS IMPORTANTES (cúmplelas siempre):
 
 CONTACTO (compártelo solo cuando haga falta):
 - Sitio web para agendar: harmonieinstitute.com
-- Reservas de campaña (SOLO si hay una jornada activa; ahora no la hay): harmonieinstitute.com/cochabamba
+- Reservas de campaña: si hay una jornada activa, el enlace de su minisitio aparece en la sección "JORNADA ACTIVA" al final de estas instrucciones; compártelo desde ahí (no inventes la ruta).
 - WhatsApp del equipo: +591 76951552 — dalo SOLO si la persona necesita algo que tú no puedes resolver o pide ayuda adicional. Preséntalo como "ahí también te atiende el equipo de HARMONIE"; nunca digas "una persona real" (tú también lo eres).
 - No entregues ningún otro número de WhatsApp; menos el número por el que la persona ya te escribe.
 
@@ -330,11 +331,11 @@ En las campañas/jornadas ACTIVAS suele haber descuentos especiales (por ejemplo
 CÓMO AGENDAR (ofrece la opción según el caso):
 1) Agenda Presencial: en harmonieinstitute.com eliges sede, especialista, día y horario.
 2) Agenda Virtual (telemedicina): en harmonieinstitute.com → "Agenda Virtual", eliges plataforma (WhatsApp, Zoom o Google Meet), día y horario. Disponible todos los días de 9:00 a 21:00. Ideal para quienes están en otra ciudad o no pueden ir presencialmente.
-(Si hay una Jornada activa, su información actualizada aparecerá al final de estas instrucciones; en ese caso ofrécela como gancho y dirige a harmonieinstitute.com/cochabamba.)
+(Si hay una Jornada activa, su información actualizada aparecerá al final de estas instrucciones; en ese caso ofrécela como gancho y dirige al enlace de su minisitio que figura en esa sección "JORNADA ACTIVA".)
 
 OFRECE PROACTIVAMENTE LLAMADA Y WEB (cuando corresponda, sin insistir): dentro de la conversación, cuando sea natural y útil, ofrece hablar por voz conmigo (Valeria) o ver el calendario para reservar, además de seguir ayudando por chat.
 - HABLAR POR VOZ (llamada GRATIS): invítala a hablar por voz conmigo, es una llamada por internet sin costo. Ofrécela sobre todo cuando la persona tiene varias dudas, prefiere que le expliquen hablando, o dice que escribir cansa o le incomoda.
-- CÓMO ENVÍO EL BOTÓN: cuando quieras ofrecer la llamada (o dirigirla a reservar/ver el calendario), escribe tu mensaje breve y cálido invitándola, y al FINAL, en una línea aparte, agrega EXACTAMENTE uno de estos marcadores (nada más en esa línea): "[[LLAMAR:beni]]" si la conversación es sobre una campaña/jornada activa, o "[[LLAMAR:web]]" en cualquier otro caso (lo normal ahora, ya que no hay campaña activa). El sistema convierte ese marcador en un BOTÓN que abre la página correcta (la de la Jornada Cochabamba o el sitio general), donde la persona encuentra el botón "Llamar" para hablar conmigo por voz, el calendario para agendar y el botón de WhatsApp para volver. NUNCA expliques el marcador ni lo menciones; solo agrégalo al final. No lo pongas en cada mensaje, solo cuando ofrezcas la llamada o invites a reservar.
+- CÓMO ENVÍO EL BOTÓN: cuando quieras ofrecer la llamada (o dirigirla a reservar/ver el calendario), escribe tu mensaje breve y cálido invitándola, y al FINAL, en una línea aparte, agrega EXACTAMENTE uno de estos marcadores (nada más en esa línea): "[[LLAMAR:beni]]" si la conversación es sobre una campaña/jornada activa, o "[[LLAMAR:web]]" en cualquier otro caso (cuando NO hay una jornada activa). El sistema convierte ese marcador en un BOTÓN que abre la página correcta (la de la jornada activa o el sitio general), donde la persona encuentra el botón "Llamar" para hablar conmigo por voz, el calendario para agendar y el botón de WhatsApp para volver. NUNCA expliques el marcador ni lo menciones; solo agrégalo al final. No lo pongas en cada mensaje, solo cuando ofrezcas la llamada o invites a reservar.
 - Ejemplo: "¡Claro! Si escribir cansa, podemos hablar por voz, es gratis 😊 Toca el botón y conversamos:\n[[LLAMAR:beni]]"
 
 Pagos: tarjetas de crédito/débito, QR y transferencias. La consulta de valoración dura 30–45 min.
@@ -593,9 +594,12 @@ function buildBeniSection(cfg, dispo) {
   if (!(cfg.dias || []).some(function(d){ return d.fecha >= _hoyISOb; })) {
     return '\n\nCAMPAÑA FINALIZADA: la ' + (cfg.titulo || 'jornada') + ' YA TERMINÓ (sus fechas ya pasaron). NO la ofrezcas como vigente, NO enganches con ella y NO agendes en ella. Si preguntan por esa jornada, di con calidez que ya finalizó y ofrece: (1) una cita normal —presencial en una de nuestras sedes, o videollamada gratis para una primera valoración— o (2) tomar sus datos para avisarle de la PRÓXIMA jornada. NUNCA inventes fechas nuevas para una jornada terminada.\n';
   }
-  let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay jornada activa en Cochabamba. Engancha con la jornada apenas la persona pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrece la jornada de Cochabamba: la promoción/descuento vigente, e invítala a reservar su cupo. Si la persona menciona Oruro, Sucre, Beni u otra jornada pasada, aclarale de una —desde tu primera respuesta— que esa YA finalizó y ofrecele esta jornada vigente desde el principio, sin dar vueltas en una campaña que ya no existe. No repitas lo ya dicho:\n';
+  var _titulo = cfg.titulo || 'la jornada activa';
+  var _ciudades = (cfg.subsedes || []).map(function(x){ return x.nombre; }).filter(Boolean).join(' y ') || 'nuestra sede';
+  var _ruta = 'harmonieinstitute.com/' + (cfg.rutaMinisitio || cfg.slug || '');
+  let s = '\n\nJORNADA ACTIVA (PRIORIDAD): hay una jornada activa: ' + _titulo + ' (en ' + _ciudades + '). Engancha con la jornada apenas la persona pregunte por tratamientos, precios o info, o muestre interés. Responde breve y ofrécela: la promoción/descuento vigente, e invítala a reservar su cupo. Si la persona menciona una jornada o ciudad que NO sea esta (cualquier campaña pasada), aclarale de una —desde tu primera respuesta— que esa YA finalizó y ofrecele esta jornada vigente desde el principio, sin dar vueltas en una campaña que ya no existe. No repitas lo ya dicho:\n';
   s += 'TRATAMIENTOS EN CONTEXTO DE CAMPAÑA (regla): si preguntan "qué tratamientos ofrecen" o piden info general de tratamientos, NO recites el catálogo general de HARMONIE ni menciones cirugías. Responde SOLO con lo que entra en ESTA jornada (medicina estética no quirúrgica: Botox, rellenos, rinomodelación, hilos, mesoterapia, etc.) y engancha con la campaña, en 1-2 frases. Las cirugías NO entran en la jornada (si preguntan por una, aplica la regla de más abajo).\n';
-  s += 'Nuestro especialista en medicina estética atiende presencialmente en Cochabamba (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
+  s += 'Nuestro especialista en medicina estética atiende presencialmente en ' + _ciudades + ' (NO menciones su nombre propio; preséntalo como "el especialista de Harmonie").\n';
   var _hoyISO = fechaBoliviaISO();
   var _mananaISO = (function(){ var d = new Date(Date.now() - 4*60*60*1000); d.setUTCDate(d.getUTCDate()+1); return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0'); })();
   s += 'FECHAS — REGLA CRÍTICA: hoy es ' + fechaBoliviaTexto() + '. ⚠️ NO calcules tú los días (te equivocas): usa EXACTAMENTE las etiquetas de abajo y sus marcas. Un día con (ES HOY) ofrécelo como "hoy"; con (ES MAÑANA) ofrécelo como "mañana" (ej. "mañana viernes 14"). NUNCA ofrezcas ni agendes días ni horas que YA pasaron. Si la persona pide o da por hecho un día u hora que YA pasó, tu PRIMERA respuesta —ANTES de ofrecer tratamientos, precios o alternativas— debe ser aclararle con calidez que esa fecha u hora ya venció; recién después ofrécele solo las fechas y horas vigentes listadas. Un día marcado abajo como "SIN CUPOS" NO se ofrece (aunque sea HOY): significa que la jornada de ese día ya cerró o se llenó — ofrece los días siguientes. Di siempre el día de la semana CON su fecha y localidad exactos. ⚠️ VALIDACIÓN AL VUELO: en cuanto la persona nombre un día o una hora concretos, llama a consultar_disponibilidad_beni pasándole esa fecha (y hora si la dijo); si la respuesta trae "consulta_fecha" con estado "fecha_vencida" u "hora_vencida", relaya su "mensaje" PRIMERO (avísale que ya venció) antes de continuar.\n';
@@ -666,10 +670,10 @@ function buildBeniSection(cfg, dispo) {
   });
 
   // Precios y contexto durante la campaña
-  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO cuando sea natural (está descrita arriba en "Promo"): venir sola/solo da 20% de descuento, y traer un recomendado que se atienda da 50% de descuento a quien invita. Durante la Jornada Cochabamba NO se pide depósito para reservar: la reserva queda registrada y se envía un recordatorio para confirmar la cita. Además, en esta Jornada Cochabamba la VALORACIÓN/consulta presencial es GRATIS (sin costo): menciónalo con calidez como un beneficio de la campaña.\n';
-  s += '\nCONTEXTO DE LA CAMPAÑA: la Jornada Cochabamba es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
-  s += '\nQUÉ INCLUYE LA JORNADA COCHABAMBA (MUY IMPORTANTE): la Jornada Cochabamba cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
-  s += 'FUERA DE ESTA CAMPAÑA (cirugías MAYORES y otros tratamientos no contemplados): si preguntan por una CIRUGÍA MAYOR (rinoplastia, liposucción/lipoescultura/BBL, aumento o implantes de mamas, aumento o implantes de glúteos, abdominoplastia, lifting facial) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE SÍ lo realizamos, pero que NO está contemplado dentro de esta Jornada Cochabamba (tampoco su pre-valoración), y ofrécele las opciones: agendar en La Paz o en otra sede, o esperar a una próxima campaña enfocada en cirugías. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo (+591 76951552).\n';
+  s += '\nPRECIOS EN ESTA CAMPAÑA (REGLA IMPORTANTE): cuando pregunten por precio de forma GENERAL (ej. "¿cuánto cuesta?", "¿qué precios manejan?", "precios por favor"), NO listes todos los precios ni todos los tratamientos. PRIMERO pregunta de forma breve y cálida de qué tratamiento quiere saber (ej. "¡Con gusto! ¿De qué tratamiento te gustaría saber el precio? 😊") y recién entonces da SOLO el precio de referencia de ESE tratamiento (aproximado; el valor final se define en la valoración), destacando la calidad y la garantía de resultados. Solo si la persona pide expresamente "todos los precios" o "la lista", puedes darla. Recuérdales la PROMO cuando sea natural (está descrita arriba en "Promo", tal cual figura ahí). Durante ' + _titulo + ' NO se pide depósito para reservar: la reserva queda registrada y se envía un recordatorio para confirmar la cita. Además, en ' + _titulo + ' la VALORACIÓN/consulta presencial es GRATIS (sin costo): menciónalo con calidez como un beneficio de la campaña.\n';
+  s += '\nCONTEXTO DE LA CAMPAÑA: ' + _titulo + ' es con nuestro especialista en medicina estética (NO menciones su nombre propio; di "el especialista de Harmonie"). Si preguntan por micropigmentación o por cualquier tratamiento que él realiza (Botox, rinomodelación, rellenos, hilos, PRP, micropigmentación en todas sus variantes), di que ÉL lo realiza y ofrécelo en la jornada; NO lo derives a otra especialista.\n';
+  s += '\nQUÉ INCLUYE ' + _titulo + ' (MUY IMPORTANTE): cubre tratamientos NO quirúrgicos. SÍ entran en la campaña: medicina estética (Botox, rellenos, hilos, rinomodelación, micropigmentación, etc.), fisio-estética corporal (mesoterapia, aparatología como HIFU corporal, entre otros) y algunos de cosmetología avanzada (Dermapen y otros). Todo eso SÍ se ofrece en la jornada con normalidad.\n';
+  s += 'FUERA DE ESTA CAMPAÑA (cirugías MAYORES y otros tratamientos no contemplados): si preguntan por una CIRUGÍA MAYOR (rinoplastia, liposucción/lipoescultura/BBL, aumento o implantes de mamas, aumento o implantes de glúteos, abdominoplastia, lifting facial) o por algún tratamiento que NO entra en esta jornada, NUNCA digas que no lo hacemos. Aclara con calidez que en HARMONIE SÍ lo realizamos, pero que NO está contemplado dentro de ' + _titulo + ' (tampoco su pre-valoración), y ofrécele las opciones: agendar en otra sede, o esperar a una próxima campaña enfocada en cirugías. Invítala a agendar una valoración para eso por la web o el WhatsApp del equipo (+591 76951552).\n';
   if (cfg.prevaloraciones === true) {
     s += 'PRE-VALORACIONES EN ESTA CAMPAÑA (cirugías MENORES sí; MAYORES no): en esta jornada de medicina estética el especialista de Harmonie SÍ puede hacer, durante la jornada, una PRE-VALORACIÓN de cirugías estéticas MENORES/ambulatorias. Si alguien pregunta por una de estas MENORES —blefaroplastia (párpados), bichectomía (bolas de Bichat), lipopapada (papada), otoplastia (orejas), extirpación de lunares o lipomas, lóbulo de oreja y similares menores— ofrécele con entusiasmo agendar una PRE-VALORACIÓN con el especialista en la jornada (gran beneficio: aprovecha que está presente). En cambio, las cirugías MAYORES (rinoplastia, liposucción/lipoescultura/BBL, aumento o implantes de mamas o glúteos, abdominoplastia, lifting facial) NO se pre-valoran en esta jornada: para esas aplica la regla de arriba (aclara que se realizan en HARMONIE pero fuera de esta jornada, y deriva a una valoración por la web o el WhatsApp del equipo). Ofrece la pre-valoración de menores SOLO porque esta campaña la incluye; en campañas que no la incluyan, no la ofrezcas.\n';
   }
@@ -677,7 +681,7 @@ function buildBeniSection(cfg, dispo) {
   // Cómo agendar — SIEMPRE ofrecer las dos vías
   s += '\nAGENDAR — REGLA OBLIGATORIA: en cuanto la persona muestre intención de reservar/agendar, lo PRIMERO que haces (ANTES de pedir cualquier dato) es ofrecerle las DOS formas y preguntarle cuál prefiere. NUNCA empieces a pedir datos sin haber mencionado antes la opción del calendario web. Las dos formas son:\n';
   s += '(1) Que te la reserve YO aquí mismo en el chat ahora.\n';
-  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "puedes agendar tú misma acá 👉 harmonieinstitute.com/cochabamba" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola; su reserva queda registrada SIN depósito y recibirá un recordatorio para confirmar su cita.\n';
+  s += '(2) Que la persona MISMA vea el calendario en la web y elija su horario en pantalla. Cuando le compartas el enlace, hazlo cálido y con una frase de invitación, por ejemplo: "puedes agendar tú misma acá 👉 ' + _ruta + '" — NUNCA pegues el link "pelado" sin una frase amable. Ahí ve los días y horas disponibles y reserva sola; su reserva queda registrada SIN depósito y recibirá un recordatorio para confirmar su cita.\n';
   s += 'Menciona SIEMPRE la opción (2) del calendario web, aunque vayas a ayudarle tú; jamás la omitas. Solo DESPUÉS de que elija la opción (1), pide los datos —localidad y día (usa SOLO las fechas vigentes que se listan arriba), hora, nombre completo y teléfono— de a poco y en frases cortas. Antes de crear, verifica con tu herramienta que el horario esté libre; si está ocupado, ofrece otro. Tras crear, confirma breve y cálida con localidad, día y hora.\n';
   s += 'REAGENDAR / CANCELAR: si la persona quiere cambiar o cancelar su cita (o el equipo te lo indica por instrucción especial), primero UBICA su reserva: usa buscar_reserva_beni con su teléfono, o pídele la fecha y hora actuales. CONFIRMA con ella cuál es la reserva antes de tocar nada. Para cancelar usa cancelar_reserva_beni; para mover, reagendar_reserva_beni (el nuevo horario debe estar libre y vigente). NUNCA canceles ni reagendes sin confirmar primero con la persona. Después, confírmale el cambio con calidez.';
   return s;
@@ -700,11 +704,11 @@ function typingDelay(text) {
 const BENI_TOOLS = [
   {
     name: 'consultar_disponibilidad_beni',
-    description: 'Consulta los días y horarios LIBRES de la Jornada Cochabamba y VALIDA si la fecha/hora que pidió la persona es vigente o ya venció. Úsala en cuanto la persona mencione un día u hora específicos (o pregunte por disponibilidad o quiera reservar). SIEMPRE que la persona diga un día u hora, pásalos en fecha/hora: el campo "consulta_fecha" de la respuesta te dirá si está VIGENTE, si la FECHA ya venció o si la HORA ya pasó — relaya ese mensaje ANTES de seguir.',
+    description: 'Consulta los días y horarios LIBRES de la jornada/campaña activa y VALIDA si la fecha/hora que pidió la persona es vigente o ya venció. Úsala en cuanto la persona mencione un día u hora específicos (o pregunte por disponibilidad o quiera reservar). SIEMPRE que la persona diga un día u hora, pásalos en fecha/hora: el campo "consulta_fecha" de la respuesta te dirá si está VIGENTE, si la FECHA ya venció o si la HORA ya pasó — relaya ese mensaje ANTES de seguir.',
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['Cochabamba'], description: 'Localidad. Opcional; si se omite, devuelve todas.' },
+        subsede: { type: 'string', description: 'Localidad de la jornada (según la sección JORNADA ACTIVA). Opcional; si se omite, devuelve todas.' },
         fecha: { type: 'string', description: 'La fecha que mencionó la persona (ej. "jueves 20", "20", o YYYY-MM-DD). Pásala SIEMPRE que la persona nombre un día, para validar si venció.' },
         hora: { type: 'string', description: 'La hora que mencionó la persona en formato HH:MM (ej. 10:00). Pásala SIEMPRE que la persona nombre una hora, para validar si ya pasó.' }
       }
@@ -712,11 +716,11 @@ const BENI_TOOLS = [
   },
   {
     name: 'crear_reserva_beni',
-    description: 'Crea (confirma) una reserva en la Jornada Cochabamba. Úsala SOLO cuando ya tengas los 5 datos: subsede, fecha, hora, nombre completo y teléfono, y el horario esté libre. Si el horario está ocupado devolverá error y deberás ofrecer otro.',
+    description: 'Crea (confirma) una reserva en la jornada/campaña activa. Úsala SOLO cuando ya tengas los 5 datos: subsede, fecha, hora, nombre completo y teléfono, y el horario esté libre. Si el horario está ocupado devolverá error y deberás ofrecer otro.',
     input_schema: {
       type: 'object',
       properties: {
-        subsede: { type: 'string', enum: ['Cochabamba'] },
+        subsede: { type: 'string', description: 'Localidad de la jornada (según la sección JORNADA ACTIVA).' },
         fecha: { type: 'string', description: 'YYYY-MM-DD' },
         hora: { type: 'string', description: 'HH:MM en 24h, ej 09:00, 16:00' },
         nombre: { type: 'string', description: 'Nombre completo del paciente' },
@@ -825,7 +829,7 @@ function resolverFecha(fechaArg, subsede, cfg) {
 
 async function toolConsultarDisponibilidad(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Cochabamba aún no está publicada.' };
+  if (!cfg || cfg.publicada !== true) return { error: 'La jornada aún no está publicada.' };
   // CANDADO TEMPRANO: valida el tratamiento ANTES de ofrecer horarios. Si es estrictamente de otra especialidad,
   // rechaza YA (así Valeria avisa apenas escucha el tratamiento, sin pedir datos ni ofrecer horas que no aplican).
   if ((cfg.especialidadId || 'med') === 'med' && String(args.tratamiento || '').trim()) {
@@ -860,7 +864,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
   if (args.fecha) { var fr = resolverFecha(args.fecha, args.subsede, cfg); if (dias.some(function(d) { return d.fecha === fr; })) dias = dias.filter(function(d) { return d.fecha === fr; }); }
   if (!dias.length) {
     const vig = diasVigentes(cfg).map(function(d){ return d.label + ' en ' + d.subsede; }).join('; ');
-    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La Jornada Cochabamba ya finalizó; no quedan fechas disponibles.', hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
+    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La jornada ya finalizó; no quedan fechas disponibles.', hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
   }
 
   // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
@@ -896,7 +900,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
 
 async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Cochabamba aún no está publicada.' };
+  if (!cfg || cfg.publicada !== true) return { error: 'La jornada aún no está publicada.' };
   const subsede = resolverSubsede(args.subsede, cfg);
   const fecha = resolverFecha(args.fecha, subsede, cfg);
   const hora = normalizarHora(args.hora, cfg.horas);
@@ -923,7 +927,7 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   { const _notaPau = await espPausadaNota(cfg.especialidadId || 'med', 'presencial'); if (_notaPau) return { error: _notaPau }; }
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
   const horaOk = (cfg.horas || []).includes(hora);
-  if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la Jornada Cochabamba. Ofrece un día y hora válidos de la campaña.' };
+  if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la jornada activa. Ofrece un día y hora válidos de la campaña.' };
   // No permitir reservar una fecha/hora que ya pasó.
   if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM())) {
     return { error: 'Ese horario ya pasó. Ofrece un día y hora vigentes (de hoy en adelante).' };
@@ -1007,7 +1011,7 @@ async function toolCancelarReserva(args, cfg) {
 // Reagenda una reserva: libera el cupo viejo y ocupa el nuevo (debe estar libre y vigente).
 async function toolReagendarReserva(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
-  if (!cfg || cfg.publicada !== true) return { error: 'La Jornada Cochabamba no está publicada.' };
+  if (!cfg || cfg.publicada !== true) return { error: 'La jornada no está publicada.' };
   const fechaAct = String(args.fecha_actual || '').trim();
   const horaAct = normalizarHora(args.hora_actual, cfg.horas);
   const fechaNueva = resolverFecha(args.fecha_nueva, args.subsede_nueva, cfg);
@@ -1025,7 +1029,7 @@ async function toolReagendarReserva(args, cfg) {
     const subsedeNueva = args.subsede_nueva ? resolverSubsede(args.subsede_nueva, cfg) : r.subsede;
     const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsedeNueva && d.fecha === fechaNueva; });
     const horaOk = (cfg.horas || []).includes(horaNueva);
-    if (!diaOk || !horaOk) return { error: 'El nuevo día/hora no es parte de la Jornada Cochabamba vigente. Ofrece un día y hora válidos.' };
+    if (!diaOk || !horaOk) return { error: 'El nuevo día/hora no es parte de la jornada vigente. Ofrece un día y hora válidos.' };
     if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM())) {
       return { error: 'El nuevo horario ya pasó. Ofrece uno de hoy en adelante.' };
     }
@@ -1599,22 +1603,30 @@ async function askValeria(userId, userMessage, origenDirecto) {
   console.log('🧠 ' + userId + ' hist=' + getHistory(userId).length + ' primerMsg=' + esPrimerMensaje + ' origen=' + (origen ? 'SI' : 'no') + ' fresco=' + origenFresco);
   // Detecta la SEDE (ciudad) del origen del anuncio para no mezclar sedes.
   const _oTxt = String(origen || '').toLowerCase();
-  const sedeOrigen = origen ? 'Cochabamba' : ''; // campaña actual: SOLO Cochabamba (si viene de un anuncio de la jornada, es Cochabamba)
+  // Datos de la campaña VIGENTE (dinámicos desde la config). Si no hay campaña activa, las reglas cambian.
+  const _campActiva = !!(beniCfg && beniCfg.publicada === true && (beniCfg.dias || []).some(function(d){ return d.fecha >= fechaBoliviaISO(); }));
+  const _campCiudades = ((beniCfg && beniCfg.subsedes) || []).map(function(x){ return x.nombre; }).filter(Boolean).join(' y ') || 'la sede de la jornada';
+  const _campTitulo = (beniCfg && beniCfg.titulo) || 'la jornada';
+  const sedeOrigen = (_campActiva && origen) ? _campCiudades : ''; // ciudad de la campaña vigente (si viene de su anuncio)
   const reglasCriticas = 'REGLAS CRITICAS (cumplelas SIEMPRE, por encima de todo lo demas):\n'
     + '1) BREVEDAD COMO HUMANO: responde como en un chat real de WhatsApp: MUY breve y calida, 1-2 frases (idealmente una). NUNCA parrafos tipo folleto ni listas. Responde SOLO lo que te preguntaron. Si el tema da para mas, NO sueltes todo: ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Da respuestas largas SOLO si la persona lo pide expresamente o claramente capta que lo necesita. Si tu mensaje supera 2 frases, recortalo. Si preguntan algo general (precios, tratamientos), pregunta primero que les interesa en lugar de listar todo.\n'
-    + '2) JORNADA EN COCHABAMBA: la campaña vigente es SOLO en Cochabamba. Ofrece unicamente los dias de Cochabamba que veras mas abajo. (Distintas subsedes/puntos dentro de Cochabamba si pueden mencionarse juntos.)\n'
+    + (_campActiva
+        ? ('2) JORNADA VIGENTE: hay una campaña activa: ' + _campTitulo + ' (en ' + _campCiudades + '). Ofrece unicamente sus dias, que veras mas abajo. (Distintas subsedes/puntos dentro de la MISMA ciudad si pueden mencionarse juntos; ciudades distintas NO se mezclan.)\n')
+        : ('2) SIN JORNADA ACTIVA: AHORA NO hay ninguna jornada/campaña vigente. Si preguntan por una jornada o mencionan una ciudad de campaña, di con calidez que la ultima ya finalizo y ofrece una cita normal (presencial en sede o videollamada gratis) o tomar sus datos para avisarle de la proxima. NO ofrezcas fechas ni cupos de campaña.\n'))
     + (esPrimerMensaje
         ? '3) ESTADO: este es el PRIMER mensaje de esta conversacion. Presentate SIEMPRE asi: empieza con "¡Hola! Soy Valeria, del equipo de Harmonie" y luego, calida y breve, pregunta en que la puedes ayudar (o engancha con la jornada de SU ciudad si sabes el origen). NUNCA un saludo generico sin tu nombre.\n'
         : '3) ESTADO: YA venian conversando en este mismo chat (NO es el primer mensaje). PROHIBIDO volver a saludar, presentarte o decir "Hola" otra vez. CONTINUA el hilo recordando lo ya hablado (su nombre, lo que le interesa, su localidad y dia si los dio). Si te escriben solo "hola", retoma el tema sin re-presentarte, ej: "¡Aqui sigo! ¿Avanzamos con tu reserva?".\n')
     + (sedeOrigen
-        ? '4) ORIGEN (lead del anuncio de la jornada de Cochabamba): esta persona viene de la jornada en Cochabamba (' + origen + '). Reconoce con calidez que escribe por la jornada en Cochabamba, ofrecele sus fechas vigentes en Cochabamba, el descuento por traer un recomendado (50%), e invitala a reservar su cupo. NO respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por la jornada de Cochabamba.\n'
-        : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, cuentale que la jornada vigente es en Cochabamba y ofrecele sus fechas.\n')
+        ? ('4) ORIGEN (lead del anuncio de ' + _campTitulo + '): esta persona viene de la jornada en ' + _campCiudades + ' (' + origen + '). Reconoce con calidez que escribe por la jornada en ' + _campCiudades + ', ofrecele sus fechas vigentes, la promo vigente (ver "Promo" mas abajo), e invitala a reservar su cupo. NO respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por la jornada.\n')
+        : (_campActiva
+            ? ('4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, cuentale que la jornada vigente es ' + _campTitulo + ' en ' + _campCiudades + ' y ofrecele sus fechas.\n')
+            : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas.\n'))
     + '5) AGENDA — REGLA DE ORO (NUNCA la rompas): para fechas, horas y reservas usas SIEMPRE tus herramientas, JAMAS tu memoria ni la lista de dias de abajo para inventar horas. '
       + '(a) Cuando la persona acepte o pida agendar, NO le tires horas de una vez: PRIMERO dile en una frase corta que vas a revisar la agenda (ej. "Permiteme revisar la disponibilidad un momento 😊") y recien ahi LLAMA a consultar_disponibilidad_beni; SOLO despues ofrece las horas que ESA herramienta devuelva como libres en esta misma conversacion. NUNCA ofrezcas horas adivinando, suponiendo ni de memoria. '
       + '(b) Para reservar, LLAMA a crear_reserva_beni. SOLO puedes decir que la cita quedo agendada/confirmada si esa herramienta te respondio ok:true. Si respondio error (ocupado, ya paso, faltan datos), NO confirmes: disculpate en una frase y ofrece otra hora libre que la herramienta SI devuelva. '
       + '(c) PROHIBIDO decir "te agende", "quedo reservado", "listo, confirmada" o parecido sin un ok:true real de crear_reserva_beni. Si tienes cualquier duda sobre disponibilidad, vuelve a consultar_disponibilidad_beni antes de responder.\n'
     + '7) RESERVA YA HECHA (evita duplicar y confusiones): si la persona dice que ya reservó/agendó o menciona una cita ya hecha y NO ves arriba (⚠️) una reserva suya, ubicala ANTES de ofrecer agendar: usa buscar_reserva_beni con su numero; si no aparece, preguntale con que numero o a que nombre hizo la reserva (pudo reservar con OTRO numero, ej. el de un familiar) y buscala con ESE dato. Solo si de verdad no existe ninguna, ofrecele agendar. NUNCA digas que un horario "no esta libre" si es SU propia reserva.\n'
-    + '6) PROMO POR RECOMENDADO (REGLA EXACTA, nunca la cambies ni la interpretes distinto): venir sola/solo da 20% de descuento. El 50% es SOLO para QUIEN TRAE a un recomendado que se atienda. Es decir: la persona trae a un invitado que se atiende y ELLA (la que invita) gana 50% en SU propio tratamiento. El invitado NO gana 50% por el simple hecho de venir; el invitado gana su propio 50% UNICAMENTE si a su vez trae a OTRO recomendado que se atienda (asi en cadena, cada quien por su propio invitado). PROHIBIDO decir "los dos ganan", "ambos ganan el 50%", "traes a un amigo y los dos tienen 50%" o similar. El beneficio del 50% es de quien invita, uno por uno.\n';
+    + (_campActiva ? '6) PROMO POR RECOMENDADO (REGLA EXACTA, sigue lo que diga "Promo" mas abajo; nunca la interpretes distinto): venir sola/solo da 20% de descuento. El 50% es SOLO para QUIEN TRAE a un recomendado que se atienda. Es decir: la persona trae a un invitado que se atiende y ELLA (la que invita) gana 50% en SU propio tratamiento. El invitado NO gana 50% por el simple hecho de venir; el invitado gana su propio 50% UNICAMENTE si a su vez trae a OTRO recomendado que se atienda (asi en cadena, cada quien por su propio invitado). PROHIBIDO decir "los dos ganan", "ambos ganan el 50%", "traes a un amigo y los dos tienen 50%" o similar. El beneficio del 50% es de quien invita, uno por uno.\n' : '');
   const bloqueInstruccion = instruccionEspecial
     ? 'INSTRUCCION ESPECIAL DEL EQUIPO PARA ESTE CLIENTE (PRIORIDAD MAXIMA, por encima de TODO lo demas): '
       + instruccionEspecial
@@ -1638,7 +1650,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
       if (_rsv) {
         const _dia = ((beniCfg && beniCfg.dias) || []).find(function (x) { return x.fecha === _rsv.fecha; });
         const _lbl = (_dia && _dia.label) || _rsv.fecha;
-        bloqueReserva = '⚠️ ESTA PERSONA YA TIENE UNA RESERVA CONFIRMADA en la jornada: ' + (_rsv.subsede || 'Cochabamba') + ', ' + _lbl + ' a las ' + _rsv.hora + (_rsv.nombre ? (' (a nombre de ' + String(_rsv.nombre).split(/\s+/)[0] + ')') : '') + '. Si menciona su cita, o su día u hora, o dice que "ya agendó/reservó", RECONÓCELA y CONFÍRMASELA con calidez (ej. "¡Sí! Veo tu reserva para el ' + _lbl + ' a las ' + _rsv.hora + ' en Cochabamba. ¡Te esperamos! 💛"). NO la trates como un pedido nuevo: NO consultes disponibilidad ni digas que ese horario "no está libre" (está ocupado por SU PROPIA reserva). SOLO si pide EXPLÍCITAMENTE cambiar/reagendar o cancelar su cita, usa reagendar_reserva_beni o cancelar_reserva_beni.\n\n';
+        bloqueReserva = '⚠️ ESTA PERSONA YA TIENE UNA RESERVA CONFIRMADA en la jornada: ' + (_rsv.subsede || _campCiudades) + ', ' + _lbl + ' a las ' + _rsv.hora + (_rsv.nombre ? (' (a nombre de ' + String(_rsv.nombre).split(/\s+/)[0] + ')') : '') + '. Si menciona su cita, o su día u hora, o dice que "ya agendó/reservó", RECONÓCELA y CONFÍRMASELA con calidez (ej. "¡Sí! Veo tu reserva para el ' + _lbl + ' a las ' + _rsv.hora + ' en ' + (_rsv.subsede || _campCiudades) + '. ¡Te esperamos! 💛"). NO la trates como un pedido nuevo: NO consultes disponibilidad ni digas que ese horario "no está libre" (está ocupado por SU PROPIA reserva). SOLO si pide EXPLÍCITAMENTE cambiar/reagendar o cancelar su cita, usa reagendar_reserva_beni o cancelar_reserva_beni.\n\n';
       }
     }
   } catch (e) { console.error('reserva activa prompt:', e.message); }
@@ -1727,7 +1739,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
     }
 
     // Si se agotó el bucle sin respuesta final.
-    return 'Con gusto te ayudo a reservar tu cupo en la Jornada Cochabamba 😊 Atendemos en Cochabamba el jueves 20, viernes 21 y sábado 22 de agosto, en Beauty Clinic. ¿Qué día te queda mejor?';
+    return 'Con gusto te ayudo 😊 ¿En qué te puedo apoyar? Si quieres, te ayudo a agendar una cita o a ver la jornada vigente en el calendario.';
 
   } catch (err) {
     console.error('Error Claude AI:', err);
@@ -2077,7 +2089,7 @@ app.post('/chat', async (req, res) => {
 
     const webNote = '\n\n---\n[CANAL: CHAT WEB de harmonieinstitute.com — REGLAS DE ESTE CANAL (PRIORIDAD MÁXIMA, por encima de todo lo de arriba):\n'
       + '1) Preséntate y refiérete a ti misma como "asistente de Harmonie". NUNCA digas "asistente virtual".\n'
-      + '2) CAMPAÑAS EN EL CHAT WEB: este canal es general y nacional, así que NO promociones la jornada de forma proactiva. Habla de los tratamientos y las 8 sedes de forma general. Si la persona pregunta EXPRESAMENTE si hay una campaña/jornada activa, puedes contarle con calidez que sí hay una jornada en Cochabamba y que puede ver las fechas y reservar en el calendario (usa el botón [[AGENDAR]]); si es de otra ciudad, ofrécele dejar sus datos para la próxima campaña. Tú NO des fechas concretas ni los descuentos en este chat; que lo vea en el calendario.\n'
+      + '2) CAMPAÑAS EN EL CHAT WEB: este canal es general y nacional, así que NO promociones la jornada de forma proactiva. Habla de los tratamientos y las 8 sedes de forma general. Si la persona pregunta EXPRESAMENTE si hay una campaña/jornada activa, guíate por la sección "JORNADA ACTIVA" de arriba: si la hay, cuéntale con calidez que puede ver las fechas y reservar en el calendario (usa el botón [[AGENDAR]]); si no hay ninguna activa, ofrécele dejar sus datos para la próxima. Tú NO des fechas concretas ni los descuentos en este chat; que lo vea en el calendario.\n'
       + '3) AYUDA AQUÍ MISMO, en este chat: responde sus dudas con calidez y resuélvelas tú directamente. NO derives a WhatsApp de forma proactiva ni repitas "escríbenos por WhatsApp". SOLO menciona el WhatsApp (' + WA + ') si la persona pide EXPRESAMENTE hablar con alguien del equipo.\n'
       + '4) AGENDAR (MUY IMPORTANTE): NUNCA digas que "no tienes acceso al calendario" ni te disculpes por no poder agendar. Cuando la persona quiera reservar/agendar (o sea el momento natural para invitarla), hazlo con calidez y al FINAL de tu mensaje, en una línea aparte y sola, escribe EXACTAMENTE el marcador [[AGENDAR]] (nada más en esa línea; NUNCA lo expliques, menciones ni lo pongas en cada mensaje). El sistema convierte ese marcador en un botón "Agendar" que abre el calendario del sitio, donde la persona elige AGENDA VIRTUAL (consulta/valoración ONLINE por videollamada, sin salir de casa) o PRESENCIAL en las sedes. Ofrece ambas y destaca la virtual. En este canal NO uses los marcadores [[LLAMAR:...]].\n'
       + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
@@ -2249,7 +2261,7 @@ async function enviarPlantillaRecordatorio(r, cfg) {
   if (!to || to.length < 8) { console.warn('Recordatorio: teléfono inválido', r.telefono); return false; }
   const dia = ((cfg && cfg.dias) || []).find(function (x) { return x.fecha === r.fecha; });
   const diaLabel = (dia && dia.label) || r.fecha;
-  const lugar = r.lugar || r.subsede || 'la sede de la Jornada Cochabamba';
+  const lugar = r.lugar || r.subsede || 'nuestra sede';
   const nombre = (r.nombre || 'paciente').trim().split(/\s+/)[0]; // primer nombre, más cálido
   try {
     const resp = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
@@ -2688,7 +2700,7 @@ app.get('/disponibilidad', async (req, res) => {
 // reservas_beni la usan TANTO la web como Valeria (chat/voz), así que un solo watcher las capta todas.
 function notificarNuevaReserva(r) {
   if (!r) return;
-  const txt = '🗓️ NUEVA RESERVA — Jornada Cochabamba\n'
+  const txt = '🗓️ NUEVA RESERVA (jornada)\n'
     + '👤 ' + (r.nombre || '(sin nombre)') + '\n'
     + '📞 ' + (r.telefono || '-') + '\n'
     + '📍 ' + (r.subsede || r.lugar || '-') + '\n'
@@ -2747,7 +2759,7 @@ app.get('/debug/catchup', async (req, res) => {
   const dry = req.query.send !== '1';
   const horas = Math.min(parseInt(req.query.horas || '24', 10) || 24, 24); // nunca más de 24h (regla WhatsApp)
   const desde = admin.firestore.Timestamp.fromMillis(Date.now() - horas * 60 * 60 * 1000);
-  const MSG = '¡Hola! 😊 Disculpá la demora en responderte, ya estoy acá para ayudarte 💛 ¿En qué te ayudo? Si escribís por la Jornada de Cochabamba (jueves 20, viernes 21 y sábado 22 de agosto), contame qué tratamiento te interesa y te ayudo a reservar tu cupo.';
+  const MSG = '¡Hola! 😊 Disculpá la demora en responderte, ya estoy acá para ayudarte 💛 ¿En qué te ayudo? Contame qué tratamiento te interesa y te ayudo a agendar tu cita.';
   try {
     const EXCLUIR = ['wa_59178922666', 'wa_59176951552']; // números internos (notificaciones/reservas), NO son leads
     const snap = await db.collection('valeria_chats').where('lastUserMsgAt', '>=', desde).get();
