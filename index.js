@@ -592,7 +592,7 @@ function buildBeniSection(cfg, dispo) {
   // AUTO-EXPIRA: si TODOS los días de la campaña ya pasaron (aunque siga publicada:true), NO la ofrezcas como vigente.
   var _hoyISOb = fechaBoliviaISO();
   if (!(cfg.dias || []).some(function(d){ return d.fecha >= _hoyISOb; })) {
-    return '\n\nCAMPAÑA FINALIZADA: la ' + (cfg.titulo || 'jornada') + ' YA TERMINÓ (sus fechas ya pasaron). NO la ofrezcas como vigente, NO enganches con ella y NO agendes en ella. Si preguntan por esa jornada, di con calidez que ya finalizó y ofrece: (1) una cita normal —presencial en una de nuestras sedes, o videollamada gratis para una primera valoración— o (2) tomar sus datos para avisarle de la PRÓXIMA jornada. NUNCA inventes fechas nuevas para una jornada terminada.\n';
+    return '\n\n⛔ NO HAY NINGUNA JORNADA/CAMPAÑA ACTIVA AHORA. La última (' + (cfg.titulo || 'la jornada') + ') YA TERMINÓ; sus fechas ya pasaron. REGLA ABSOLUTA (no te contradigas NUNCA): trátala SIEMPRE como PASADA. Aunque la persona pregunte "¿hay otra jornada?", "¿tienen una próxima?", "¿la de esa ciudad sigue?" o pida agendar en la jornada, tu respuesta es que por AHORA NO hay ninguna jornada vigente. NUNCA presentes ' + (cfg.titulo || 'esa jornada') + ' ni ninguna otra jornada como disponible o vigente, NUNCA ofrezcas sus fechas u horas, y NUNCA intentes agendar en jornada. En su lugar ofrece: (1) una cita normal —presencial en una sede, o videollamada gratis para una primera valoración— o (2) tomar sus datos para avisarle de la PRÓXIMA jornada. Si ya dijiste que terminó, SOSTENLO en toda la conversación.\n';
   }
   var _titulo = cfg.titulo || 'la jornada activa';
   var _ciudades = (cfg.subsedes || []).map(function(x){ return x.nombre; }).filter(Boolean).join(' y ') || 'nuestra sede';
@@ -864,7 +864,7 @@ async function toolConsultarDisponibilidad(args, cfg) {
   if (args.fecha) { var fr = resolverFecha(args.fecha, args.subsede, cfg); if (dias.some(function(d) { return d.fecha === fr; })) dias = dias.filter(function(d) { return d.fecha === fr; }); }
   if (!dias.length) {
     const vig = diasVigentes(cfg).map(function(d){ return d.label + ' en ' + d.subsede; }).join('; ');
-    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'La jornada ya finalizó; no quedan fechas disponibles.', hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
+    return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'NO hay ninguna jornada activa ahora; la última ya finalizó. NO ofrezcas NINGUNA jornada como vigente ni intentes agendar en jornada (ni aunque pregunten por "otra" o "la próxima"): ofrece una cita normal o toma sus datos para la próxima jornada.', hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
   }
 
   // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
