@@ -555,6 +555,36 @@ async function getEspPausadas() {
   } catch (e) { console.error('getEspPausadas error:', e.message); }
   return _espPauCache.data || {};
 }
+// ── Cachés de reservas confirmadas y cupos ocupados ──
+// Evitan leer N documentos de Firestore POR CADA MENSAJE (lo que escalaba con el tamaño de la campaña).
+// Se refrescan solas cada 30-60s y se INVALIDAN al instante cuando cambian las reservas (watcher reservas_beni).
+let _rsvConfCache = { rows: null, ts: 0 };
+let _cuposCache = { set: null, ts: 0 };
+function _invalidarCachesReservas() { _rsvConfCache.ts = 0; _cuposCache.ts = 0; try { _ocupMemo.clear(); } catch (e) {} }
+async function getReservasConfirmadas() {
+  if (!db) return [];
+  const now = Date.now();
+  if (_rsvConfCache.rows && (now - _rsvConfCache.ts) < 60000) return _rsvConfCache.rows;
+  const rows = [];
+  try {
+    const snap = await db.collection('reservas_beni').where('estado', '==', 'confirmada').get();
+    snap.forEach(function (d) { rows.push(d.data()); });
+    _rsvConfCache = { rows: rows, ts: now };
+  } catch (e) { console.error('getReservasConfirmadas:', e.message); return _rsvConfCache.rows || []; }
+  return rows;
+}
+async function getCuposOcupados() {
+  const s = new Set();
+  if (!db) return s;
+  const now = Date.now();
+  if (_cuposCache.set && (now - _cuposCache.ts) < 30000) return _cuposCache.set;
+  try {
+    const snap = await db.collection('cupos_ocupados').where('jornadaId', '==', 'beni').get();
+    snap.forEach(function (doc) { s.add(doc.id); });
+    _cuposCache = { set: s, ts: now };
+  } catch (e) { console.error('cupos_ocupados read:', e.message); return _cuposCache.set || s; }
+  return s;
+}
 // Devuelve la nota si la especialidad está pausada para esa modalidad ('presencial'/'virtual'), o null.
 async function espPausadaNota(espId, modalidad) {
   const p = await getEspPausadas();
@@ -867,12 +897,8 @@ async function toolConsultarDisponibilidad(args, cfg) {
     return { disponibilidad: [], nota: vig ? ('No hay jornada para ese criterio. Los días que aún quedan son: ' + vig + '.') : 'NO hay ninguna jornada activa ahora; la última ya finalizó. NO ofrezcas NINGUNA jornada como vigente ni intentes agendar en jornada (ni aunque pregunten por "otra" o "la próxima"): ofrece una cita normal o toma sus datos para la próxima jornada.', hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
   }
 
-  // Fuente de verdad de cupos = colección cupos_ocupados (la MISMA que usa la web).
-  const ocupados = new Set();
-  try {
-    const snap = await db.collection('cupos_ocupados').where('jornadaId', '==', 'beni').get();
-    snap.forEach(function(doc) { ocupados.add(doc.id); });
-  } catch (e) { console.error('cupos_ocupados read:', e.message); }
+  // Fuente de verdad de cupos = colección cupos_ocupados (cacheada ~30s; se invalida al cambiar reservas).
+  const ocupados = await getCuposOcupados();
 
   const result = [];
   for (const d of dias) {
@@ -1190,10 +1216,23 @@ async function reservasBeniOcupEsp(especialidadId, fecha) {
   } catch (e) { return []; }
 }
 function _minHHMM(hhmm) { var p = String(hhmm || '0:0').split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
+// Memo por (especialidad|fecha) de la ocupación: especialistaOcupado se llama POR CADA HORA en la
+// disponibilidad y releía el MISMO día cada vez. Con esto, cada (especialidad,fecha) se lee 1 vez cada ~30s.
+const _ocupMemo = new Map();
+async function _ocupCitasEsp(espId, fecha) {
+  const key = 'c|' + espId + '|' + fecha, now = Date.now();
+  const c = _ocupMemo.get(key); if (c && (now - c.ts) < 30000) return c.rows;
+  const rows = await citasOcupEsp(espId, fecha); _ocupMemo.set(key, { rows: rows, ts: now }); return rows;
+}
+async function _ocupReservasEsp(espId, fecha) {
+  const key = 'r|' + espId + '|' + fecha, now = Date.now();
+  const c = _ocupMemo.get(key); if (c && (now - c.ts) < 30000) return c.rows;
+  const rows = await reservasBeniOcupEsp(espId, fecha); _ocupMemo.set(key, { rows: rows, ts: now }); return rows;
+}
 // ¿El especialista de esa especialidad ya está ocupado en [hora, hora+durMin)? Cruza citas (presencial+virtual) + campaña.
 async function especialistaOcupado(especialidadId, fecha, hora, durMin) {
   if (!especialidadId || !db) return false;
-  const intervals = (await citasOcupEsp(especialidadId, fecha)).concat(await reservasBeniOcupEsp(especialidadId, fecha));
+  const intervals = (await _ocupCitasEsp(especialidadId, fecha)).concat(await _ocupReservasEsp(especialidadId, fecha));
   const s = _minHHMM(_hora24(hora)), e = s + (durMin || 60);
   for (var k = 0; k < intervals.length; k++) { var i = _minHHMM(intervals[k].i), j = i + (intervals[k].m || 60); if (s < j && i < e) return true; }
   return false;
@@ -1645,8 +1684,8 @@ async function askValeria(userId, userMessage, origenDirecto) {
     if (db && _tel8 && _tel8.length >= 7) {
       const _hoy = fechaBoliviaISO();
       let _rsv = null;
-      const _snap = await db.collection('reservas_beni').where('estado', '==', 'confirmada').get();
-      _snap.forEach(function (d) { const r = d.data(); const rt = String(r.telefono || '').replace(/\D/g, '').slice(-8); if (rt === _tel8 && (r.fecha || '') >= _hoy && !_rsv) _rsv = r; });
+      const _rows = await getReservasConfirmadas();
+      _rows.forEach(function (r) { const rt = String(r.telefono || '').replace(/\D/g, '').slice(-8); if (rt === _tel8 && (r.fecha || '') >= _hoy && !_rsv) _rsv = r; });
       if (_rsv) {
         const _dia = ((beniCfg && beniCfg.dias) || []).find(function (x) { return x.fecha === _rsv.fecha; });
         const _lbl = (_dia && _dia.label) || _rsv.fecha;
@@ -2738,6 +2777,7 @@ function iniciarWatcherReservas() {
   if (!db) { console.warn('⚠️ Watcher de reservas inactivo (sin Firestore)'); return; }
   let init = false;
   db.collection('reservas_beni').onSnapshot(function(snap) {
+    if (init && snap.docChanges().length) _invalidarCachesReservas(); // cualquier cambio (bot o web) refresca cachés de reservas/cupos
     snap.docChanges().forEach(function(ch) {
       if (ch.type !== 'added') return;
       const r = ch.doc.data();
