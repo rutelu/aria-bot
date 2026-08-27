@@ -162,25 +162,27 @@ function iniciarWatcherCalendario() {
 // Se crea SOLO si no existe, para no pisar ediciones hechas desde la consola.
 const BENI_SEED = {
   id: 'beni',
-  titulo: 'Jornada Cochabamba',
+  titulo: 'Jornada La Paz',
   especialista: 'Equipo Harmonie',
   especialidad: 'Especialista en Medicina Estética',
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
-  publicada: true,
-  campaignVersion: 'cochabamba-2026-08a',
+  publicada: false, // ⚠️ STAGED: se pone en true MAÑANA al lanzar (con dirección real + bump campaignVersion)
+  campaignVersion: 'lapaz-2026-09a',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
-  slug: 'cbba', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
-  rutaMinisitio: 'cochabamba', // ruta del minisitio que Valeria comparte para agendar (por campaña; cae a slug si falta)
+  slug: 'lp', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
+  rutaMinisitio: 'lapaz', // ruta del minisitio que Valeria comparte para agendar (por campaña; cae a slug si falta)
   subsedes: [
-    { id: 'Cochabamba', nombre: 'Cochabamba', direccion: 'Beauty Clinic — Av. Ayacucho esq. calle La Paz', telefonos: ['+591 76951552'] }
+    { id: 'La Paz', nombre: 'La Paz', direccion: 'Dirección por confirmar (La Paz)', telefonos: ['+591 76951552'] }
   ],
   dias: [
-    { fecha: '2026-08-20', label: 'Jueves 20 de agosto', subsede: 'Cochabamba' },
-    { fecha: '2026-08-21', label: 'Viernes 21 de agosto', subsede: 'Cochabamba' },
-    { fecha: '2026-08-22', label: 'Sábado 22 de agosto', subsede: 'Cochabamba' }
+    { fecha: '2026-08-31', label: 'Lunes 31 de agosto', subsede: 'La Paz' },
+    { fecha: '2026-09-01', label: 'Martes 1 de septiembre', subsede: 'La Paz' },
+    { fecha: '2026-09-02', label: 'Miércoles 2 de septiembre', subsede: 'La Paz' },
+    { fecha: '2026-09-03', label: 'Jueves 3 de septiembre', subsede: 'La Paz' },
+    { fecha: '2026-09-04', label: 'Viernes 4 de septiembre', subsede: 'La Paz' }
   ],
   horas: ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00']
 };
@@ -1651,12 +1653,12 @@ async function askValeria(userId, userMessage, origenDirecto) {
     + '1) BREVEDAD COMO HUMANO: responde como en un chat real de WhatsApp: MUY breve y calida, 1-2 frases (idealmente una). NUNCA parrafos tipo folleto ni listas. Responde SOLO lo que te preguntaron. Si el tema da para mas, NO sueltes todo: ofrece ampliar con una pregunta corta (ej. "¿Quieres que te cuente mas?"). Da respuestas largas SOLO si la persona lo pide expresamente o claramente capta que lo necesita. Si tu mensaje supera 2 frases, recortalo. Si preguntan algo general (precios, tratamientos), pregunta primero que les interesa en lugar de listar todo.\n'
     + (_campActiva
         ? ('2) JORNADA VIGENTE: hay una campaña activa: ' + _campTitulo + ' (en ' + _campCiudades + '). Ofrece unicamente sus dias, que veras mas abajo. (Distintas subsedes/puntos dentro de la MISMA ciudad si pueden mencionarse juntos; ciudades distintas NO se mezclan.)\n')
-        : ('2) SIN JORNADA ACTIVA: AHORA NO hay ninguna jornada/campaña vigente. Si preguntan por una jornada o mencionan una ciudad de campaña, di con calidez que la ultima ya finalizo y ofrece una cita normal (presencial en sede o videollamada gratis) o tomar sus datos para avisarle de la proxima. NO ofrezcas fechas ni cupos de campaña.\n'))
+        : ('2) SIN JORNADA ACTIVA: ahora no hay ninguna jornada/campaña vigente. ⚠️ NO lo anuncies tu de entrada NI lo metas en el saludo. SOLO si la persona PREGUNTA por una jornada/campaña/fechas, aclara con calidez que la ultima ya finalizo y ofrece una cita normal (presencial en sede o videollamada gratis) o tomar sus datos para la proxima. Mientras tanto, atiende sus preguntas con naturalidad. NUNCA ofrezcas fechas ni cupos de campaña.\n'))
     + (esPrimerMensaje
-        ? '3) ESTADO: este es el PRIMER mensaje de esta conversacion. Presentate SIEMPRE asi: empieza con "¡Hola! Soy Valeria, del equipo de Harmonie" y luego, calida y breve, pregunta en que la puedes ayudar (o engancha con la jornada de SU ciudad si sabes el origen). NUNCA un saludo generico sin tu nombre.\n'
+        ? ('3) ESTADO (PRIMER mensaje): saluda MUY corto y humano, en UNA sola frase. Preséntate ("¡Hola! Soy Valeria, de Harmonie 😊") y pregunta en que la ayudas ("¿en que te puedo ayudar?"). ' + (origen ? 'Si sabes de que te escribe (ver regla 4 ORIGEN), reconócelo con naturalidad DENTRO del mismo saludo breve (ej. "Veo que me escribes por [X], ¿en que te ayudo?"). ' : '') + '⛔ PROHIBIDO en el primer mensaje: parrafos, listas, info larga, precios, o anunciar estados de campaña ("no hay jornada activa", etc.). SOLO saludo breve + una pregunta. Suena como una persona real, jamas como un bot.\n')
         : '3) ESTADO: YA venian conversando en este mismo chat (NO es el primer mensaje). PROHIBIDO volver a saludar, presentarte o decir "Hola" otra vez. CONTINUA el hilo recordando lo ya hablado (su nombre, lo que le interesa, su localidad y dia si los dio). Si te escriben solo "hola", retoma el tema sin re-presentarte, ej: "¡Aqui sigo! ¿Avanzamos con tu reserva?".\n')
-    + (sedeOrigen
-        ? ('4) ORIGEN (lead del anuncio de ' + _campTitulo + '): esta persona viene de la jornada en ' + _campCiudades + ' (' + origen + '). Reconoce con calidez que escribe por la jornada en ' + _campCiudades + ', ofrecele sus fechas vigentes, la promo vigente (ver "Promo" mas abajo), e invitala a reservar su cupo. NO respondas generico tipo "¿sobre que tratamiento quieres saber?": ya sabes que viene por la jornada.\n')
+    + (origen
+        ? ('4) ORIGEN: esta persona te escribe por: "' + origen + '". Reconócelo con NATURALIDAD y en TUS palabras (NO pegues ese texto crudo tal cual): si menciona un tratamiento, algo como "veo que te interesa [tratamiento]"; si es una ciudad/jornada, "veo que me escribes por [ciudad]". Adapta la charla a ese interés y responde sus preguntas.' + (_campActiva && sedeOrigen ? (' Ademas hay jornada activa en ' + _campCiudades + ': engánchala con calidez y ofrécele sus fechas.') : '') + '\n')
         : (_campActiva
             ? ('4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas. Si pregunta por la jornada o por reservar, cuentale que la jornada vigente es ' + _campTitulo + ' en ' + _campCiudades + ' y ofrecele sus fechas.\n')
             : '4) SIN ORIGEN: no sabes de donde viene. Saluda normal y pregunta en que la ayudas.\n'))
