@@ -494,7 +494,7 @@ function procesarOutbox() {
           if (canal === 'wa') await waSend(contacto, texto);
           else if (canal === 'fb') await fbSend(contacto, texto);
           else if (canal === 'ig') await igSend(contacto, texto);
-          else if (canal === 'tg') await bot.sendMessage(contacto, texto);
+          else if (canal === 'tg') await bot.sendMessage(contacto, _fmtSalida(texto, 'tg'));
           else { await docu.ref.update({ enviado: true, error: 'canal no soportado: ' + canal }); return; }
           logMensaje(chatId, 'humano', texto);
           await docu.ref.update({ enviado: true, enviadoAt: admin.firestore.FieldValue.serverTimestamp() });
@@ -1838,7 +1838,23 @@ bot.on('callback_query', (query) => {
 // ══════════════════════════════════════════
 // WHATSAPP — ENVÍO
 // ══════════════════════════════════════════
+// -- FORMATO DE SALIDA (determinista, no depende de que el modelo se acuerde) --
+// El modelo escribe la negrita como **texto**, pero NINGUN canal de mensajeria lo entiende:
+// WhatsApp usa *simple*; Messenger, Instagram, Telegram y el chat web no tienen negrita.
+// Sin esta limpieza el cliente ve los asteriscos literales (paso en produccion, justo en la
+// direccion de la sede y en la promo del 50%). Se aplica dentro de cada funcion de envio.
+function _fmtSalida(texto, canal) {
+  let t = String(texto == null ? '' : texto);
+  t = t.replace(/\*\*\*(.+?)\*\*\*/gs, '$1');
+  t = t.replace(/\*\*(.+?)\*\*/gs, canal === 'wa' ? '*$1*' : '$1');
+  if (canal !== 'wa') t = t.replace(/\*([^*\n]+)\*/g, '$1');
+  t = t.replace(/__(.+?)__/gs, '$1');
+  t = t.replace(/^#{1,6}\s+/gm, '');
+  return t;
+}
+
 async function waSend(to, text) {
+  text = _fmtSalida(text, 'wa');
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
   try {
@@ -1912,6 +1928,7 @@ async function waTyping(messageId) {
 // MESSENGER — ENVÍO
 // ══════════════════════════════════════════
 async function fbSend(recipientId, text) {
+  text = _fmtSalida(text, 'fb');
   const FB_TOKEN = process.env.MESSENGER_TOKEN;
   try {
     await fetch(`https://graph.facebook.com/v25.0/me/messages`, {
@@ -1938,6 +1955,7 @@ async function fbAction(recipientId, action) {
 // INSTAGRAM — ENVÍO
 // ══════════════════════════════════════════
 async function igSend(recipientId, text) {
+  text = _fmtSalida(text, 'ig');
   const IG_TOKEN = process.env.INSTAGRAM_TOKEN;
   const PAGE_ID = '100361346281528';
   try {
@@ -2135,7 +2153,8 @@ app.post('/chat', async (req, res) => {
       + '3) AYUDA AQUÍ MISMO, en este chat: responde sus dudas con calidez y resuélvelas tú directamente. NO derives a WhatsApp de forma proactiva ni repitas "escríbenos por WhatsApp". SOLO menciona el WhatsApp (' + WA + ') si la persona pide EXPRESAMENTE hablar con alguien del equipo.\n'
       + '4) AGENDAR (MUY IMPORTANTE): NUNCA digas que "no tienes acceso al calendario" ni te disculpes por no poder agendar. Cuando la persona quiera reservar/agendar (o sea el momento natural para invitarla), hazlo con calidez y al FINAL de tu mensaje, en una línea aparte y sola, escribe EXACTAMENTE el marcador [[AGENDAR]] (nada más en esa línea; NUNCA lo expliques, menciones ni lo pongas en cada mensaje). El sistema convierte ese marcador en un botón "Agendar" que abre el calendario del sitio, donde la persona elige AGENDA VIRTUAL (consulta/valoración ONLINE por videollamada, sin salir de casa) o PRESENCIAL en las sedes. Ofrece ambas y destaca la virtual. En este canal NO uses los marcadores [[LLAMAR:...]].\n'
       + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
-      + '6) MANTÉN EL HILO: recuerda lo que la persona ya te dijo en esta conversación y continúa desde ahí; si ya venían hablando, NO te vuelvas a presentar ni reinicies.]';
+      + '6) MANTÉN EL HILO: recuerda lo que la persona ya te dijo en esta conversación y continúa desde ahí; si ya venían hablando, NO te vuelvas a presentar ni reinicies.\n'
+      + '7) NUNCA INVENTES UNA CAMPAÑA VIGENTE (REGLA DURA): si la sección "JORNADA ACTIVA" de arriba dice que NO hay ninguna activa, está PROHIBIDO decir "nuestra jornada actual", "la campaña de ahora" o cualquier frase que dé a entender que hay una en curso, y está PROHIBIDO prometer sus beneficios (20%, 50% por recomendado, valoración gratis) como si se pudieran reclamar hoy. Si preguntan por esos descuentos y NO hay jornada activa, explica con calidez que son beneficios de nuestras jornadas, que en este momento no hay una en curso, y ofrece agendar su valoración o dejar sus datos para avisarle de la próxima. Nunca le prometas a alguien un descuento que hoy no puede reclamar.]';
     const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + webNote + (await buildEspPausadasSection());
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -2149,7 +2168,7 @@ app.post('/chat', async (req, res) => {
       return res.json({ answer: 'Ahora mismo tengo mucha demanda. Escríbeme por WhatsApp ' + WA + ' y te atiendo enseguida. 💬' });
     }
     const answer = (data.content && data.content[0] && data.content[0].text) || ('Disculpa, no pude procesar tu consulta. Escríbenos por WhatsApp ' + WA + '.');
-    res.json({ answer: answer });
+    res.json({ answer: _fmtSalida(answer, 'web') });
   } catch (e) {
     console.error('/chat:', e);
     res.json({ answer: 'Estamos con mucha demanda ahora. Escríbenos por WhatsApp ' + WA + ' y te atendemos enseguida. 💬' });
@@ -2451,7 +2470,7 @@ async function _enviarPorCanal(chatId, msg) {
   if (canal === 'wa') await waSend(contacto, msg);
   else if (canal === 'fb') await fbSend(contacto, msg);
   else if (canal === 'ig') await igSend(contacto, msg);
-  else if (canal === 'tg') await bot.sendMessage(contacto, msg);
+  else if (canal === 'tg') await bot.sendMessage(contacto, _fmtSalida(msg, 'tg'));
   else throw new Error('canal no soportado: ' + canal);
 }
 async function correrSeguimientos(dryRun, ignoraTiempo) {
