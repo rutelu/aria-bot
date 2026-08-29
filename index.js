@@ -162,27 +162,30 @@ function iniciarWatcherCalendario() {
 // Se crea SOLO si no existe, para no pisar ediciones hechas desde la consola.
 const BENI_SEED = {
   id: 'beni',
-  titulo: 'Jornada La Paz',
+  titulo: 'Jornada La Paz y Beni',
   especialista: 'Equipo Harmonie',
   especialidad: 'Especialista en Medicina Estética',
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
-  publicada: false, // ⚠️ STAGED: se pone en true MAÑANA al lanzar (con dirección real + bump campaignVersion)
-  campaignVersion: 'lapaz-2026-09a',
+  publicada: true, // 🚀 LANZADA 28 ago 2026 (dirección real, 3 días)
+  campaignVersion: 'lapaz-2026-09b',
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
   slug: 'lp', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
   rutaMinisitio: 'lapaz', // ruta del minisitio que Valeria comparte para agendar (por campaña; cae a slug si falta)
   subsedes: [
-    { id: 'La Paz', nombre: 'La Paz', direccion: 'Dirección por confirmar (La Paz)', telefonos: ['+591 76951552'] }
+    { id: 'La Paz', nombre: 'La Paz', direccion: 'Av. 20 de Octubre Nro. 1756, casi esq. Conchitas — timbre Reyna y Harmonie, piso 2', telefonos: ['+591 76951552'] },
+    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
+    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 76951552'] }
   ],
   dias: [
     { fecha: '2026-08-31', label: 'Lunes 31 de agosto', subsede: 'La Paz' },
     { fecha: '2026-09-01', label: 'Martes 1 de septiembre', subsede: 'La Paz' },
     { fecha: '2026-09-02', label: 'Miércoles 2 de septiembre', subsede: 'La Paz' },
-    { fecha: '2026-09-03', label: 'Jueves 3 de septiembre', subsede: 'La Paz' },
-    { fecha: '2026-09-04', label: 'Viernes 4 de septiembre', subsede: 'La Paz' }
+    { fecha: '2026-09-04', label: 'Viernes 4 de septiembre', subsede: 'San Borja' },
+    { fecha: '2026-09-05', label: 'Sábado 5 de septiembre', subsede: 'Rurrenabaque' },
+    { fecha: '2026-09-06', label: 'Domingo 6 de septiembre', subsede: 'Rurrenabaque' }
   ],
   horas: ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00']
 };
