@@ -2158,7 +2158,13 @@ app.post('/chat', async (req, res) => {
       + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
       + '6) MANTÉN EL HILO: recuerda lo que la persona ya te dijo en esta conversación y continúa desde ahí; si ya venían hablando, NO te vuelvas a presentar ni reinicies.\n'
       + '7) NUNCA INVENTES UNA CAMPAÑA VIGENTE (REGLA DURA): si la sección "JORNADA ACTIVA" de arriba dice que NO hay ninguna activa, está PROHIBIDO decir "nuestra jornada actual", "la campaña de ahora" o cualquier frase que dé a entender que hay una en curso, y está PROHIBIDO prometer sus beneficios (20%, 50% por recomendado, valoración gratis) como si se pudieran reclamar hoy. Si preguntan por esos descuentos y NO hay jornada activa, explica con calidez que son beneficios de nuestras jornadas, que en este momento no hay una en curso, y ofrece agendar su valoración o dejar sus datos para avisarle de la próxima. Nunca le prometas a alguien un descuento que hoy no puede reclamar.]';
-    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + webNote + (await buildEspPausadasSection());
+    // La JORNADA ACTIVA tambien va en el chat web: sin esta seccion, las reglas de este
+    // canal (que dicen "guiate por la seccion JORNADA ACTIVA de arriba") no encontraban
+    // nada y Valeria respondia que NO habia campana aunque estuviera publicada.
+    let _bCfg = null, _bDispo = null;
+    try { _bCfg = await getBeniConfig(); } catch (e) { console.error('chat web beniCfg:', e.message); }
+    try { if (_bCfg && _bCfg.publicada === true) _bDispo = await toolConsultarDisponibilidad({}, _bCfg); } catch (e) { console.error('chat web dispo:', e.message); }
+    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + buildBeniSection(_bCfg, _bDispo) + webNote + (await buildEspPausadasSection());
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
