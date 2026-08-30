@@ -656,6 +656,10 @@ function buildBeniSection(cfg, dispo) {
     if (!dias) return;
     s += '- ' + sub.nombre + ' (' + sub.direccion + '): ' + dias + '\n';
   });
+  // Una sola sede por persona: las sedes de una jornada pueden estar a cientos de km
+  // (La Paz vs. San Borja/Rurrenabaque). Listar las tres a todos confunde y alarga.
+  s += 'SEDE SEGÚN DE DÓNDE TE ESCRIBE (REGLA IMPORTANTE): NO recites las sedes de la jornada como si fueran un menú. Si sabes desde qué ciudad o zona te escribe la persona —por el ORIGEN del contacto (el anuncio suele traer la ciudad en su título), porque ella la mencionó, o por el minisitio desde el que llegó— habla SOLO de ESA sede y dale SOLO esa dirección. Las sedes de una misma jornada pueden estar a cientos de kilómetros entre sí, así que nombrarle las otras la obliga a filtrar y la confunde.\n';
+  s += 'Enumera TODAS las sedes solo en dos casos: (a) si de verdad NO sabes de dónde escribe —y en ese caso es mejor preguntarle con calidez "¿desde qué ciudad nos escribes?" antes que soltarle la lista completa—, o (b) si te pregunta expresamente por otra ciudad. Cuando ya sepas su ciudad, sostenla el resto de la conversación y no vuelvas a mencionar las demás.\n';
   var _notas = _vig.filter(function(d){ return d.nota; }).map(function(d){ return d.label + ' → ' + d.nota; });
   if (_notas.length) s += 'ENFOQUE DE ESTOS DÍAS (preséntalo así, NO como simple "vacancia"): ' + _notas.join(' || ') + '\n';
   if (_pas.length) {
