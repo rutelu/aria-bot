@@ -541,7 +541,7 @@ let _beniCache = { data: null, ts: 0 };
 async function getBeniConfig() {
   if (!db) return null;
   const now = Date.now();
-  if (_beniCache.data && (now - _beniCache.ts) < 60000) return _beniCache.data; // cache 1 min
+  if (_beniCache.data && (now - _beniCache.ts) < 300000) return _beniCache.data; // cache 1 min
   try {
     const snap = await db.collection('config').doc('jornada_beni').get();
     _beniCache = { data: snap.exists ? snap.data() : null, ts: now };
@@ -556,7 +556,7 @@ let _espPauCache = { data: null, ts: 0 };
 async function getEspPausadas() {
   if (!db) return {};
   const now = Date.now();
-  if (_espPauCache.data && (now - _espPauCache.ts) < 30000) return _espPauCache.data; // cache 30s
+  if (_espPauCache.data && (now - _espPauCache.ts) < 600000) return _espPauCache.data; // cache 30s
   try {
     const snap = await db.collection('config').doc('especialidades').get();
     _espPauCache = { data: (snap.exists ? (snap.data() || {}) : {}), ts: now };
@@ -572,7 +572,7 @@ function _invalidarCachesReservas() { _rsvConfCache.ts = 0; _cuposCache.ts = 0; 
 async function getReservasConfirmadas() {
   if (!db) return [];
   const now = Date.now();
-  if (_rsvConfCache.rows && (now - _rsvConfCache.ts) < 60000) return _rsvConfCache.rows;
+  if (_rsvConfCache.rows && (now - _rsvConfCache.ts) < 180000) return _rsvConfCache.rows;
   const rows = [];
   try {
     const snap = await db.collection('reservas_beni').where('estado', '==', 'confirmada').get();
@@ -585,7 +585,7 @@ async function getCuposOcupados() {
   const s = new Set();
   if (!db) return s;
   const now = Date.now();
-  if (_cuposCache.set && (now - _cuposCache.ts) < 30000) return _cuposCache.set;
+  if (_cuposCache.set && (now - _cuposCache.ts) < 120000) return _cuposCache.set;
   try {
     const snap = await db.collection('cupos_ocupados').where('jornadaId', '==', 'beni').get();
     snap.forEach(function (doc) { s.add(doc.id); });
@@ -1408,7 +1408,7 @@ async function revisarExpiraciones() {
 function iniciarWatcherExpiraciones() {
   console.log('⏳ Watcher de expiración activo (aparta ' + HOLD_MIN + 'min ACTIVOS 8-22h; recordatorios ' + REM1_MIN + '/' + REM2_MIN + 'min; pausa 22-8h)');
   revisarExpiraciones().catch(function () {});
-  setInterval(function () { revisarExpiraciones().catch(function () {}); }, 15 * 60 * 1000);
+  setInterval(function () { revisarExpiraciones().catch(function () {}); }, 60 * 60 * 1000);
 }
 
 // Fecha "2026-08-13" -> "jueves 13 de agosto" (sin depender de locale del server)
