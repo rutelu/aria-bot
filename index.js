@@ -603,8 +603,13 @@ async function espPausadaNota(espId, modalidad) {
   return null;
 }
 // Texto para el prompt: qué especialidades están pausadas y en qué modalidad.
+// Si Firestore no responde (cuota agotada, caida), esta seccion se omite y la conversacion
+// sigue. Antes su error se propagaba y /chat moria devolviendo VACIO: la persona escribia y
+// no recibia nada. Paso el 30/08 al agotarse la cuota diaria de lecturas.
 async function buildEspPausadasSection() {
-  const p = await getEspPausadas();
+  let p = null;
+  try { p = await getEspPausadas(); } catch (e) { console.error('buildEspPausadasSection:', e.message); return ''; }
+  if (!p) return '';
   const NOM = { med: 'Medicina Estética', fisio: 'Fisio-Estética', cir: 'Cirugías Estéticas', cos: 'Cosmiatría' };
   const lineas = [];
   Object.keys(NOM).forEach(function(k) {
@@ -1757,7 +1762,8 @@ async function askValeria(userId, userMessage, origenDirecto) {
       }
     }
   } catch (e) { console.error('reserva activa prompt:', e.message); }
-  const espPauSection = await buildEspPausadasSection();
+  let espPauSection = '';
+  try { espPauSection = await buildEspPausadasSection(); } catch (e) { console.error('askValeria espPau:', e.message); }
   const systemPrompt = bloqueReserva + bloqueInstruccion + reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
@@ -2232,10 +2238,11 @@ app.post('/chat', async (req, res) => {
     // La JORNADA ACTIVA tambien va en el chat web: sin esta seccion, las reglas de este
     // canal (que dicen "guiate por la seccion JORNADA ACTIVA de arriba") no encontraban
     // nada y Valeria respondia que NO habia campana aunque estuviera publicada.
-    let _bCfg = null, _bDispo = null;
+    let _bCfg = null, _bDispo = null, _espPau = '';
+    try { _espPau = await buildEspPausadasSection(); } catch (e) { console.error('chat web espPau:', e.message); }
     try { _bCfg = await getBeniConfig(); } catch (e) { console.error('chat web beniCfg:', e.message); }
     try { if (_bCfg && _bCfg.publicada === true) _bDispo = await toolConsultarDisponibilidad({}, _bCfg); } catch (e) { console.error('chat web dispo:', e.message); }
-    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + buildBeniSection(_bCfg, _bDispo) + webNote + (await buildEspPausadasSection());
+    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + buildBeniSection(_bCfg, _bDispo) + webNote + _espPau;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
