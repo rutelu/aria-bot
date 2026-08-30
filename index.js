@@ -2091,7 +2091,30 @@ app.post('/webhook', async (req, res) => {
           messages.forEach(async (message) => {
             const from = message.from;
             if (from.includes('78118003')) return;
-            const text = message.text?.body || '';
+            // Un mensaje de WhatsApp no siempre es texto: puede ser el toque de un BOTON o el
+            // envio de un FORMULARIO (Flow) de Meta. Antes solo se leia .text.body, asi que esos
+            // mensajes llegaban VACIOS y Valeria respondia 'tengo una falla tecnica'.
+            let text = message.text?.body || '';
+            if (!text && message.interactive) {
+              const it = message.interactive;
+              if (it.button_reply) text = it.button_reply.title || '';
+              else if (it.list_reply) text = it.list_reply.title || '';
+              else if (it.nfm_reply) {
+                // Respuesta de un formulario: aprovechamos los datos que la persona ya escribio
+                let datos = '';
+                try {
+                  const j = JSON.parse(it.nfm_reply.response_json || '{}');
+                  datos = Object.keys(j)
+                    .filter(function (k) { return !/flow_token|^screen/i.test(k); })
+                    .map(function (k) { return k + ': ' + j[k]; })
+                    .join(', ');
+                } catch (e) {}
+                text = datos ? ('Te envio mis datos por el formulario — ' + datos) : 'Hola, quiero informacion';
+              }
+            }
+            if (!text && message.button) text = message.button.text || '';
+            if (!text) text = 'Hola';   // nunca dejar el mensaje vacio
+
             console.log(`📱 WhatsApp de ${from}: ${text}`);
             setChatNombre(`wa_${from}`, nombreWa);
             // Comando de prueba: "/reset" borra el historial de este número para probar la presentación fresca.
