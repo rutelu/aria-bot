@@ -725,6 +725,7 @@ function buildBeniSection(cfg, dispo) {
   // dieron día y hora (una respondió "Perfecto" a un horario propuesto) y la cita nunca se creó.
   s += '\nAGENDAR — REGLA DE CIERRE (la MÁS importante para llenar la jornada): tu trabajo es DEJAR LA CITA HECHA, no explicar cómo reservar. En cuanto la persona muestre intención de reservar, AGÉNDALE VOS directamente: pídele solo lo que falte (día, hora y nombre completo), de a una cosa por mensaje y con calidez. ⛔ PROHIBIDO preguntarle "¿prefieres que te agende yo o lo haces tú en la web?" — esa pregunta agrega un paso y la gente se va. El enlace del calendario SOLO se lo mandas si te pide expresamente agendar sola, o si te dice que lo quiere ver o pensar después.';
   s += '\nSI YA TE DIO DÍA Y HORA, NO PREGUNTES MÁS: llama a crear_reserva_beni de INMEDIATO. Si te falta el nombre, pídeselo en esa misma respuesta y reserva apenas te lo diga. Si TÚ le propusiste una hora y responde "perfecto", "sí", "dale", "ok", "está bien", "listo" o parecido, eso es un SÍ: crea la reserva YA, sin volver a preguntar. NUNCA termines un mensaje con "¿qué día y hora prefieres?" si la persona ya te dijo el día o la hora — usa lo que ya te dio.';
+  s += 'SI PIDE OTRA FORMA DE AGENDAR (o prefiere hacerlo sola): respondele CORTO y dale las DOS vias en el mismo mensaje: (a) el enlace DIRECTO del calendario de esta jornada — ' + _ruta + ' — presentado como "podes agendar aca: <enlace>"; y (b) hablar conmigo por voz, gratis, agregando en una linea aparte al final el marcador [[LLAMAR:beni]]. ⛔ NUNCA le mandes harmonieinstitute.com "pelado" ni el sitio general: siempre el enlace de ESTA jornada, que abre directo su calendario. Dos frases como maximo.\n';
   s += 'Usa SOLO las fechas vigentes listadas arriba. Apenas la reserva quede creada, confírmasela con entusiasmo (día, hora y sede) y recuérdale que con su reserva ya ganó el 20%, y el 50% si trae un recomendado que se atienda.';
   s += 'REAGENDAR / CANCELAR: si la persona quiere cambiar o cancelar su cita (o el equipo te lo indica por instrucción especial), primero UBICA su reserva: usa buscar_reserva_beni con su teléfono, o pídele la fecha y hora actuales. CONFIRMA con ella cuál es la reserva antes de tocar nada. Para cancelar usa cancelar_reserva_beni; para mover, reagendar_reserva_beni (el nuevo horario debe estar libre y vigente). NUNCA canceles ni reagendes sin confirmar primero con la persona. Después, confírmale el cambio con calidez.';
   return s;
@@ -1914,7 +1915,17 @@ async function waSendCallButton(to, url, bodyText) {
 function extraerMarcadorLlamada(text) {
   if (!text) return { texto: text, url: null };
   const m = text.match(/\[\[\s*LLAMAR\s*:\s*(beni|web)\s*\]\]/i);
-  const url = m ? (m[1].toLowerCase() === 'beni' ? 'https://harmonieinstitute.com/cochabamba' : 'https://harmonieinstitute.com') : null;
+  // La ruta de la jornada sale de la config vigente (antes estaba fija en /cochabamba y
+  // mandaba a todos al minisitio de una campana terminada). Si no hay config a mano cae
+  // en /jornada, la ruta universal que siempre redirige a la campana activa.
+  let url = null;
+  if (m) {
+    if (m[1].toLowerCase() === 'beni') {
+      const _c = (typeof _beniCache !== 'undefined' && _beniCache) ? _beniCache.data : null;
+      const _r = (_c && (_c.rutaMinisitio || _c.slug)) || 'jornada';
+      url = 'https://harmonieinstitute.com/' + _r;
+    } else url = 'https://harmonieinstitute.com';
+  }
   const texto = text.replace(/\[\[\s*LLAMAR\s*:\s*(beni|web)\s*\]\]/ig, '').trim();
   return { texto: texto, url: url };
 }
