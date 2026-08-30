@@ -954,6 +954,12 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   // Teléfono: usa el que dictó; si viene vacío o es texto (ej. "whatsapp actual"), cae al número de quien llama/escribe (telFallback).
   let telefono = String(args.telefono || '').trim();
   if (String(telefono).replace(/\D/g, '').length < 7) telefono = String(telFallback || '').replace(/\D/g, '');
+  // Si el teléfono llega como PLANTILLA sin resolver ({{customer.number}}), el error tiene que
+  // decirle a Valeria EXACTAMENTE qué hacer. Pasó en llamadas de voz desde la web: Vapi no
+  // sustituye esa variable, ella mandaba el texto literal y la reserva se perdía en silencio.
+  if (/\{\{|\}\}/.test(telefono) || /customer|number|whatsapp/i.test(telefono)) {
+    return { error: 'El teléfono llegó como una PLANTILLA sin resolver ("' + telefono.substring(0, 40) + '"), no como un número: NO reservé nada. Pídele a la persona que te dicte su número de WhatsApp, repíteselo para confirmar, y vuelve a llamarme con esos 8 dígitos (empiezan con 6 o 7). NO le digas que su cita quedó confirmada hasta que yo te responda que sí.' };
+  }
   if (!subsede || !fecha || !hora || !nombre || String(telefono).replace(/\D/g, '').length < 7) {
     return { error: 'Faltan datos válidos. Necesito localidad, día, hora, nombre completo y un TELÉFONO con números reales. Usa el número de quien llama o escribe; NO pongas textos como "whatsapp actual" ni dejes el teléfono vacío.' };
   }
