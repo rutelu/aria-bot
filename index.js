@@ -2452,7 +2452,17 @@ async function enviarConfirmacionReserva(r) {
   const campania = cfg.titulo || 'Jornada Harmonie';
   const slug = cfg.slug || 'cbba';
   const rutaCompartir = 'jornada'; // ruta UNIVERSAL permanente → siempre redirige a la campaña activa (no cambia por campaña)
-  const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.') + ' Compartí la jornada: https://harmonieinstitute.com/' + rutaCompartir;
+  // La ZONA del minisitio segun donde se atiende (La Paz vs. las sedes del Beni), para que el
+  // enlace del calendario le muestre SUS fechas y no las de la otra punta del pais.
+  const _sub = String(r.subsede || r.sede || '').toLowerCase();
+  const rutaZona = /san borja|rurrenabaque|reyes|santa rosa/.test(_sub) ? 'beni'
+                 : /la paz/.test(_sub) ? 'lapaz'
+                 : (cfg.rutaMinisitio || cfg.slug || 'jornada');
+  // Antes aqui iba el enlace para COMPARTIR la jornada. Julio (30/08): en este mensaje es mas util
+  // el calendario para cambiar la cita — compartir ya tiene su propio boton en la plantilla.
+  // El '?agendar=1' abre el calendario directo, sin pasar por la portada.
+  const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.')
+    + ' Si necesitas cambiar la fecha u hora, mira el calendario en vivo aqui: https://harmonieinstitute.com/' + rutaZona + '?agendar=1';
   const bodyComp = { type: 'body', parameters: [
     { type: 'text', text: nombre },
     { type: 'text', text: campania },
