@@ -1635,6 +1635,44 @@ function _detectarNoSeguir(texto) { return _NO_SEGUIR_RE.test(String(texto || ''
 
 // FUNCIÓN PRINCIPAL CLAUDE AI
 // ══════════════════════════════════════════
+// Detecta que Valeria haya dicho "cita confirmada" sin que crear_reserva_beni se haya
+// ejecutado con exito en ese turno. NO bloquea el mensaje (podria ser legitimo: el cliente
+// ya reservo antes y ella se lo recuerda), pero AVISA al equipo con el chat y el texto para
+// revisarlo el mismo dia, no el dia de la jornada.
+const RE_CONFIRMA = /(qued[oó]|est[aá]|ya est[aá])\s+(confirmad|agendad|reservad)|te agend[eé]|felicidades[^.!]{0,30}reserva|tu (cita|reserva)[^.!]{0,25}confirmad/i;
+async function _vigilarConfirmacionFalsa(userId, texto, reservoEnEsteTurno) {
+  if (reservoEnEsteTurno) return;                  // creo la reserva de verdad: todo bien
+  if (!texto || !RE_CONFIRMA.test(texto)) return;  // no dijo nada parecido a "confirmada"
+  if (!db) return;
+  // ¿la persona YA tenia una reserva vigente? entonces es legitimo que se lo recuerde
+  const tel = String(userId || '').split('_').slice(1).join('_').replace(/\D/g, '').slice(-8);
+  if (tel) {
+    try {
+      const rs = await getReservasConfirmadas();
+      const hoyISO = fechaBoliviaISO();
+      const tiene = (rs || []).some(function (r) {
+        return String(r.telefono || '').replace(/\D/g, '').slice(-8) === tel && String(r.fecha || '') >= hoyISO;
+      });
+      if (tiene) return;
+    } catch (e) { /* si falla la consulta, mejor avisar de mas que de menos */ }
+  }
+  const aviso = [
+    '⚠️ POSIBLE CITA FANTASMA',
+    '',
+    'Valeria dijo que la cita quedo confirmada pero NO se creo la reserva.',
+    '',
+    'Chat: ' + userId,
+    '',
+    'Le escribio:',
+    String(texto).substring(0, 300),
+    '',
+    'Revisa el chat y crea la reserva a mano si corresponde.'
+  ].join(String.fromCharCode(10));
+  console.error('🚨 CITA FANTASMA en ' + userId + ': ' + String(texto).substring(0, 140));
+  try { await waSend(ADMIN_WHATSAPP, aviso); } catch (e) { console.error('aviso WA:', e.message); }
+  try { const adm = await getAdminTelegram(); if (adm) await bot.sendMessage(adm, aviso); } catch (e) {}
+}
+
 async function askValeria(userId, userMessage, origenDirecto) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
@@ -1791,6 +1829,9 @@ async function askValeria(userId, userMessage, origenDirecto) {
         .replace(/<function_calls>[\s\S]*?<\/function_calls>/gi, '')
         .replace(/<\/?(?:invoke|parameter|function_calls)\b[^>]*>/gi, '')
         .trim() || 'Con gusto te ayudo 😊';
+      // RED DE SEGURIDAD: ¿dijo "confirmada" sin haber creado la reserva? (30/08: dos clientas
+      // quedaron con una cita inexistente porque Valeria la redacto de memoria).
+      try { _vigilarConfirmacionFalsa(userId, reply, _reservoEnEsteTurno); } catch (e) { console.error('vigilante:', e.message); }
       addToHistory(userId, 'assistant', reply);
       logMensaje(userId, 'valeria', reply);
       console.log(`🤖 Valeria → ${userId}: ${reply.substring(0, 100)}...`);
