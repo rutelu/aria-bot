@@ -3177,6 +3177,50 @@ app.get('/debug/catchup', async (req, res) => {
 
 // DIAGNÓSTICO (solo lectura): cuenta los estados de las reservas para saber a quién alcanzamos.
 // GET /debug/estados-reservas?key=diag-9x
+// Diagnostico de RECORDATORIOS: por cada cita vigente, cuantas horas faltan y que
+// avisos se enviaron ya. Sirve para ver de un vistazo cual quedo sin recordatorio.
+// GET /debug/recordatorios?key=diag-9x
+app.get('/debug/recordatorios', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const ahora = Date.now();
+  const hBol = new Date(ahora - 4 * 3600 * 1000).getUTCHours();
+  const filas = [];
+  try {
+    for (const col of ['reservas_beni', 'citas']) {
+      const snap = await db.collection(col).where('estado', '==', 'confirmada').get();
+      snap.docs.forEach(function (d) {
+        const c = d.data() || {};
+        if (!c.fecha || !c.hora) return;
+        const ms = Date.parse(c.fecha + 'T' + (String(c.hora).length === 5 ? c.hora : ('0' + c.hora)) + ':00-04:00');
+        if (isNaN(ms)) return;
+        const hf = (ms - ahora) / 3600000;
+        if (hf <= -6) return; // ya muy pasadas
+        filas.push({
+          id: d.id, col: col,
+          nombre: String(c.nombre || '').split(/\s+/)[0],
+          tel: String(c.telefono || '').replace(/\D/g, ''),
+          cuando: c.fecha + ' ' + c.hora,
+          horas_falta: Math.round(hf * 10) / 10,
+          virtual: c.modalidad === 'virtual',
+          av20h: !!c.recordatorio20hAt, av8h: !!c.recordatorioConfirmarAt, av2h: !!c.recordatorio2hAt,
+          canal: c.canal || ''
+        });
+      });
+    }
+  } catch (e) { return res.status(200).json({ error: e.message }); }
+  filas.sort(function (a, b) { return a.horas_falta - b.horas_falta; });
+  const faltantes = filas.filter(function (f) {
+    return !f.virtual && f.horas_falta > 0 && (
+      (f.horas_falta <= 20 && !f.av20h) || (f.horas_falta <= 8 && !f.av8h) || (f.horas_falta <= 2 && !f.av2h));
+  });
+  res.json({
+    hora_bolivia: hBol + 'h', ventana_activa: (hBol >= 7 && hBol < 23),
+    total: filas.length, sin_recordatorio_debido: faltantes.length,
+    faltantes: faltantes, todas: filas
+  });
+});
+
 app.get('/debug/estados-reservas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.status(200).json({ error: 'sin db' });
