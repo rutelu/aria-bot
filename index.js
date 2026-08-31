@@ -478,13 +478,26 @@ async function getInstruccionEspecial(userId) {
 
 // ── HANDOFF HUMANO: pausa por chat + outbox de mensajes salientes ──
 // Si valeria_chats/{id}.pausada === true, el bot NO responde (atiende un humano).
-async function chatPausado(userId) {
-  if (!db) return false;
+// Una sola lectura nos dice si el chat está pausado Y si alguna vez lo atendió una persona.
+async function estadoChat(userId) {
+  if (!db) return { pausada: false, huboHumano: false };
   try {
     const s = await db.collection('valeria_chats').doc(String(userId)).get();
-    return s.exists && s.data().pausada === true;
-  } catch (e) { console.error('chatPausado:', e.message); return false; }
+    const d = (s.exists && s.data()) || {};
+    return { pausada: d.pausada === true, huboHumano: d.huboHumano === true };
+  } catch (e) { console.error('estadoChat:', e.message); return { pausada: false, huboHumano: false }; }
 }
+
+// Vuelve a leer el hilo COMPLETO desde Firestore, descartando lo que hubiera en memoria.
+// Se usa al reanudar tras un handoff: lo que escribio la persona del equipo vive en
+// Firestore, no en la memoria del proceso, y sin esto Valeria retomaba a ciegas.
+async function recargarHistorial(userId) {
+  delete conversationHistory[userId];
+  await cargarHistorialSiVacio(userId);
+}
+
+// Chats que vimos pausados en este proceso: al verlos activos otra vez, recargamos.
+const _estuvoPausado = new Set();
 
 // Escucha los mensajes que un humano escribe desde el panel (colección valeria_outbox)
 // y los envía por el canal correcto. El token vive SOLO acá (servidor), nunca en el navegador.
@@ -506,6 +519,13 @@ function procesarOutbox() {
           else if (canal === 'tg') await bot.sendMessage(contacto, _fmtSalida(texto, 'tg'));
           else { await docu.ref.update({ enviado: true, error: 'canal no soportado: ' + canal }); return; }
           logMensaje(chatId, 'humano', texto);
+          // Y al hilo en memoria, para que Valeria lo tenga presente al retomar.
+          try {
+            await cargarHistorialSiVacio(chatId);
+            addToHistory(chatId, 'assistant', texto);
+          } catch (e) { console.error('outbox historial:', e.message); }
+          // Marca el chat: hubo intervención humana (el prompt se lo advierte a Valeria).
+          db.collection('valeria_chats').doc(chatId).set({ huboHumano: true }, { merge: true }).catch(function () {});
           await docu.ref.update({ enviado: true, enviadoAt: admin.firestore.FieldValue.serverTimestamp() });
           console.log('👤→ humano respondió a ' + chatId);
         } catch (e) {
@@ -1860,15 +1880,27 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
   }
 
   // Handoff: si un humano tomó este chat (pausada), el bot no responde.
-  if (await chatPausado(userId)) {
+  const _est = await estadoChat(userId);
+  if (_est.pausada) {
+    _estuvoPausado.add(String(userId));
     console.log('⏸️ Valeria pausada (humano atendiendo): ' + userId);
     return null;
+  }
+  // Se reanudó: releemos el hilo COMPLETO (incluida la intervención humana) antes de responder.
+  if (_estuvoPausado.has(String(userId))) {
+    _estuvoPausado.delete(String(userId));
+    await recargarHistorial(userId);
+    const _h = getHistory(userId);
+    if (!_h.length || _h[_h.length - 1].content !== userMessage) addToHistory(userId, 'user', userMessage);
+    console.log('▶️ Valeria retoma tras el handoff (' + getHistory(userId).length + ' mensajes releídos): ' + userId);
   }
 
   const beniCfg = await getBeniConfig();
   const origenFresco = !!origenDirecto; // el referral del anuncio llegó EN ESTE mensaje (clic reciente)
   const origen = origenDirecto || await getChatOrigen(userId);
   const instruccionEspecial = await getInstruccionEspecial(userId); // directiva del equipo SOLO para este chat
+  // Si una persona del equipo intervino en este chat, Valeria tiene que retomar SIN pisarla.
+  const notaHandoff = _est.huboHumano ? '⚠️ EN ESTE CHAT INTERVINO UNA PERSONA DEL EQUIPO DE HARMONIE. Sus mensajes aparecen en el historial como si fueran tuyos, así que LEE EL HILO COMPLETO antes de responder: continúa desde donde quedó la conversación, NO repitas lo que ya se dijo, NO vuelvas a preguntar datos que la persona ya dio, y NUNCA contradigas ni desmientas nada que el equipo le haya prometido o confirmado (un precio, un horario, una excepción). Si el equipo dejó algo a medias, retómalo con naturalidad, sin mencionar que hubo un cambio de interlocutor ni disculparte por ello.\n\n' : '';
   // Enganchar fuerte con la Jornada si es el primer mensaje O si acaba de hacer clic en el anuncio (aunque ya haya historial)
   const enganchaFuerte = origen && (esPrimerMensaje || origenFresco);
   console.log('🧠 ' + userId + ' hist=' + getHistory(userId).length + ' primerMsg=' + esPrimerMensaje + ' origen=' + (origen ? 'SI' : 'no') + ' fresco=' + origenFresco);
@@ -1927,7 +1959,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
   } catch (e) { console.error('reserva activa prompt:', e.message); }
   let espPauSection = '';
   try { espPauSection = await buildEspPausadasSection(); } catch (e) { console.error('askValeria espPau:', e.message); }
-  const systemPrompt = bloqueReserva + bloqueInstruccion + reglasCriticas
+  const systemPrompt = notaHandoff + bloqueReserva + bloqueInstruccion + reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
     + buildBeniSection(beniCfg, dispoBeni)
