@@ -697,6 +697,7 @@ function buildBeniSection(cfg, dispo) {
   } else {
     s += 'HORAS LIBRES: por ahora no hay horas libres en los dias vigentes (o la jornada finalizo). NO ofrezcas ninguna hora; confirma con consultar_disponibilidad_beni.\n';
   }
+  s += '⏰ HORARIOS DE UN DÍA YA ELEGIDO — PREGUNTA LA FRANJA PRIMERO (REGLA DURA): cuando la persona YA eligió el día y pregunta por los horarios ("¿qué horarios tienen?", "¿a qué hora puedo ir?"), ⛔ NO le recites la lista completa de horas: una parrilla de diez horas abruma y la hace dudar. Pregúntale en UNA frase corta si prefiere POR LA MAÑANA O POR LA TARDE (ej. "¿Prefieres en la mañana o en la tarde?") y recién con su respuesta ofrécele las horas libres de ESA franja, máximo 3 o 4, tomadas SIEMPRE de la lista de HORAS REALMENTE LIBRES de arriba. Mañana = de 9:00 a 12:00; tarde = de 13:00 en adelante. Si en la franja que eligió ya no queda ninguna libre, díselo con calidez y ofrécele las de la otra franja. Si la persona ya te dijo sola su preferencia de franja ("en la tarde", "temprano", "saliendo del trabajo"), NO se lo vuelvas a preguntar: pasa directo a ofrecer esas horas.\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
 
   // Atención principal y derivación a secundarios (solo si la persona lo necesita)
