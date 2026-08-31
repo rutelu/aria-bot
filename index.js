@@ -995,11 +995,43 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   }
 
   const slotId = beniSlotId(fecha, hora);
+  const _tel8 = String(telefono).replace(/\D/g, '').slice(-8);
   // ¿Cupo ya ocupado? (misma fuente que la web → evita doble reserva)
   try {
     const cupo = await db.collection('cupos_ocupados').doc(slotId).get();
-    if (cupo.exists) return { error: 'Ese horario ya está ocupado. Ofrece otro horario libre del mismo día u otro día.' };
+    if (cupo.exists) {
+      // ANTI-TROPIEZO CONSIGO MISMA (31/08): Judith pidio las 10:00, Valeria la reservo,
+      // y un SEGUNDO intento sobre el MISMO cupo devolvio "ocupado" — ella le dijo a la
+      // clienta que no habia disponibilidad... por su propia reserva recien creada.
+      let _mia = false, _nom = '';
+      try {
+        const _r = await db.collection('reservas_beni').doc(slotId).get();
+        if (_r.exists) {
+          const _d = _r.data() || {};
+          _nom = String(_d.nombre || '');
+          const _rt = String(_d.telefono || '').replace(/\D/g, '').slice(-8);
+          _mia = (!!_rt && _rt === _tel8) || (!!chatId && !!_d.chatId && String(_d.chatId) === String(chatId));
+        }
+      } catch (e) { console.error('reserva check:', e.message); }
+      if (_mia) {
+        console.log('♻️ crear_reserva idempotente: ' + slotId + ' ya era de esta persona');
+        return { ok: true, id: slotId, ya_existia: true, mensaje: 'Esa reserva YA ESTÁ CREADA y es de ESTA MISMA persona (' + (_nom || nombre) + '): la hiciste tú hace un momento. ⛔ NO le digas que el horario está ocupado ni que no hay disponibilidad — es SU PROPIA cita. Confírmasela con calidez (día, hora y sede) como si acabaras de crearla, y recuérdale que con su reserva ya ganó el 20%.' };
+      }
+      return { error: 'Ese horario ya está ocupado POR OTRA PERSONA. Ofrece otro horario libre del mismo día u otro día.' };
+    }
   } catch (e) { console.error('cupo check:', e.message); }
+  // ¿Esta persona YA tiene cita en la jornada? → REAGENDAR, nunca duplicar.
+  // Judith quedo con la de las 10:00 y pidio las 11:00: una segunda reserva le
+  // habria ocupado dos cupos.
+  try {
+    const _hoyISO = fechaBoliviaISO();
+    const _prev = (await getReservasConfirmadas()).find(function (r) {
+      return String(r.telefono || '').replace(/\D/g, '').slice(-8) === _tel8 && (r.fecha || '') >= _hoyISO;
+    });
+    if (_prev && !(_prev.fecha === fecha && _prev.hora === hora)) {
+      return { error: 'ESTA PERSONA YA TIENE UNA RESERVA en la jornada: ' + (_prev.subsede || '') + ' ' + _prev.fecha + ' a las ' + _prev.hora + '. NO crees una segunda cita (le ocuparías dos cupos). Si quiere MOVERLA a ' + fecha + ' ' + hora + ', usa reagendar_reserva_beni con fecha_actual=' + _prev.fecha + ' y hora_actual=' + _prev.hora + '. Si no pidió cambiarla, confírmale con calidez la que ya tiene.' };
+    }
+  } catch (e) { console.error('prev reserva check:', e.message); }
   // Cruce por ESPECIALISTA: si el especialista de la campaña ya tiene una cita (virtual/presencial) que se solapa, no permitir.
   if (await especialistaOcupado(cfg.especialidadId, fecha, hora, 60)) {
     return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otro horario libre.' };
@@ -1688,7 +1720,23 @@ async function _vigilarConfirmacionFalsa(userId, texto, reservoEnEsteTurno) {
   try { const adm = await getAdminTelegram(); if (adm) await bot.sendMessage(adm, aviso); } catch (e) {}
 }
 
-async function askValeria(userId, userMessage, origenDirecto) {
+// ── COLA POR USUARIO ────────────────────────────────────────────────────────
+// Dos mensajes seguidos de la misma persona (comunisimo en WhatsApp: "10:00" y
+// enseguida "Judith Tapia") se procesaban EN PARALELO: dos loops peleando por el
+// MISMO cupo — uno lo creaba y al otro le salia "ocupado". Ahora van en orden.
+const _colaPorUsuario = new Map();
+function askValeria(userId, userMessage, origenDirecto) {
+  const k = String(userId);
+  const corre = function () { return _askValeriaRaw(userId, userMessage, origenDirecto); };
+  const prev = _colaPorUsuario.get(k) || Promise.resolve();
+  const next = prev.then(corre, corre);
+  const guard = next.then(function () {}, function () {});
+  _colaPorUsuario.set(k, guard);
+  guard.then(function () { if (_colaPorUsuario.get(k) === guard) _colaPorUsuario.delete(k); });
+  return next;
+}
+
+async function _askValeriaRaw(userId, userMessage, origenDirecto) {
   const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
   await cargarHistorialSiVacio(userId);
@@ -1736,7 +1784,7 @@ async function askValeria(userId, userMessage, origenDirecto) {
     + '5) AGENDA — REGLA DE ORO (NUNCA la rompas): para fechas, horas y reservas usas SIEMPRE tus herramientas, JAMAS tu memoria ni la lista de dias de abajo para inventar horas. '
       + '(a) Cuando la persona acepte o pida agendar, NO le tires horas de una vez: PRIMERO dile en una frase corta que vas a revisar la agenda (ej. "Permiteme revisar la disponibilidad un momento 😊") y recien ahi LLAMA a consultar_disponibilidad_beni; SOLO despues ofrece las horas que ESA herramienta devuelva como libres en esta misma conversacion. NUNCA ofrezcas horas adivinando, suponiendo ni de memoria. '
       + '(b) Para reservar, LLAMA a crear_reserva_beni. SOLO puedes decir que la cita quedo agendada/confirmada si esa herramienta te respondio ok:true. Si respondio error (ocupado, ya paso, faltan datos), NO confirmes: disculpate en una frase y ofrece otra hora libre que la herramienta SI devuelva. '
-      + '(c) PROHIBIDO decir "te agende", "quedo reservado", "listo, confirmada" o parecido sin un ok:true real de crear_reserva_beni. Si tienes cualquier duda sobre disponibilidad, vuelve a consultar_disponibilidad_beni antes de responder.\n'
+      + 'Si el sistema te responde que la reserva YA ESTA CREADA y es de ESTA MISMA persona, eso es un EXITO: confirmasela con calidez, NUNCA le digas que ese horario no esta disponible (te lo estarias negando a vos misma). Y si te avisa que la persona YA TIENE cita en otra hora, no crees una segunda: usa reagendar_reserva_beni. (c) PROHIBIDO decir "te agende", "quedo reservado", "listo, confirmada" o parecido sin un ok:true real de crear_reserva_beni. Si tienes cualquier duda sobre disponibilidad, vuelve a consultar_disponibilidad_beni antes de responder.\n'
     + '7) RESERVA YA HECHA (evita duplicar y confusiones): si la persona dice que ya reservó/agendó o menciona una cita ya hecha y NO ves arriba (⚠️) una reserva suya, ubicala ANTES de ofrecer agendar: usa buscar_reserva_beni con su numero; si no aparece, preguntale con que numero o a que nombre hizo la reserva (pudo reservar con OTRO numero, ej. el de un familiar) y buscala con ESE dato. Solo si de verdad no existe ninguna, ofrecele agendar. NUNCA digas que un horario "no esta libre" si es SU propia reserva.\n'
     + (_campActiva ? '6) PROMO POR RECOMENDADO (REGLA EXACTA, sigue lo que diga "Promo" mas abajo; nunca la interpretes distinto): venir sola/solo da 20% de descuento. El 50% es SOLO para QUIEN TRAE a un recomendado que se atienda. Es decir: la persona trae a un invitado que se atiende y ELLA (la que invita) gana 50% en SU propio tratamiento. El invitado NO gana 50% por el simple hecho de venir; el invitado gana su propio 50% UNICAMENTE si a su vez trae a OTRO recomendado que se atienda (asi en cadena, cada quien por su propio invitado). PROHIBIDO decir "los dos ganan", "ambos ganan el 50%", "traes a un amigo y los dos tienen 50%" o similar. El beneficio del 50% es de quien invita, uno por uno.\n' : '');
   const bloqueInstruccion = instruccionEspecial
