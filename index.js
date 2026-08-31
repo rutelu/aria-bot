@@ -1972,6 +1972,22 @@ async function waSendCallButton(to, url, bodyText) {
 
 // Extrae el marcador [[LLAMAR:beni|web]] del texto de Valeria. Devuelve el texto ya limpio
 // y la URL destino (o null si no hay marcador).
+// Extrae el marcador [[AGENDAR]] y devuelve la URL del CALENDARIO de la jornada vigente
+// (con ?agendar=1, que lo abre directo). Se manda como BOTON, no como link pelado.
+function extraerMarcadorAgendar(text) {
+  if (!text) return { texto: text, url: null };
+  var re = new RegExp("\\[\\[\\s*AGENDAR\\s*\\]\\]", "ig");
+  var url = null;
+  if (re.test(text)) {
+    var _c = (typeof _beniCache !== 'undefined' && _beniCache) ? _beniCache.data : null;
+    var _r = (_c && (_c.rutaMinisitio || _c.slug)) || 'jornada';
+    url = 'https://harmonieinstitute.com/' + _r + '?agendar=1';
+  }
+  re.lastIndex = 0;
+  var texto = String(text).replace(re, '').trim();
+  return { texto: texto, url: url };
+}
+
 function extraerMarcadorLlamada(text) {
   if (!text) return { texto: text, url: null };
   const m = text.match(/\[\[\s*LLAMAR\s*:\s*(beni|web)\s*\]\]/i);
