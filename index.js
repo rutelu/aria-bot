@@ -1942,7 +1942,7 @@ async function waSend(to, text) {
 
 // Botón "Llamar a Valeria" (WhatsApp interactive cta_url): abre la página correcta donde
 // están el botón Llamar, el calendario para agendar y el botón de WhatsApp para volver.
-async function waSendCallButton(to, url, bodyText) {
+async function waSendCallButton(to, url, bodyText, label) {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
   try {
@@ -1954,7 +1954,7 @@ async function waSendCallButton(to, url, bodyText) {
         interactive: {
           type: 'cta_url',
           body: { text: bodyText || 'Toca para hablar conmigo por voz, gratis 👇' },
-          action: { name: 'cta_url', parameters: { display_text: 'Llamar a Valeria 📞', url: url } }
+          action: { name: 'cta_url', parameters: { display_text: (label || 'Llamar a Valeria 📞'), url: url } }
         }
       })
     });
@@ -1962,7 +1962,7 @@ async function waSendCallButton(to, url, bodyText) {
     if (data && data.error) {
       // Fallback: si la API rechaza el botón, manda el enlace como texto para no perder la acción.
       console.error('waSendCallButton error:', JSON.stringify(data.error).substring(0, 200));
-      await waSend(to, '📞 Para hablar conmigo por voz (gratis), entra aquí y toca "Llamar": ' + url);
+      await waSend(to, (label && /agendar/i.test(label)) ? ('Mira el calendario y elige tu hora aquí: ' + url) : ('📞 Para hablar conmigo por voz (gratis), entra aquí y toca "Llamar": ' + url));
     }
   } catch (err) {
     console.error('Error waSendCallButton:', err);
@@ -2158,7 +2158,7 @@ app.post('/webhook', async (req, res) => {
               const espera = typingDelay(texto || reply) - (Date.now() - t0);
               if (espera > 0) await sleep(espera);
               if (texto) await waSend(from, texto);
-              if (_ag.url) await waSendCallButton(from, _ag.url, 'Mirá el calendario y elegí tu hora 👇', 'Agendar mi cita 📅');
+              if (_ag.url) await waSendCallButton(from, _ag.url, 'Mira el calendario y elige tu hora 👇', 'Agendar mi cita 📅');
               if (url) await waSendCallButton(from, url); // botón "Llamar a Valeria"
             }
           });
