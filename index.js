@@ -1595,6 +1595,36 @@ function _fechaEs(fecha) {
 // ── RECORDATORIO DE CONFIRMACIÓN ──
 // Como ya NO hay depósito, cada reserva CONFIRMADA (presencial) recibe recordatorios ~8h y ~2h antes de la cita
 // pidiéndole que confirme su asistencia (reduce ausencias). Solo se envía en horario activo (8-22h Bolivia).
+// Envía el recordatorio y SOLO lo marca como enviado si WhatsApp lo aceptó. Antes se
+// marcaba primero y el error se tragaba: con la ventana de 24h cerrada el aviso se
+// perdía en silencio, no se reintentaba nunca y nadie se enteraba.
+async function _enviarRecordatorio(d, c, tel, campo, etiqueta, texto) {
+  if (!tel) { console.warn('🔔 recordatorio ' + etiqueta + ' sin teléfono → ' + d.id); return; }
+  const r = await waSend(tel, texto);
+  if (r && !r.error) {
+    const u = {}; u[campo] = new Date();
+    await d.ref.update(u);
+    console.log('🔔 recordatorio ' + etiqueta + ' ENTREGADO → ' + d.id);
+    return;
+  }
+  const motivo = (r && r.error && (r.error.message || r.error.code)) || 'desconocido';
+  const intentos = (c.recordatorioIntentos || 0) + 1;
+  // NO se marca el campo: al no marcarlo, el siguiente ciclo (30 min) lo reintenta solo.
+  await d.ref.update({ recordatorioIntentos: intentos, recordatorioUltimoError: String(motivo).substring(0, 200) });
+  console.error('🔔 recordatorio ' + etiqueta + ' NO entregado (intento ' + intentos + ') → ' + d.id + ': ' + motivo);
+  // Al segundo intento fallido avisamos al equipo UNA vez: alguien tiene que llamarla.
+  if (intentos >= 2 && !c.recordatorioAvisoEquipoAt) {
+    await d.ref.update({ recordatorioAvisoEquipoAt: new Date() });
+    const aviso = '⚠️ No pude entregar el recordatorio (' + etiqueta + ') de ' + (c.nombre || '?') + '\n'
+      + ' Cita: ' + _fechaEs(c.fecha) + ' a las ' + c.hora + (c.subsede ? (' — ' + c.subsede) : '') + '\n'
+      + ' Tel: ' + tel + '\n'
+      + ' Motivo: ' + String(motivo).substring(0, 140) + '\n'
+      + 'Probablemente la ventana de 24h de WhatsApp está cerrada. Conviene llamarla o escribirle a mano.';
+    waSend(ADMIN_WHATSAPP, aviso).catch(function () {});
+    getAdminTelegram().then(function (adm) { if (adm) bot.sendMessage(adm, aviso).catch(function () {}); }).catch(function () {});
+  }
+}
+
 async function revisarRecordatoriosConfirmar() {
   if (!db) return;
   const hBol = new Date(Date.now() - 4 * 3600 * 1000).getUTCHours();
@@ -1620,19 +1650,16 @@ async function revisarRecordatoriosConfirmar() {
       try {
         if (horasFalta <= 2 && !c.recordatorio2hAt) {
           // Recordatorio SIMPLE, ~2h antes
-          await d.ref.update({ recordatorio2hAt: new Date() });
-          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Tu cita en Harmonie' + sedeTxt + ' es hoy a las ' + hora + ' (en aproximadamente 2 horas). ¡Te esperamos! 🌸').catch(function () {});
-          console.log('🔔 recordatorio 2h → ' + col + '/' + d.id);
+          await _enviarRecordatorio(d, c, tel, 'recordatorio2hAt', '2h',
+            'Hola ' + nom + ' 💛 Tu cita en Harmonie' + sedeTxt + ' es hoy a las ' + hora + ' (en aproximadamente 2 horas). ¡Te esperamos! 🌸');
         } else if (horasFalta <= 8 && !c.recordatorioConfirmarAt) {
           // Recordatorio de CONFIRMACIÓN, ~8h antes
-          await d.ref.update({ recordatorioConfirmarAt: new Date() });
-          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + _fechaEs(fecha) + ' a las ' + hora + '. Por favor respóndeme *SÍ* para CONFIRMAR tu asistencia, o escríbeme si necesitas reprogramar. ¡Te esperamos! 🌸').catch(function () {});
-          console.log('🔔 recordatorio confirmar 8h → ' + col + '/' + d.id);
+          await _enviarRecordatorio(d, c, tel, 'recordatorioConfirmarAt', '8h',
+            'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + _fechaEs(fecha) + ' a las ' + hora + '. Por favor respóndeme *SÍ* para CONFIRMAR tu asistencia, o escríbeme si necesitas reprogramar. ¡Te esperamos! 🌸');
         } else if (horasFalta <= 20 && !c.recordatorio20hAt) {
           // Recordatorio ~20h antes (víspera): primer aviso + pedir confirmación
-          await d.ref.update({ recordatorio20hAt: new Date() });
-          if (tel) waSend(tel, 'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + _fechaEs(fecha) + ' a las ' + hora + '. Responde *SÍ* para confirmar tu asistencia. ¡Te esperamos! 🌸').catch(function () {});
-          console.log('🔔 recordatorio 20h → ' + col + '/' + d.id);
+          await _enviarRecordatorio(d, c, tel, 'recordatorio20hAt', '20h',
+            'Hola ' + nom + ' 💛 Te recordamos tu cita en Harmonie' + sedeTxt + ' el ' + _fechaEs(fecha) + ' a las ' + hora + '. Responde *SÍ* para confirmar tu asistencia. ¡Te esperamos! 🌸');
         }
       } catch (e) { console.error('🔔 recordatorio ' + d.id + ':', e.message); }
     }
@@ -3204,7 +3231,10 @@ app.get('/debug/recordatorios', async (req, res) => {
           horas_falta: Math.round(hf * 10) / 10,
           virtual: c.modalidad === 'virtual',
           av20h: !!c.recordatorio20hAt, av8h: !!c.recordatorioConfirmarAt, av2h: !!c.recordatorio2hAt,
-          canal: c.canal || ''
+          canal: c.canal || '',
+          intentos: c.recordatorioIntentos || 0,
+          ultimoError: c.recordatorioUltimoError || '',
+          equipoAvisado: !!c.recordatorioAvisoEquipoAt
         });
       });
     }
