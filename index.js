@@ -698,7 +698,7 @@ function buildBeniSection(cfg, dispo) {
     s += 'HORAS LIBRES: por ahora no hay horas libres en los dias vigentes (o la jornada finalizo). NO ofrezcas ninguna hora; confirma con consultar_disponibilidad_beni.\n';
   }
   s += '⏰ HORARIOS DE UN DÍA YA ELEGIDO — PREGUNTA LA FRANJA PRIMERO (REGLA DURA): cuando la persona YA eligió el día y pregunta por los horarios ("¿qué horarios tienen?", "¿a qué hora puedo ir?"), ⛔ NO le recites la lista completa de horas: una parrilla de diez horas abruma y la hace dudar. Pregúntale en UNA frase corta si prefiere POR LA MAÑANA O POR LA TARDE (ej. "¿Prefieres en la mañana o en la tarde?") y recién con su respuesta ofrécele COMO MÁXIMO TRES horas de esa franja. ⛔⛔ Esas tres las COPIAS UNA POR UNA de la lista de HORAS REALMENTE LIBRES de arriba: está PROHIBIDO enumerar un rango corrido ("13:00, 14:00, 15:00, 16:00...") porque en el medio hay horas YA OCUPADAS que no están en la lista. Si ofreces una hora que no figura en esa lista, la persona la elige, la reserva FALLA y quedas mal delante de ella. Lee la lista, elige tres que SÍ estén, y ofrece solo esas. Mañana = de 9:00 a 12:00; tarde = de 13:00 en adelante. Si en la franja que eligió ya no queda ninguna libre, díselo con calidez y ofrécele las de la otra franja. Si la persona ya te dijo sola su preferencia de franja ("en la tarde", "temprano", "saliendo del trabajo"), NO se lo vuelvas a preguntar: pasa directo a ofrecer esas horas.\n';
-  s += '🕐 SI PIDE UNA HORA QUE NO ES EN PUNTO (10:30, 15:45, 16:20…): ⛔ JAMÁS le digas que no hay espacio, que "no está disponible" ni que "solo atendemos en horas exactas" — eso es mentira y pierdes la reserva. Lo que haces es RECOMENDARLE con calidez la hora en punto más cercana QUE FIGURE EN LA LISTA DE HORAS REALMENTE LIBRES de arriba (⚠️ compruébalo: si pide 15:45 y las 15:00 NO están en esa lista, están ocupadas — recomiéndale entonces las 16:00, o la libre más cercana; ofrecerle una hora ocupada la hace elegirla y la reserva falla delante de ella), explicándole el porqué: "Para atenderte mejor y que no tengas que esperar, te recomiendo a las 10:00 o a las 11:00. ¿Cuál te viene mejor?". Ese paso NO es opcional: aunque su hora esté libre, primero RECOMIENDAS la hora en punto y esperas su respuesta — nunca saltes directo a pedirle el nombre. Pero si la persona INSISTE en su hora ("prefiero 10:30", "me queda mejor así"), AGÉNDASELA sin ponerle peros: la herramienta acepta esas horas y NO se le niega la reserva a nadie. ⚠️ Ten en cuenta que una cita a las 10:30 ocupa también las 10:00 y las 11:00 (dejamos una hora entre paciente y paciente): la anterior libre pasa a ser las 9:00 y la siguiente las 12:00. Por eso conviene recomendarle la hora en punto primero. Y si la herramienta te responde que esa hora choca con otra cita, relaya su mensaje y ofrécele las horas libres que te indique.\n';
+  s += '🕐 SI PIDE UNA HORA QUE NO ES EN PUNTO (10:30, 15:45, 16:20…): ⛔ JAMÁS le digas que no hay espacio, que "no está disponible" ni que "solo atendemos en horas exactas" — eso es mentira y pierdes la reserva. Lo que haces es llamar a consultar_disponibilidad_beni PASÁNDOLE esa hora: la respuesta trae un campo "hora_intermedia" con las horas en punto libres más cercanas ya calculadas y el mensaje que le tienes que decir — úsalo TAL CUAL. ⛔ NUNCA deduzcas tú la hora a recomendar (acabas recomendando una ocupada, la persona la elige y la reserva falla delante de ella). Lo que haces es RECOMENDARLE con calidez esa hora en punto libre (⚠️ compruébalo: si pide 15:45 y las 15:00 NO están en esa lista, están ocupadas — recomiéndale entonces las 16:00, o la libre más cercana; ofrecerle una hora ocupada la hace elegirla y la reserva falla delante de ella), explicándole el porqué: "Para atenderte mejor y que no tengas que esperar, te recomiendo a las 10:00 o a las 11:00. ¿Cuál te viene mejor?". Ese paso NO es opcional: aunque su hora esté libre, primero RECOMIENDAS la hora en punto y esperas su respuesta — nunca saltes directo a pedirle el nombre. Pero si la persona INSISTE en su hora ("prefiero 10:30", "me queda mejor así"), AGÉNDASELA sin ponerle peros: la herramienta acepta esas horas y NO se le niega la reserva a nadie. ⚠️ Ten en cuenta que una cita a las 10:30 ocupa también las 10:00 y las 11:00 (dejamos una hora entre paciente y paciente): la anterior libre pasa a ser las 9:00 y la siguiente las 12:00. Por eso conviene recomendarle la hora en punto primero. Y si la herramienta te responde que esa hora choca con otra cita, relaya su mensaje y ofrécele las horas libres que te indique.\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
 
   // Atención principal y derivación a secundarios (solo si la persona lo necesita)
@@ -1007,7 +1007,28 @@ async function toolConsultarDisponibilidad(args, cfg) {
     if (vencidas.length) entry.horas_ya_pasaron = vencidas; // horas de HOY que ya pasaron (vencidas, no ocupadas)
     result.push(entry);
   }
-  return { disponibilidad: result, promo: cfg.promo, hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha };
+  // ¿Preguntó por una hora intermedia (15:45)? Le damos ya masticadas las dos horas
+  // en punto LIBRES más cercanas, para que no recomiende una ocupada de memoria.
+  var _recomIntermedia = null;
+  try {
+    var _hq = args.hora ? normalizarHora(args.hora, null) : null;
+    if (_hq && !_esEnPunto(_hq)) {
+      var _f = (consulta_fecha && consulta_fecha.fecha) || args.fecha;
+      var _e = result.find(function (r) { return r.fecha === _f; }) || result[0];
+      if (_e && _e.horas_libres && _e.horas_libres.length) {
+        var _t = _hhmmAMin(_hq);
+        var _cerca = _e.horas_libres.slice().sort(function (a, b) {
+          return Math.abs(_hhmmAMin(a) - _t) - Math.abs(_hhmmAMin(b) - _t);
+        }).slice(0, 2);
+        _recomIntermedia = {
+          hora_pedida: _hq,
+          recomendar: _cerca,
+          mensaje: 'Pidió las ' + _hq + ', que no es una hora en punto. RECOMIÉNDALE con calidez estas horas en punto que SÍ están libres: ' + _cerca.join(' o ') + ' (“para atenderte mejor y que no tengas que esperar”). ⛔ NO le recomiendes ninguna otra hora en punto: las demás de ese día están ocupadas. Y si aun así prefiere las ' + _hq + ', agéndasela sin ponerle peros.'
+        };
+      }
+    }
+  } catch (e) { console.error('recomIntermedia:', e.message); }
+  return { disponibilidad: result, promo: cfg.promo, hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha, hora_intermedia: _recomIntermedia };
 }
 
 async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
