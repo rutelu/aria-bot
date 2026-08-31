@@ -698,6 +698,7 @@ function buildBeniSection(cfg, dispo) {
     s += 'HORAS LIBRES: por ahora no hay horas libres en los dias vigentes (o la jornada finalizo). NO ofrezcas ninguna hora; confirma con consultar_disponibilidad_beni.\n';
   }
   s += '⏰ HORARIOS DE UN DÍA YA ELEGIDO — PREGUNTA LA FRANJA PRIMERO (REGLA DURA): cuando la persona YA eligió el día y pregunta por los horarios ("¿qué horarios tienen?", "¿a qué hora puedo ir?"), ⛔ NO le recites la lista completa de horas: una parrilla de diez horas abruma y la hace dudar. Pregúntale en UNA frase corta si prefiere POR LA MAÑANA O POR LA TARDE (ej. "¿Prefieres en la mañana o en la tarde?") y recién con su respuesta ofrécele COMO MÁXIMO TRES horas de esa franja. ⛔⛔ Esas tres las COPIAS UNA POR UNA de la lista de HORAS REALMENTE LIBRES de arriba: está PROHIBIDO enumerar un rango corrido ("13:00, 14:00, 15:00, 16:00...") porque en el medio hay horas YA OCUPADAS que no están en la lista. Si ofreces una hora que no figura en esa lista, la persona la elige, la reserva FALLA y quedas mal delante de ella. Lee la lista, elige tres que SÍ estén, y ofrece solo esas. Mañana = de 9:00 a 12:00; tarde = de 13:00 en adelante. Si en la franja que eligió ya no queda ninguna libre, díselo con calidez y ofrécele las de la otra franja. Si la persona ya te dijo sola su preferencia de franja ("en la tarde", "temprano", "saliendo del trabajo"), NO se lo vuelvas a preguntar: pasa directo a ofrecer esas horas.\n';
+  s += '🕐 SI PIDE UNA HORA QUE NO ES EN PUNTO (10:30, 15:45, 16:20…): ⛔ JAMÁS le digas que no hay espacio, que "no está disponible" ni que "solo atendemos en horas exactas" — eso es mentira y pierdes la reserva. Lo que haces es RECOMENDARLE con calidez la hora en punto más cercana que esté libre, explicándole el porqué: "Para atenderte mejor y que no tengas que esperar, te recomiendo a las 10:00 o a las 11:00. ¿Cuál te viene mejor?". Pero si la persona INSISTE en su hora ("prefiero 10:30"), AGÉNDASELA sin ponerle peros: la herramienta acepta esas horas y NO se le niega la reserva a nadie. ⚠️ Ten en cuenta que una cita a las 10:30 ocupa también las 10:00 y las 11:00 (dejamos una hora entre paciente y paciente): la anterior libre pasa a ser las 9:00 y la siguiente las 12:00. Por eso conviene recomendarle la hora en punto primero. Y si la herramienta te responde que esa hora choca con otra cita, relaya su mensaje y ofrécele las horas libres que te indique.\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
 
   // Atención principal y derivación a secundarios (solo si la persona lo necesita)
@@ -845,6 +846,61 @@ const BENI_TOOLS = [
 // pertenece a una sola sub-sede, fecha+hora identifica el cupo sin ambigüedad.
 function beniSlotId(fecha, hora) { return 'beni_' + fecha + '_' + String(hora).replace(':', ''); }
 
+// ── HORAS INTERMEDIAS (10:30, 15:45…) ──────────────────────────────────────
+// La jornada trabaja en horas en punto, pero si alguien PIDE una hora intermedia
+// no se le niega: se le recomienda la de al lado y, si insiste, se agenda tal cual.
+// A cambio se respetan 60 minutos entre paciente y paciente, asi que una cita a las
+// 10:30 inutiliza las 10:00 y las 11:00 (la anterior libre queda 9:00; la siguiente, 12:00).
+function _hhmmAMin(h) { var p = String(h || '').split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
+function _esEnPunto(h) { return /:00$/.test(String(h || '')); }
+// Horas EN PUNTO de la jornada que quedan inutilizadas por una cita a `hora`.
+function _slotsQueBloquea(hora, horas, dur) {
+  var t = _hhmmAMin(hora);
+  return (horas || []).filter(function (h) { return h !== hora && Math.abs(_hhmmAMin(h) - t) < (dur || 60); });
+}
+// ¿Es una hora agendable? En punto de la jornada, o un cuarto de hora dentro de su franja.
+function _horaJornadaValida(hora, horas) {
+  if (!horas || !horas.length) return false;
+  if (horas.indexOf(hora) !== -1) return true;
+  if (!/^\d{2}:(00|15|30|45)$/.test(String(hora))) return false;
+  var mins = horas.map(_hhmmAMin);
+  var t = _hhmmAMin(hora);
+  return t >= Math.min.apply(null, mins) && t <= Math.max.apply(null, mins);
+}
+// ¿Se puede tomar `hora` ese dia respetando los 60 min entre pacientes?
+// Devuelve {ok:true, emergencia:false} normal, {ok:true, emergencia:true} si el dia
+// ya esta lleno (ahi SI se abre el hueco corto de 30 min), o {error} si no se puede.
+async function _chequearSeparacion(fecha, hora, cfg, ignorarSlot) {
+  var t = _hhmmAMin(hora), choque = null, delDia = [];
+  try {
+    delDia = (await getReservasConfirmadas()).filter(function (r) {
+      return r.fecha === fecha && beniSlotId(r.fecha, r.hora) !== ignorarSlot;
+    });
+    choque = delDia.find(function (r) { return Math.abs(_hhmmAMin(r.hora) - t) < 60; }) || null;
+  } catch (e) { console.error('separacion:', e.message); return { ok: true, emergencia: false }; }
+  if (!choque) return { ok: true, emergencia: false };
+  // Hay choque: solo se perdona si NO queda ninguna hora en punto libre ese dia.
+  var libres = [];
+  try {
+    var ocup = await getCuposOcupados();
+    var hoy = fechaBoliviaISO(), ahora = horaBoliviaHHMM();
+    libres = (cfg.horas || []).filter(function (h) {
+      if (ocup.has(beniSlotId(fecha, h))) return false;
+      if (fecha === hoy && h <= ahora) return false;
+      return true;
+    });
+  } catch (e) { console.error('separacion libres:', e.message); }
+  if (libres.length) {
+    return { error: 'A las ' + hora + ' no se puede: queda a menos de una hora de la cita de las ' + choque.hora + ', y entre paciente y paciente necesitamos 60 minutos. Ese día TODAVÍA hay horas libres (' + libres.slice(0, 3).join(', ') + '): ofrécele una de esas con calidez.' };
+  }
+  // Dia lleno = hueco de emergencia (turno corto), pero nunca a menos de 30 min de otra cita.
+  var pegado = delDia.find(function (r) { return Math.abs(_hhmmAMin(r.hora) - t) < 30; });
+  if (pegado) {
+    return { error: 'Ese día ya está completo y las ' + hora + ' quedarían a menos de 30 minutos de la cita de las ' + pegado.hora + '. Ofrécele otro día de la jornada.' };
+  }
+  return { ok: true, emergencia: true };
+}
+
 // Normaliza la hora que diga el modelo ("4 pm", "4 de la tarde", "16", "9") → "HH:MM".
 // Si recibe la lista de horas válidas, ajusta mañana/tarde automáticamente.
 function normalizarHora(h, horasValidas) {
@@ -988,7 +1044,7 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   // Especialidad de la campaña pausada (presencial) → rechazar con la nota
   { const _notaPau = await espPausadaNota(cfg.especialidadId || 'med', 'presencial'); if (_notaPau) return { error: _notaPau }; }
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
-  const horaOk = (cfg.horas || []).includes(hora);
+  const horaOk = _horaJornadaValida(hora, cfg.horas);
   if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la jornada activa. Ofrece un día y hora válidos de la campaña.' };
   // No permitir reservar una fecha/hora que ya pasó.
   if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM())) {
@@ -1038,12 +1094,23 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
     return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otro horario libre.' };
   }
 
+  // 60 minutos entre paciente y paciente (y hueco corto solo si el día ya está lleno).
+  const _sep = await _chequearSeparacion(fecha, hora, cfg, null);
+  if (_sep.error) return { error: _sep.error };
+
   const sub = (cfg.subsedes || []).find(function(s) { return s.id === subsede; }) || {};
   const lugar = sub.direccion ? (subsede + ' — ' + sub.direccion) : subsede;
 
   // Batch: bloquea el cupo Y crea la reserva con el MISMO id que la web (beni_FECHA_HHMM).
   const batch = db.batch();
   batch.set(db.collection('cupos_ocupados').doc(slotId), { jornadaId: 'beni', fecha: fecha, hora: hora, ocupado: true });
+  // Una cita a las 10:30 inutiliza las 10:00 y las 11:00: se marcan ocupadas para que
+  // ni la web ni Valeria las ofrezcan. Se liberan solas al cancelar o reagendar.
+  const _bloqueados = _sep.emergencia ? [] : _slotsQueBloquea(hora, cfg.horas, 60);
+  _bloqueados.forEach(function (h) {
+    batch.set(db.collection('cupos_ocupados').doc(beniSlotId(fecha, h)),
+      { jornadaId: 'beni', fecha: fecha, hora: h, ocupado: true, bloqueadoPor: slotId });
+  });
   batch.set(db.collection('reservas_beni').doc(slotId), {
     jornadaId: 'beni', fecha: fecha, hora: hora,
     lugar: lugar, subsede: subsede,
@@ -1054,6 +1121,8 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
     tratamiento: args.tratamiento || 'Consulta', // mismo campo que el formulario web (para la ficha del paciente)
     salud: 'Por completar en la valoración presencial', // Valeria no pregunta salud/alergias; se llena en la ficha
     estado: 'confirmada', canal: canal || 'chat', chatId: chatId || '',
+    duracionMin: _sep.emergencia ? 30 : 60, // el hueco de emergencia es un turno corto
+    horaIntermedia: !_esEnPunto(hora),
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   });
   await batch.commit();
@@ -1081,6 +1150,15 @@ async function toolBuscarReserva(args) {
 }
 
 // Cancela una reserva: libera el cupo y la marca como cancelada.
+// Libera las horas en punto que una cita intermedia (10:30) tenia bloqueadas.
+async function _liberarBloqueos(batch, slotId) {
+  try {
+    const q = await db.collection('cupos_ocupados').where('bloqueadoPor', '==', slotId).get();
+    q.forEach(function (d) { batch.delete(d.ref); });
+    if (q.size) console.log('🔓 liberadas ' + q.size + ' horas que bloqueaba ' + slotId);
+  } catch (e) { console.error('liberarBloqueos:', e.message); }
+}
+
 async function toolCancelarReserva(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
   const fecha = String(args.fecha || '').trim();
@@ -1095,6 +1173,7 @@ async function toolCancelarReserva(args, cfg) {
     const r = rdoc.data();
     const batch = db.batch();
     batch.delete(db.collection('cupos_ocupados').doc(slotId));  // libera el cupo (la web lo verá libre)
+    await _liberarBloqueos(batch, slotId); // y las horas en punto que esta cita bloqueaba
     batch.delete(db.collection('reservas_beni').doc(slotId));   // BORRA el doc (id determinista): así el horario se puede volver a reservar
     await batch.commit();
     console.log('🗑️ Reserva cancelada: ' + slotId + ' (' + (r.nombre || '?') + ')');
@@ -1122,19 +1201,27 @@ async function toolReagendarReserva(args, cfg) {
     const r = oldDoc.data();
     const subsedeNueva = args.subsede_nueva ? resolverSubsede(args.subsede_nueva, cfg) : r.subsede;
     const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsedeNueva && d.fecha === fechaNueva; });
-    const horaOk = (cfg.horas || []).includes(horaNueva);
+    const horaOk = _horaJornadaValida(horaNueva, cfg.horas);
     if (!diaOk || !horaOk) return { error: 'El nuevo día/hora no es parte de la jornada vigente. Ofrece un día y hora válidos.' };
     if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM())) {
       return { error: 'El nuevo horario ya pasó. Ofrece uno de hoy en adelante.' };
     }
     const cupoNuevo = await db.collection('cupos_ocupados').doc(newSlot).get();
-    if (cupoNuevo.exists) return { error: 'El nuevo horario ya está ocupado. Ofrece otro libre.' };
+    if (cupoNuevo.exists && cupoNuevo.data().bloqueadoPor !== oldSlot) return { error: 'El nuevo horario ya está ocupado. Ofrece otro libre.' };
+    // 60 min entre pacientes, ignorando SU PROPIA cita actual (que se va a liberar).
+    const _sepN = await _chequearSeparacion(fechaNueva, horaNueva, cfg, oldSlot);
+    if (_sepN.error) return { error: _sepN.error };
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === subsedeNueva; }) || {};
     const lugar = sub.direccion ? (subsedeNueva + ' — ' + sub.direccion) : subsedeNueva;
     const batch = db.batch();
     batch.delete(db.collection('cupos_ocupados').doc(oldSlot)); // libera cupo viejo
+    await _liberarBloqueos(batch, oldSlot); // y las horas en punto que bloqueaba
     batch.delete(db.collection('reservas_beni').doc(oldSlot));  // BORRA el doc viejo (id determinista): el horario viejo vuelve a estar libre para reservar
     batch.set(db.collection('cupos_ocupados').doc(newSlot), { jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, ocupado: true });
+    (_sepN.emergencia ? [] : _slotsQueBloquea(horaNueva, cfg.horas, 60)).forEach(function (h) {
+      batch.set(db.collection('cupos_ocupados').doc(beniSlotId(fechaNueva, h)),
+        { jornadaId: 'beni', fecha: fechaNueva, hora: h, ocupado: true, bloqueadoPor: newSlot });
+    });
     batch.set(db.collection('reservas_beni').doc(newSlot), {
       jornadaId: 'beni', fecha: fechaNueva, hora: horaNueva, lugar: lugar, subsede: subsedeNueva,
       especialista: cfg.especialista || 'Equipo Harmonie', especialidad: cfg.especialidad || '',
