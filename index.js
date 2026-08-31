@@ -698,7 +698,7 @@ function buildBeniSection(cfg, dispo) {
     s += 'HORAS LIBRES: por ahora no hay horas libres en los dias vigentes (o la jornada finalizo). NO ofrezcas ninguna hora; confirma con consultar_disponibilidad_beni.\n';
   }
   s += '⏰ HORARIOS DE UN DÍA YA ELEGIDO — PREGUNTA LA FRANJA PRIMERO (REGLA DURA): cuando la persona YA eligió el día y pregunta por los horarios ("¿qué horarios tienen?", "¿a qué hora puedo ir?"), ⛔ NO le recites la lista completa de horas: una parrilla de diez horas abruma y la hace dudar. Pregúntale en UNA frase corta si prefiere POR LA MAÑANA O POR LA TARDE (ej. "¿Prefieres en la mañana o en la tarde?") y recién con su respuesta ofrécele COMO MÁXIMO TRES horas de esa franja. ⛔⛔ Esas tres las COPIAS UNA POR UNA de la lista de HORAS REALMENTE LIBRES de arriba: está PROHIBIDO enumerar un rango corrido ("13:00, 14:00, 15:00, 16:00...") porque en el medio hay horas YA OCUPADAS que no están en la lista. Si ofreces una hora que no figura en esa lista, la persona la elige, la reserva FALLA y quedas mal delante de ella. Lee la lista, elige tres que SÍ estén, y ofrece solo esas. Mañana = de 9:00 a 12:00; tarde = de 13:00 en adelante. Si en la franja que eligió ya no queda ninguna libre, díselo con calidez y ofrécele las de la otra franja. Si la persona ya te dijo sola su preferencia de franja ("en la tarde", "temprano", "saliendo del trabajo"), NO se lo vuelvas a preguntar: pasa directo a ofrecer esas horas.\n';
-  s += '🕐 SI PIDE UNA HORA QUE NO ES EN PUNTO (10:30, 15:45, 16:20…): ⛔ JAMÁS le digas que no hay espacio, que "no está disponible" ni que "solo atendemos en horas exactas" — eso es mentira y pierdes la reserva. Lo que haces es RECOMENDARLE con calidez la hora en punto más cercana que esté libre, explicándole el porqué: "Para atenderte mejor y que no tengas que esperar, te recomiendo a las 10:00 o a las 11:00. ¿Cuál te viene mejor?". Pero si la persona INSISTE en su hora ("prefiero 10:30"), AGÉNDASELA sin ponerle peros: la herramienta acepta esas horas y NO se le niega la reserva a nadie. ⚠️ Ten en cuenta que una cita a las 10:30 ocupa también las 10:00 y las 11:00 (dejamos una hora entre paciente y paciente): la anterior libre pasa a ser las 9:00 y la siguiente las 12:00. Por eso conviene recomendarle la hora en punto primero. Y si la herramienta te responde que esa hora choca con otra cita, relaya su mensaje y ofrécele las horas libres que te indique.\n';
+  s += '🕐 SI PIDE UNA HORA QUE NO ES EN PUNTO (10:30, 15:45, 16:20…): ⛔ JAMÁS le digas que no hay espacio, que "no está disponible" ni que "solo atendemos en horas exactas" — eso es mentira y pierdes la reserva. Lo que haces es RECOMENDARLE con calidez la hora en punto más cercana que esté libre, explicándole el porqué: "Para atenderte mejor y que no tengas que esperar, te recomiendo a las 10:00 o a las 11:00. ¿Cuál te viene mejor?". Ese paso NO es opcional: aunque su hora esté libre, primero RECOMIENDAS la hora en punto y esperas su respuesta — nunca saltes directo a pedirle el nombre. Pero si la persona INSISTE en su hora ("prefiero 10:30", "me queda mejor así"), AGÉNDASELA sin ponerle peros: la herramienta acepta esas horas y NO se le niega la reserva a nadie. ⚠️ Ten en cuenta que una cita a las 10:30 ocupa también las 10:00 y las 11:00 (dejamos una hora entre paciente y paciente): la anterior libre pasa a ser las 9:00 y la siguiente las 12:00. Por eso conviene recomendarle la hora en punto primero. Y si la herramienta te responde que esa hora choca con otra cita, relaya su mensaje y ofrécele las horas libres que te indique.\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
 
   // Atención principal y derivación a secundarios (solo si la persona lo necesita)
@@ -1089,14 +1089,16 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
       return { error: 'ESTA PERSONA YA TIENE UNA RESERVA en la jornada: ' + (_prev.subsede || '') + ' ' + _prev.fecha + ' a las ' + _prev.hora + '. NO crees una segunda cita (le ocuparías dos cupos). Si quiere MOVERLA a ' + fecha + ' ' + hora + ', usa reagendar_reserva_beni con fecha_actual=' + _prev.fecha + ' y hora_actual=' + _prev.hora + '. Si no pidió cambiarla, confírmale con calidez la que ya tiene.' };
     }
   } catch (e) { console.error('prev reserva check:', e.message); }
-  // Cruce por ESPECIALISTA: si el especialista de la campaña ya tiene una cita (virtual/presencial) que se solapa, no permitir.
-  if (await especialistaOcupado(cfg.especialidadId, fecha, hora, 60)) {
-    return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otro horario libre.' };
-  }
-
-  // 60 minutos entre paciente y paciente (y hueco corto solo si el día ya está lleno).
+  // 60 minutos entre paciente y paciente. Va ANTES del cruce por especialista por dos razones:
+  // su mensaje de error le da a Valeria las horas libres concretas que ofrecer, y es quien
+  // decide si estamos ante un hueco de emergencia (dia lleno) — en ese caso el cruce por
+  // especialista se salta, porque si no el hueco corto nunca se podria usar.
   const _sep = await _chequearSeparacion(fecha, hora, cfg, null);
   if (_sep.error) return { error: _sep.error };
+  // Cruce por ESPECIALISTA: si el especialista de la campaña ya tiene una cita (virtual/presencial) que se solapa, no permitir.
+  if (!_sep.emergencia && await especialistaOcupado(cfg.especialidadId, fecha, hora, 60)) {
+    return { error: 'El especialista ya tiene otra cita a esa hora (presencial o virtual). Ofrece otro horario libre.' };
+  }
 
   const sub = (cfg.subsedes || []).find(function(s) { return s.id === subsede; }) || {};
   const lugar = sub.direccion ? (subsede + ' — ' + sub.direccion) : subsede;
