@@ -513,11 +513,21 @@ function procesarOutbox() {
           if (!chatId || !texto) { await docu.ref.update({ enviado: true, error: 'datos incompletos' }); return; }
           const canal = chatId.split('_')[0];
           const contacto = chatId.split('_').slice(1).join('_');
-          if (canal === 'wa') await waSend(contacto, texto);
-          else if (canal === 'fb') await fbSend(contacto, texto);
-          else if (canal === 'ig') await igSend(contacto, texto);
-          else if (canal === 'tg') await bot.sendMessage(contacto, _fmtSalida(texto, 'tg'));
+          let _envio = null;
+          if (canal === 'wa') _envio = await waSend(contacto, texto);
+          else if (canal === 'fb') _envio = await fbSend(contacto, texto);
+          else if (canal === 'ig') _envio = await igSend(contacto, texto);
+          else if (canal === 'tg') _envio = await bot.sendMessage(contacto, _fmtSalida(texto, 'tg'));
           else { await docu.ref.update({ enviado: true, error: 'canal no soportado: ' + canal }); return; }
+          // ¿WhatsApp lo rechazó? (fuera de la ventana de 24h, número inexistente…)
+          if (_envio && _envio.error) {
+            const _m = _envio.error.message || _envio.error.code || 'desconocido';
+            console.error('👤 outbox NO entregado a ' + chatId + ': ' + _m);
+            await docu.ref.update({ enviado: true, entregado: false, error: String(_m).substring(0, 300) });
+            const _aviso = '⚠️ Tu mensaje a ' + contacto + ' NO se pudo entregar.' + '\n' + 'Motivo: ' + String(_m).substring(0, 140) + '\n' + 'Suele ser la ventana de 24h de WhatsApp cerrada: hace falta una plantilla, o llamarla.';
+            waSend(ADMIN_WHATSAPP, _aviso).catch(function () {});
+            return;
+          }
           logMensaje(chatId, 'humano', texto);
           // Y al hilo en memoria, para que Valeria lo tenga presente al retomar.
           try {
@@ -526,7 +536,7 @@ function procesarOutbox() {
           } catch (e) { console.error('outbox historial:', e.message); }
           // Marca el chat: hubo intervención humana (el prompt se lo advierte a Valeria).
           db.collection('valeria_chats').doc(chatId).set({ huboHumano: true }, { merge: true }).catch(function () {});
-          await docu.ref.update({ enviado: true, enviadoAt: admin.firestore.FieldValue.serverTimestamp() });
+          await docu.ref.update({ enviado: true, entregado: true, enviadoAt: admin.firestore.FieldValue.serverTimestamp() });
           console.log('👤→ humano respondió a ' + chatId);
         } catch (e) {
           console.error('procesarOutbox:', e.message);
