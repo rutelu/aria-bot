@@ -3461,6 +3461,14 @@ app.get('/debug/plantilla-zona', async (req, res) => {
     } catch (e) {}
     blob = blob.toLowerCase();
     if (!PISTAS.some(function (p) { return blob.indexOf(p) !== -1; })) { descartados.sin_pista++; continue; }
+    // ⚠️ Ojo: a la gente de la campaña ACTUAL Valeria le nombra las tres sedes, así que su
+    // chat contiene "Rurrenabaque" sin ser del Beni. Se distingue por el ORIGEN del anuncio.
+    const _org = String(c.origen || '').toLowerCase();
+    const _esDeLaZona = PISTAS.some(function (p) { return _org.indexOf(p) !== -1; });
+    const _esDeOtraCiudad = /la paz|cochabamba|oruro|sucre|santa cruz|potos/.test(_org);
+    if (_esDeOtraCiudad && !_esDeLaZona) { descartados.otra_ciudad = (descartados.otra_ciudad || 0) + 1; continue; }
+    // Y los de la jornada anterior son los ANTIGUOS: si escribió hace pocos días es de la actual.
+    if (horas < 24 * 30 && !_esDeLaZona) { descartados.reciente_otra_campana = (descartados.reciente_otra_campana || 0) + 1; continue; }
     const nom = String(c.nombre || '').trim().split(/\s+/)[0].replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ]/g, '');
     elegidos.push({ chatId: d.id, tel: c.contacto, nombre: nom || '', dias: Math.round(horas / 24) });
   }
