@@ -744,6 +744,7 @@ function buildBeniSection(cfg, dispo) {
   s += '⌛ "YA PASÓ" Y "ESTÁ OCUPADO" SON COSAS DISTINTAS (REGLA DURA): si una hora todavía no llegó pero está tomada, di que está OCUPADA o que ya se llenó — NUNCA que "ya pasó". Decirle a alguien a las 12:37 que "los horarios de esta tarde ya pasaron" es falso, se nota, y suena a excusa para no atenderla. Y al revés: si la hora sí venció, di que ya pasó, no que está ocupada. Si quiere venir HOY y hoy ya no quedan cupos, díselo con claridad y calidez ("hoy ya se nos llenó la agenda"), sin inventar que el día terminó.\n\n';
   s += '🎯 CONTESTA LA PREGUNTA QUE TE HICIERON, NO OTRA: si te pide HORARIOS, dale horarios; si te pide PRECIOS, dale precios. Rosa escribió "dígame de los horarios" y le respondiste el precio de los hilos con los descuentos: se quedó sin lo que pidió y la conversación se estancó. Y si quedó una pregunta suya sin responder, retómala tú antes de seguir con lo tuyo.\n\n';
   s += '📝 EL NOMBRE, CON CALIDEZ: si te da solo el nombre de pila, no respondas seco "necesito tu nombre completo". Pídele el apellido con simpatía y diciendo para qué (ej. "¡Gracias Rosa! ¿Me pasas tu apellido para dejar la reserva a tu nombre? 😊"). Y si insiste en darte solo el nombre, RESERVA IGUAL con lo que te dio: mejor una cita a nombre de "Rosa" que una paciente perdida por un apellido.\n\n';
+  s += '🚫 TAMPOCO DIGAS QUE LA CANCELASTE O LA MOVISTE SIN HABERLO HECHO (REGLA DURA, la misma que la de confirmar): está PROHIBIDO escribir "queda cancelada tu cita", "ya te la moví" o "quedó reagendada" si NO ejecutaste cancelar_reserva_beni o reagendar_reserva_beni y te respondieron ok. Pasó con Glenda el 1 de septiembre: le dijiste que su cita quedaba cancelada, la herramienta nunca corrió, y ese horario siguió ocupado toda la mañana sin que ninguna otra paciente pudiera tomarlo. Primero la herramienta, después se lo dices. SIEMPRE en ese orden.\n\n';
   if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
 
   // Atención principal y derivación a secundarios (solo si la persona lo necesita)
@@ -1961,6 +1962,10 @@ function _detectarNoSeguir(texto) { return _NO_SEGUIR_RE.test(String(texto || ''
 // ejecutado con exito en ese turno. NO bloquea el mensaje (podria ser legitimo: el cliente
 // ya reservo antes y ella se lo recuerda), pero AVISA al equipo con el chat y el texto para
 // revisarlo el mismo dia, no el dia de la jornada.
+// Frases con las que da por hecha una CANCELACIÓN o un REAGENDAMIENTO. Glenda (1 sep):
+// "Perfecto, queda cancelada tu cita del martes 1 a las 12:00" — pero nunca ejecutó la
+// herramienta, así que el cupo siguió ocupado y ese horario se perdió para otra paciente.
+const RE_CANCELA = /(qued[aoó]|est[aá]|ya est[aá])\s+(cancelad|anulad)|\b(te )?la cancelé|cancelé\s+tu\s+(cita|reserva)|(la|te la)\s+(moví|cambié|reagendé)|qued[aoó]\s+(reagendad|reprogramad|cambiad)/i;
 const RE_CONFIRMA = /(qued[oó]|est[aá]|ya est[aá])\s+(confirmad|agendad|reservad)|te agend[eé]|felicidades[^.!]{0,30}reserva|tu (cita|reserva)[^.!]{0,25}confirmad/i;
 // GUARDIÁN DE HORAS. El modelo ofrece horas ocupadas aunque tenga la lista de libres
 // delante: el 1 sep le ofreció a Ana las 15:00 y 17:00 del miércoles (ocupadas desde el
@@ -2031,6 +2036,39 @@ function _sanearHorasOfrecidas(texto, dispo, cfg, contexto) {
   });
   nuevo = nuevo.replace(/§/g, ':');
   return { texto: nuevo, corregidas: corregidas };
+}
+
+// ¿Dijo que la canceló o la movió, pero la reserva sigue igual? Se comprueba contra el
+// ESTADO REAL de la agenda, que es más fiable que rastrear qué herramientas corrieron.
+async function _vigilarCancelacionFalsa(userId, texto) {
+  if (!texto || !RE_CANCELA.test(texto) || !db) return;
+  const tel = String(userId || '').split('_').slice(1).join('_').replace(/\D/g, '').slice(-8);
+  if (!tel) return;
+  try {
+    const hoyISO = fechaBoliviaISO();
+    const viva = (await getReservasConfirmadas()).find(function (r) {
+      return String(r.telefono || '').replace(/\D/g, '').slice(-8) === tel && String(r.fecha || '') >= hoyISO;
+    });
+    if (!viva) return;   // ya no existe: la canceló de verdad
+    const aviso = [
+      '⚠️ CANCELACIÓN QUE NO SE HIZO',
+      '',
+      'Valeria le dijo a la persona que su cita quedaba cancelada o movida, pero la reserva',
+      'SIGUE OCUPANDO el cupo:',
+      '',
+      '  ' + (viva.nombre || '?') + ' — ' + _fechaEs(viva.fecha) + ' a las ' + viva.hora + (viva.subsede ? (' — ' + viva.subsede) : ''),
+      '',
+      'Chat: ' + userId,
+      '',
+      'Le escribió:',
+      String(texto).substring(0, 250),
+      '',
+      'Si de verdad canceló, hay que liberar ese horario: si no, queda bloqueado para otras.'
+    ].join('\n');
+    waSend(ADMIN_WHATSAPP, aviso).catch(function () {});
+    getAdminTelegram().then(function (adm) { if (adm) bot.sendMessage(adm, aviso).catch(function () {}); }).catch(function () {});
+    console.warn('⚠️ cancelación no ejecutada en ' + userId + ' (' + viva.fecha + ' ' + viva.hora + ')');
+  } catch (e) { console.error('vigilarCancelacion:', e.message); }
 }
 
 async function _vigilarConfirmacionFalsa(userId, texto, reservoEnEsteTurno) {
@@ -2263,6 +2301,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
         }
       } catch (e) { console.error('saneo horas:', e.message); }
       try { _vigilarConfirmacionFalsa(userId, reply, _reservoEnEsteTurno); } catch (e) { console.error('vigilante:', e.message); }
+      try { _vigilarCancelacionFalsa(userId, reply); } catch (e) { console.error('vigilante cancel:', e.message); }
       addToHistory(userId, 'assistant', reply);
       logMensaje(userId, 'valeria', reply);
       console.log(`🤖 Valeria → ${userId}: ${reply.substring(0, 100)}...`);
