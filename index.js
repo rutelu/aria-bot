@@ -3470,7 +3470,10 @@ app.get('/debug/plantilla-zona', async (req, res) => {
     // Y los de la jornada anterior son los ANTIGUOS: si escribió hace pocos días es de la actual.
     if (horas < 24 * 30 && !_esDeLaZona) { descartados.reciente_otra_campana = (descartados.reciente_otra_campana || 0) + 1; continue; }
     const nom = String(c.nombre || '').trim().split(/\s+/)[0].replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ]/g, '');
-    elegidos.push({ chatId: d.id, tel: c.contacto, nombre: nom || '', dias: Math.round(horas / 24) });
+    // Los nombres de perfil de WhatsApp a veces no son nombres ("la", "yo", "vr"):
+    // con menos de 3 letras saldría "Hola yo 💛", que queda peor que no nombrarla.
+    const nomOk = (nom.length >= 3) ? (nom[0].toUpperCase() + nom.slice(1).toLowerCase()) : '';
+    elegidos.push({ chatId: d.id, tel: c.contacto, nombre: nomOk, dias: Math.round(horas / 24) });
   }
 
   const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
