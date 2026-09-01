@@ -3404,6 +3404,106 @@ app.get('/debug/catchup', async (req, res) => {
 // no le insistan y NO recibió ya un reenganche. Ofrece horas REALES del día indicado.
 // DRY por defecto: sin &send=1 solo dice a quién le escribiría y con qué texto.
 // GET /debug/reenganche?key=diag-9x&fecha=2026-09-01[&send=1]
+// Envía una PLANTILLA de Meta a los leads de una zona cuya ventana de 24h ya cerró
+// (los de una jornada anterior). Es la única forma de alcanzarlos: el texto libre lo
+// rechaza WhatsApp pasadas las 24h desde su último mensaje.
+// GET /debug/plantilla-zona?key=diag-9x&plantilla=jornada_beni_septiembre&zona=beni[&send=1]
+app.get('/debug/plantilla-zona', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const enviar = req.query.send === '1';
+  const plantilla = String(req.query.plantilla || '').trim();
+  if (!plantilla) return res.status(200).json({ error: 'falta ?plantilla=nombre_de_la_plantilla' });
+  const zona = String(req.query.zona || 'beni').toLowerCase();
+  const cfg = await getBeniConfig();
+
+  // Las sedes de esa zona y sus días vigentes → el texto de la variable {{2}}.
+  const SEDES = zona === 'beni' ? ['San Borja', 'Rurrenabaque']
+            : zona === 'lapaz' ? ['La Paz']
+            : ((cfg.subsedes || []).map(function (x) { return x.id; }));
+  const hoyISO = fechaBoliviaISO();
+  const dias = (cfg.dias || []).filter(function (d) { return SEDES.indexOf(d.subsede) !== -1 && d.fecha >= hoyISO; });
+  if (!dias.length) return res.status(200).json({ error: 'esa zona no tiene días vigentes en la jornada' });
+  const porSede = {};
+  dias.forEach(function (d) { (porSede[d.subsede] = porSede[d.subsede] || []).push(d.label || d.fecha); });
+  const partes = Object.keys(porSede).map(function (sede) {
+    const ls = porSede[sede].map(function (l) { return String(l).toLowerCase(); });
+    return sede + ' el ' + (ls.length === 1 ? ls[0] : (ls.slice(0, -1).join(', ') + ' y ' + ls[ls.length - 1]));
+  });
+  const cuando = req.query.texto ? String(req.query.texto) : partes.join(', y ');
+
+  // A quién: conversó sobre esa zona, no reservó, no pidió que no le insistan.
+  const PISTAS = zona === 'beni' ? ['rurrenabaque', 'rurre', 'san borja', 'sanborja', 'yucumo', 'reyes', 'santa ana', 'trinidad'] : SEDES.map(function (x) { return x.toLowerCase(); });
+  const conReserva = new Set();
+  (await getReservasConfirmadas()).forEach(function (r) {
+    if ((r.fecha || '') >= hoyISO) { const t = String(r.telefono || '').replace(/\D/g, '').slice(-8); if (t) conReserva.add(t); }
+  });
+
+  const elegidos = [], descartados = { ya_reservo: 0, no_seguir: 0, sin_pista: 0, ventana_abierta: 0, ya_enviado: 0 };
+  const ahora = Date.now();
+  const chats = await db.collection('valeria_chats').get();
+  for (const d of chats.docs) {
+    const c = d.data() || {};
+    if (String(c.canal || '') !== 'wa') continue;
+    const tel8 = String(c.contacto || '').replace(/\D/g, '').slice(-8);
+    if (!tel8 || tel8 === '78922666' || tel8 === '76951552') continue;
+    if (c.noSeguir === true) { descartados.no_seguir++; continue; }
+    if (conReserva.has(tel8)) { descartados.ya_reservo++; continue; }
+    if (c.plantillaZonaAt) { descartados.ya_enviado++; continue; }
+    const lu = c.lastUserMsgAt && c.lastUserMsgAt.toDate ? c.lastUserMsgAt.toDate() : null;
+    const horas = lu ? (ahora - lu.getTime()) / 3600000 : 9999;
+    // Si la ventana sigue abierta no hace falta plantilla: para esos está /debug/reenganche.
+    if (horas < 22) { descartados.ventana_abierta++; continue; }
+    let blob = String(c.origen || '') + ' ' + String(c.ultimoTexto || '');
+    try {
+      const ms = await d.ref.collection('mensajes').orderBy('ts', 'desc').limit(25).get();
+      ms.forEach(function (m) { blob += ' ' + String((m.data() || {}).texto || ''); });
+    } catch (e) {}
+    blob = blob.toLowerCase();
+    if (!PISTAS.some(function (p) { return blob.indexOf(p) !== -1; })) { descartados.sin_pista++; continue; }
+    const nom = String(c.nombre || '').trim().split(/\s+/)[0].replace(/[^A-Za-zÁÉÍÓÚáéíóúÑñ]/g, '');
+    elegidos.push({ chatId: d.id, tel: c.contacto, nombre: nom || '', dias: Math.round(horas / 24) });
+  }
+
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  let enviados = 0, fallidos = 0;
+  for (const e of elegidos) {
+    e.saludo = e.nombre || '¿cómo estás?';
+    if (!enviar) continue;
+    try {
+      const resp = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp', to: normalizarTelefono(e.tel), type: 'template',
+          template: {
+            name: plantilla, language: { code: WA_TEMPLATE_LANG },
+            components: [{ type: 'body', parameters: [
+              { type: 'text', text: e.saludo },
+              { type: 'text', text: cuando }
+            ] }]
+          }
+        })
+      });
+      const data = await resp.json();
+      if (data && data.error) {
+        fallidos++;
+        e.error = data.error.message || data.error.code || 'desconocido';
+      } else {
+        enviados++;
+        db.collection('valeria_chats').doc(e.chatId).set({ plantillaZonaAt: new Date() }, { merge: true }).catch(function () {});
+      }
+    } catch (err) { fallidos++; e.error = err.message; }
+  }
+
+  res.json({
+    modo: enviar ? 'ENVIADO' : 'SIMULACRO (agrega &send=1 para enviar de verdad)',
+    plantilla: plantilla, zona: zona, variable_2: cuando,
+    a_quienes: elegidos.length, enviados: enviados, fallidos: fallidos,
+    descartados: descartados, detalle: elegidos
+  });
+});
+
 app.get('/debug/reenganche', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.status(200).json({ error: 'sin db' });
