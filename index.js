@@ -1105,7 +1105,8 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   // Un número que no puede existir NO se guarda: la reserva quedaría sin forma de avisarle.
   if (telefono && !_telefonoPosible(telefono)) {
     const _d = String(telefono).replace(/\D/g, '');
-    return { error: 'Ese número no puede ser correcto: me llegaron ' + _d.length + ' dígitos (' + _d + '), y en Bolivia los celulares tienen 8 y empiezan con 6 o 7. NO reservé nada todavía. Pídele que te lo repita DESPACIO, dígito por dígito; repíteselo tú entero para confirmar y, cuando ella te diga que sí, vuelve a intentar la reserva. Es importante: sin un número correcto no puede recibir su recordatorio ni podemos avisarle de ningún cambio.' };
+    const _rev = _revisarTelefono(telefono);
+    return { error: 'Ese número (' + _d + ') no puede ser correcto: ' + _rev.motivo + '. NO reservé nada todavía. Pídele que te lo repita DESPACIO, dígito por dígito; repíteselo tú entero para confirmar y, cuando te diga que sí, vuelve a intentar la reserva. Si tiene línea de otro país, pídeselo CON el código (por ejemplo +56 para Chile): también podemos agendarla, solo necesito el número completo. Sin un número correcto no recibiría su recordatorio ni podríamos avisarle de ningún cambio.' };
   }
   if (!subsede || !fecha || !hora || !nombre || String(telefono).replace(/\D/g, '').length < 7) {
     return { error: 'Faltan datos válidos. Necesito localidad, día, hora, nombre completo y un TELÉFONO con números reales. Usa el número de quien llama o escribe; NO pongas textos como "whatsapp actual" ni dejes el teléfono vacío.' };
@@ -1839,14 +1840,61 @@ const TELS_PROPIOS = ['76951552', '78922666'];
 // guardó 7016910 (7 dígitos) cuando ella dictó 70166910 dos veces, y quedó inalcanzable
 // hasta que se leyó la transcripción de la llamada. Esto lo detecta en el momento,
 // mientras la persona sigue al teléfono y puede repetirlo.
-function _telefonoPosible(tel) {
+// Códigos de país frecuentes entre nuestras pacientes, con los dígitos que lleva el
+// número DESPUÉS del código. Hay gente que vive en la sede pero conserva su línea de
+// origen: negarle la reserva por eso sería perder una paciente que sí viene.
+var PAISES = [
+  { cod: '591', pais: 'Bolivia',   min: 8,  max: 8  },
+  { cod: '595', pais: 'Paraguay',  min: 9,  max: 9  },
+  { cod: '598', pais: 'Uruguay',   min: 8,  max: 9  },
+  { cod: '593', pais: 'Ecuador',   min: 9,  max: 9  },
+  { cod: '507', pais: 'Panamá',    min: 8,  max: 8  },
+  { cod: '506', pais: 'Costa Rica',min: 8,  max: 8  },
+  { cod: '54',  pais: 'Argentina', min: 10, max: 11 },
+  { cod: '55',  pais: 'Brasil',    min: 10, max: 11 },
+  { cod: '56',  pais: 'Chile',     min: 9,  max: 9  },
+  { cod: '57',  pais: 'Colombia',  min: 10, max: 10 },
+  { cod: '58',  pais: 'Venezuela', min: 10, max: 10 },
+  { cod: '51',  pais: 'Perú',      min: 9,  max: 9  },
+  { cod: '52',  pais: 'México',    min: 10, max: 11 },
+  { cod: '34',  pais: 'España',    min: 9,  max: 9  },
+  { cod: '39',  pais: 'Italia',    min: 9,  max: 10 },
+  { cod: '1',   pais: 'EE.UU./Canadá', min: 10, max: 10 }
+];
+
+// Devuelve { ok, pais, motivo }. Ante la duda ACEPTA: es peor perder una reserva
+// real que guardar un número raro. Solo rechaza lo que con certeza no puede existir.
+function _revisarTelefono(tel) {
   var d = String(tel || '').replace(/\D/g, '');
-  if (!d) return false;
-  if (d.length === 11 && d.slice(0, 3) === '591') return /^[67]\d{7}$/.test(d.slice(3));  // +591 y celular
-  if (d.length === 8) return /^[67]\d{7}$/.test(d);                                        // celular boliviano
-  if (d.slice(0, 3) === '591') return false;                                             // 591 mal formado
-  return d.length >= 10 && d.length <= 15;                                               // otro país
+  if (!d) return { ok: false, pais: '', motivo: 'no me llegó ningún número' };
+  // Boliviano sin código: 8 dígitos que empiezan en 6 o 7.
+  if (d.length === 8) {
+    return /^[67]\d{7}$/.test(d)
+      ? { ok: true, pais: 'Bolivia' }
+      : { ok: false, pais: 'Bolivia', motivo: 'tiene 8 dígitos pero empieza en ' + d[0] + ', y los celulares bolivianos empiezan con 6 o 7' };
+  }
+  // Boliviano al que le falta (o le sobra) un dígito: el caso más común al dictarlo.
+  if ((d.length === 7 || d.length === 9) && /^[67]/.test(d)) {
+    return { ok: false, pais: 'Bolivia', motivo: 'parece un celular boliviano pero me llegaron ' + d.length + ' dígitos y son 8 — te falta uno o te sobra uno' };
+  }
+  // Con código de país.
+  for (var i = 0; i < PAISES.length; i++) {
+    var p = PAISES[i];
+    if (d.slice(0, p.cod.length) !== p.cod) continue;
+    var resto = d.slice(p.cod.length);
+    if (p.cod === '591') {
+      return /^[67]\d{7}$/.test(resto)
+        ? { ok: true, pais: 'Bolivia' }
+        : { ok: false, pais: 'Bolivia', motivo: 'después del 591 me llegaron ' + resto.length + ' dígitos, y un celular boliviano tiene 8 y empieza con 6 o 7' };
+    }
+    if (resto.length >= p.min && resto.length <= p.max) return { ok: true, pais: p.pais };
+    return { ok: false, pais: p.pais, motivo: 'parece un número de ' + p.pais + ', pero después del +' + p.cod + ' me llegaron ' + resto.length + ' dígitos y ahí son ' + (p.min === p.max ? p.min : (p.min + ' o ' + p.max)) };
+  }
+  // País que no está en la lista: se acepta si entra en el rango internacional.
+  if (d.length >= 8 && d.length <= 15) return { ok: true, pais: 'del exterior' };
+  return { ok: false, pais: '', motivo: 'me llegaron ' + d.length + ' dígitos, y ningún teléfono del mundo tiene esa cantidad' };
 }
+function _telefonoPosible(tel) { return _revisarTelefono(tel).ok; }
 
 function _esTelefonoPropio(tel) {
   const t = String(tel || '').replace(/\D/g, '').slice(-8);
