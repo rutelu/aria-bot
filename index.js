@@ -1102,6 +1102,11 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
       return { error: 'Ese número (' + telefono + ') es el de HARMONIE, no el de la persona: si lo guardo, su recordatorio nunca le llegaría. Pídele con calidez SU número de WhatsApp, repíteselo para confirmar, y vuelve a intentar la reserva con esos 8 dígitos.' };
     }
   }
+  // Un número que no puede existir NO se guarda: la reserva quedaría sin forma de avisarle.
+  if (telefono && !_telefonoPosible(telefono)) {
+    const _d = String(telefono).replace(/\D/g, '');
+    return { error: 'Ese número no puede ser correcto: me llegaron ' + _d.length + ' dígitos (' + _d + '), y en Bolivia los celulares tienen 8 y empiezan con 6 o 7. NO reservé nada todavía. Pídele que te lo repita DESPACIO, dígito por dígito; repíteselo tú entero para confirmar y, cuando ella te diga que sí, vuelve a intentar la reserva. Es importante: sin un número correcto no puede recibir su recordatorio ni podemos avisarle de ningún cambio.' };
+  }
   if (!subsede || !fecha || !hora || !nombre || String(telefono).replace(/\D/g, '').length < 7) {
     return { error: 'Faltan datos válidos. Necesito localidad, día, hora, nombre completo y un TELÉFONO con números reales. Usa el número de quien llama o escribe; NO pongas textos como "whatsapp actual" ni dejes el teléfono vacío.' };
   }
@@ -1829,6 +1834,20 @@ const ADMIN_PIN = process.env.ADMIN_PIN || 'armonniza591';
 // mismo con "(#100) Invalid parameter". Paso dos veces (Judith 30/08, Glenda 31/08),
 // asi que se valida al crear la reserva en vez de descubrirlo el dia de la cita.
 const TELS_PROPIOS = ['76951552', '78922666'];
+// ¿Puede existir este número? Un celular boliviano tiene 8 dígitos y empieza en 6 o 7.
+// Valeria transcribe mal los números que le dictan por teléfono: a Reina Cuentas le
+// guardó 7016910 (7 dígitos) cuando ella dictó 70166910 dos veces, y quedó inalcanzable
+// hasta que se leyó la transcripción de la llamada. Esto lo detecta en el momento,
+// mientras la persona sigue al teléfono y puede repetirlo.
+function _telefonoPosible(tel) {
+  var d = String(tel || '').replace(/\D/g, '');
+  if (!d) return false;
+  if (d.length === 11 && d.slice(0, 3) === '591') return /^[67]\d{7}$/.test(d.slice(3));  // +591 y celular
+  if (d.length === 8) return /^[67]\d{7}$/.test(d);                                        // celular boliviano
+  if (d.slice(0, 3) === '591') return false;                                             // 591 mal formado
+  return d.length >= 10 && d.length <= 15;                                               // otro país
+}
+
 function _esTelefonoPropio(tel) {
   const t = String(tel || '').replace(/\D/g, '').slice(-8);
   return !!t && TELS_PROPIOS.indexOf(t) !== -1;
