@@ -712,6 +712,13 @@ function buildBeniSection(cfg, dispo) {
     dispo.disponibilidad.forEach(function(r){
       s += '- ' + r.label + ' en ' + r.subsede + ': ' + ((r.horas_libres && r.horas_libres.length) ? r.horas_libres.join(', ') : 'SIN cupos libres') + ' (turnos de 60 min)';
       if (r.horas_ya_pasaron && r.horas_ya_pasaron.length) s += ' — HORAS QUE YA PASARON HOY (si pide una de estas, dile que YA VENCIÓ, no que está ocupada): ' + r.horas_ya_pasaron.join(', ');
+      // Ya separadas por franja: elegir es donde el modelo se equivoca (1 sep: ofreció
+      // 15:00 y 17:00 del miércoles, ambas ocupadas). Así solo tiene que copiar.
+      var _lib = r.horas_libres || [];
+      var _man = _lib.filter(function (h) { return h < '13:00'; });
+      var _tar = _lib.filter(function (h) { return h >= '13:00'; });
+      s += '\n    · MAÑANA de ese día — ofrece EXACTAMENTE de aquí: ' + (_man.length ? _man.join(', ') : 'NINGUNA libre, dile que la mañana ya se llenó');
+      s += '\n    · TARDE de ese día — ofrece EXACTAMENTE de aquí: ' + (_tar.length ? _tar.join(', ') : 'NINGUNA libre, dile que la tarde ya se llenó');
       s += '\n';
     });
   } else {
@@ -1865,6 +1872,77 @@ function _detectarNoSeguir(texto) { return _NO_SEGUIR_RE.test(String(texto || ''
 // ya reservo antes y ella se lo recuerda), pero AVISA al equipo con el chat y el texto para
 // revisarlo el mismo dia, no el dia de la jornada.
 const RE_CONFIRMA = /(qued[oó]|est[aá]|ya est[aá])\s+(confirmad|agendad|reservad)|te agend[eé]|felicidades[^.!]{0,30}reserva|tu (cita|reserva)[^.!]{0,25}confirmad/i;
+// GUARDIÁN DE HORAS. El modelo ofrece horas ocupadas aunque tenga la lista de libres
+// delante: el 1 sep le ofreció a Ana las 15:00 y 17:00 del miércoles (ocupadas desde el
+// día anterior), ella aceptó, dio sus datos, la reserva falló y se fue sin cita. Pedirlo
+// por prompt ya falló dos veces, así que se corrige el texto antes de enviarlo.
+// ¿De qué día de la jornada habla la conversación? Se mira primero la respuesta y luego
+// hacia atrás en el hilo: cuando ofrece horas ("¿13:00, 15:00 o 17:00?") ya no repite el
+// día, viene de turnos antes.
+function _diaDelContexto(textos, cfg) {
+  var dias = (cfg && cfg.dias) || [];
+  if (!dias.length) return null;
+  var hoy = fechaBoliviaISO();
+  var manana = new Date(Date.parse(hoy) + 86400000).toISOString().slice(0, 10);
+  for (var i = 0; i < textos.length; i++) {
+    var t = String(textos[i] || '').toLowerCase();
+    if (!t) continue;
+    // Primero lo explícito: el nombre del día con su número ("miércoles 2").
+    for (var j = 0; j < dias.length; j++) {
+      var lbl = String(dias[j].label || '').toLowerCase();       // "miércoles 2 de septiembre"
+      var partes = lbl.split(/\s+/);
+      var nombre = partes[0] || '';                              // "miércoles"
+      var num = partes[1] || '';                                 // "2"
+      if (nombre && num && t.indexOf(nombre) !== -1 && new RegExp('\\b' + num + '\\b').test(t)) return dias[j].fecha;
+    }
+    // Después lo relativo.
+    if (/\bma(ñ|n)ana\b/.test(t) && dias.some(function (d) { return d.fecha === manana; })) return manana;
+    if (/\bhoy\b/.test(t) && dias.some(function (d) { return d.fecha === hoy; })) return hoy;
+    // Por último, el nombre del día suelto ("el miércoles").
+    for (var k = 0; k < dias.length; k++) {
+      var nom = String(dias[k].label || '').toLowerCase().split(/\s+/)[0];
+      if (nom && t.indexOf(nom) !== -1) return dias[k].fecha;
+    }
+  }
+  return null;
+}
+
+function _sanearHorasOfrecidas(texto, dispo, cfg, contexto) {
+  var t = String(texto || '');
+  if (!dispo || !Array.isArray(dispo.disponibilidad)) return { texto: t, corregidas: [] };
+  // Las horas válidas son las del DÍA del que se habla. Unir todos los días dejaba pasar
+  // el error de Ana: las 17:00 estaban ocupadas el miércoles pero libres el martes.
+  var dia = _diaDelContexto([texto].concat(contexto || []), cfg);
+  var fuentes = dia
+    ? dispo.disponibilidad.filter(function (r) { return r.fecha === dia; })
+    : [];
+  if (!fuentes.length) return { texto: t, corregidas: [] };  // sin día claro, no tocamos nada
+  var libres = [];
+  fuentes.forEach(function (r) {
+    (r.horas_libres || []).forEach(function (h) { if (libres.indexOf(h) === -1) libres.push(h); });
+  });
+  if (!libres.length) return { texto: t, corregidas: [] };
+  // Solo intervenimos cuando el mensaje está OFRECIENDO horas.
+  if (!/(tengo|libre|disponible|te viene|te vendr|cu[aá]l|prefieres|puedo ofrecer)/i.test(t)) return { texto: t, corregidas: [] };
+  // Los rangos ("de 9:00 a 20:00") describen el horario de atención, no son oferta.
+  var marcado = t.replace(/\b(de|desde|entre)\s*\d{1,2}:\d{2}\s*(a|hasta|y)\s*\d{1,2}:\d{2}/gi, function (m) { return m.replace(/:/g, '§'); });
+  var corregidas = [];
+  var usadas = [];
+  var nuevo = marcado.replace(/\b([01]?\d|2[0-3]):[0-5]\d\b/g, function (h) {
+    var norm = (h.length === 4 ? '0' + h : h);
+    if (libres.indexOf(norm) !== -1) { usadas.push(norm); return h; }
+    // Hora ocupada: la sustituimos por la libre más cercana que no hayamos usado ya.
+    var cand = libres.filter(function (x) { return usadas.indexOf(x) === -1; })
+      .sort(function (a, b) { return Math.abs(_hhmmAMin(a) - _hhmmAMin(norm)) - Math.abs(_hhmmAMin(b) - _hhmmAMin(norm)); })[0];
+    if (!cand) return h;
+    usadas.push(cand);
+    corregidas.push(norm + '→' + cand);
+    return cand;
+  });
+  nuevo = nuevo.replace(/§/g, ':');
+  return { texto: nuevo, corregidas: corregidas };
+}
+
 async function _vigilarConfirmacionFalsa(userId, texto, reservoEnEsteTurno) {
   if (reservoEnEsteTurno) return;                  // creo la reserva de verdad: todo bien
   if (!texto || !RE_CONFIRMA.test(texto)) return;  // no dijo nada parecido a "confirmada"
@@ -2085,6 +2163,15 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
         .trim() || 'Con gusto te ayudo 😊';
       // RED DE SEGURIDAD: ¿dijo "confirmada" sin haber creado la reserva? (30/08: dos clientas
       // quedaron con una cita inexistente porque Valeria la redacto de memoria).
+      // Ninguna hora ofrecida puede estar ocupada: se corrige antes de que la lea nadie.
+      try {
+        var _ctx = getHistory(userId).slice(-6).map(function (m) { return m.content; }).reverse();
+        var _san = _sanearHorasOfrecidas(reply, dispoBeni, beniCfg, _ctx);
+        if (_san.corregidas.length) {
+          console.warn('🕐 horas ocupadas corregidas para ' + userId + ': ' + _san.corregidas.join(', '));
+          reply = _san.texto;
+        }
+      } catch (e) { console.error('saneo horas:', e.message); }
       try { _vigilarConfirmacionFalsa(userId, reply, _reservoEnEsteTurno); } catch (e) { console.error('vigilante:', e.message); }
       addToHistory(userId, 'assistant', reply);
       logMensaje(userId, 'valeria', reply);
