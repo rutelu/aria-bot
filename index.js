@@ -3227,6 +3227,83 @@ app.get('/debug/catchup', async (req, res) => {
 // Diagnostico de RECORDATORIOS: por cada cita vigente, cuantas horas faltan y que
 // avisos se enviaron ya. Sirve para ver de un vistazo cual quedo sin recordatorio.
 // GET /debug/recordatorios?key=diag-9x
+// REENGANCHE de leads calientes: escribe SOLO a quien nos escribió hace menos de 24h
+// (ventana de WhatsApp abierta, sin necesidad de plantilla), no reservó, no pidió que
+// no le insistan y NO recibió ya un reenganche. Ofrece horas REALES del día indicado.
+// DRY por defecto: sin &send=1 solo dice a quién le escribiría y con qué texto.
+// GET /debug/reenganche?key=diag-9x&fecha=2026-09-01[&send=1]
+app.get('/debug/reenganche', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.status(200).json({ error: 'sin db' });
+  const enviar = req.query.send === '1';
+  const fecha = String(req.query.fecha || '').trim();
+  if (!fecha) return res.status(200).json({ error: 'falta ?fecha=AAAA-MM-DD' });
+  const cfg = await getBeniConfig();
+  const dia = ((cfg && cfg.dias) || []).find(function (x) { return x.fecha === fecha; });
+  if (!dia) return res.status(200).json({ error: 'esa fecha no es un día de la jornada' });
+
+  // Horas REALMENTE libres de ese día (las mismas que ve Valeria).
+  const dispo = await toolConsultarDisponibilidad({ fecha: fecha }, cfg);
+  const entry = ((dispo && dispo.disponibilidad) || []).find(function (r) { return r.fecha === fecha; });
+  const libres = (entry && entry.horas_libres) || [];
+  if (!libres.length) return res.status(200).json({ error: 'ese día ya no tiene horas libres' });
+  const tres = libres.slice(0, 3).join(', ');
+
+  // Ya recibieron un reenganche antes: no se les insiste otra vez.
+  const YA_INSISTIDO = ['quedé pendiente de ayudarte', 'hola de nuevo', 'solo para avisarte'];
+  const hoyISO = fechaBoliviaISO();
+  const conReserva = new Set();
+  (await getReservasConfirmadas()).forEach(function (r) {
+    if ((r.fecha || '') >= hoyISO) { const t = String(r.telefono || '').replace(/\D/g, '').slice(-8); if (t) conReserva.add(t); }
+  });
+
+  const ahora = Date.now();
+  const elegidos = [], descartados = { fuera_ventana: 0, ya_reservo: 0, no_seguir: 0, ya_insistido: 0, pausado: 0 };
+  const chats = await db.collection('valeria_chats').get();
+  for (const d of chats.docs) {
+    const c = d.data() || {};
+    if (String(c.canal || '') !== 'wa') continue;              // solo WhatsApp: su ventana es la que sabemos leer
+    const tel8 = String(c.contacto || '').replace(/\D/g, '').slice(-8);
+    if (!tel8 || tel8 === '78922666' || tel8 === '76951552') continue;
+    if (c.noSeguir === true) { descartados.no_seguir++; continue; }
+    if (c.pausada === true) { descartados.pausado++; continue; }
+    if (conReserva.has(tel8)) { descartados.ya_reservo++; continue; }
+    const lu = c.lastUserMsgAt && c.lastUserMsgAt.toDate ? c.lastUserMsgAt.toDate() : null;
+    const horas = lu ? (ahora - lu.getTime()) / 3600000 : 999;
+    if (horas >= 22) { descartados.fuera_ventana++; continue; }  // margen: a las 24h se cierra
+    if (c.reenganchadoAt) { descartados.ya_insistido++; continue; }
+    const ult = String(c.ultimoTexto || '').toLowerCase();
+    if (YA_INSISTIDO.some(function (p) { return ult.indexOf(p) !== -1; })) { descartados.ya_insistido++; continue; }
+    elegidos.push({ chatId: d.id, tel: c.contacto, nombre: String(c.nombre || '').split(/\s+/)[0], horas: Math.round(horas) });
+  }
+
+  const _lbl = (dia.label || fecha);
+  let enviados = 0, fallidos = 0;
+  for (const e of elegidos) {
+    const saludo = (e.nombre && !/^[\d\W]+$/.test(e.nombre)) ? ('Hola ' + e.nombre + ' 💛') : 'Hola 💛';
+    const texto = saludo + ' Te escribo de Harmonie. Para ' + _lbl.toLowerCase() + ' todavía me quedan horas libres en la jornada de ' + (dia.subsede || '') + ': ' + tres + '. La valoración es gratis y con tu reserva ya ganas el 20% de descuento. ¿Te agendo una?';
+    e.mensaje = texto;
+    if (!enviar) continue;
+    const r = await waSend(e.tel, texto);
+    if (r && !r.error) {
+      enviados++;
+      logMensaje(e.chatId, 'valeria', texto);
+      try { await cargarHistorialSiVacio(e.chatId); addToHistory(e.chatId, 'assistant', texto); } catch (_) {}
+      db.collection('valeria_chats').doc(e.chatId).set({ reenganchadoAt: new Date() }, { merge: true }).catch(function () {});
+    } else {
+      fallidos++;
+      e.error = (r && r.error && (r.error.message || r.error.code)) || 'desconocido';
+    }
+  }
+
+  res.json({
+    modo: enviar ? 'ENVIADO' : 'SIMULACRO (agrega &send=1 para enviar de verdad)',
+    dia: _lbl, sede: dia.subsede, horas_ofrecidas: tres,
+    a_quienes: elegidos.length, enviados: enviados, fallidos: fallidos,
+    descartados: descartados, detalle: elegidos
+  });
+});
+
 app.get('/debug/recordatorios', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.status(200).json({ error: 'sin db' });
