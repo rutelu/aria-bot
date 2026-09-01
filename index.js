@@ -1067,6 +1067,16 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   if (/\{\{|\}\}/.test(telefono) || /customer|number|whatsapp/i.test(telefono)) {
     return { error: 'El teléfono llegó como una PLANTILLA sin resolver ("' + telefono.substring(0, 40) + '"), no como un número: NO reservé nada. Pídele a la persona que te dicte su número de WhatsApp, repíteselo para confirmar, y vuelve a llamarme con esos 8 dígitos (empiezan con 6 o 7). NO le digas que su cita quedó confirmada hasta que yo te responda que sí.' };
   }
+  // ¿Guardó el número de la propia clínica como si fuera el de la paciente?
+  if (_esTelefonoPropio(telefono)) {
+    const _alt = String(telFallback || '').replace(/\D/g, '');
+    if (_alt && !_esTelefonoPropio(_alt)) {
+      console.warn('☎️ teléfono propio (' + telefono + ') sustituido por el del chat: ' + _alt);
+      telefono = _alt;
+    } else {
+      return { error: 'Ese número (' + telefono + ') es el de HARMONIE, no el de la persona: si lo guardo, su recordatorio nunca le llegaría. Pídele con calidez SU número de WhatsApp, repíteselo para confirmar, y vuelve a intentar la reserva con esos 8 dígitos.' };
+    }
+  }
   if (!subsede || !fecha || !hora || !nombre || String(telefono).replace(/\D/g, '').length < 7) {
     return { error: 'Faltan datos válidos. Necesito localidad, día, hora, nombre completo y un TELÉFONO con números reales. Usa el número de quien llama o escribe; NO pongas textos como "whatsapp actual" ni dejes el teléfono vacío.' };
   }
@@ -1788,6 +1798,16 @@ async function toolReagendarCita(args) {
 // ── AVISO A HUMANO (handoff proactivo): Telegram + WhatsApp ──
 const ADMIN_WHATSAPP = process.env.ADMIN_WHATSAPP || '59178922666';
 const ADMIN_PIN = process.env.ADMIN_PIN || 'armonniza591';
+
+// Números de la propia clínica. Si uno de estos queda guardado como teléfono de un
+// paciente, su recordatorio NUNCA llega: WhatsApp rechaza enviarse un mensaje a sí
+// mismo con "(#100) Invalid parameter". Paso dos veces (Judith 30/08, Glenda 31/08),
+// asi que se valida al crear la reserva en vez de descubrirlo el dia de la cita.
+const TELS_PROPIOS = ['76951552', '78922666'];
+function _esTelefonoPropio(tel) {
+  const t = String(tel || '').replace(/\D/g, '').slice(-8);
+  return !!t && TELS_PROPIOS.indexOf(t) !== -1;
+}
 
 async function getAdminTelegram() {
   if (db) {
@@ -3234,7 +3254,9 @@ app.get('/debug/recordatorios', async (req, res) => {
           canal: c.canal || '',
           intentos: c.recordatorioIntentos || 0,
           ultimoError: c.recordatorioUltimoError || '',
-          equipoAvisado: !!c.recordatorioAvisoEquipoAt
+          equipoAvisado: !!c.recordatorioAvisoEquipoAt,
+          chatId: c.chatId || '',
+          telPropio: _esTelefonoPropio(c.telefono)
         });
       });
     }
