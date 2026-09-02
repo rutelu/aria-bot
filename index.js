@@ -501,11 +501,23 @@ const _estuvoPausado = new Set();
 
 // Escucha los mensajes que un humano escribe desde el panel (colección valeria_outbox)
 // y los envía por el canal correcto. El token vive SOLO acá (servidor), nunca en el navegador.
+// Mensajes ya tomados por este proceso. onSnapshot vuelve a entregar el mismo documento
+// mientras su marca `enviado` no llegue a Firestore, y el envío es asíncrono: sin este
+// candado el mismo mensaje sale varias veces.
+const _outboxEnCurso = new Set();
+
 function procesarOutbox() {
   if (!db) return;
   db.collection('valeria_outbox').where('enviado', '==', false)
     .onSnapshot(function(snap) {
-      snap.forEach(async function(docu) {
+      // docChanges() en vez de forEach: el snapshot completo trae TODOS los pendientes cada
+      // vez que la colección cambia, así que encolar tres mensajes reenviaba el primero tres
+      // veces (pasó el 2/09 con los tres leads del Beni). Aquí solo llegan los nuevos.
+      snap.docChanges().forEach(async function(cambio) {
+        if (cambio.type !== 'added') return;
+        const docu = cambio.doc;
+        if (_outboxEnCurso.has(docu.id)) return;   // ya lo estamos enviando
+        _outboxEnCurso.add(docu.id);
         const o = docu.data() || {};
         const chatId = String(o.chatId || '');
         const texto = String(o.texto || '').trim();
