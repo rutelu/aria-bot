@@ -3579,6 +3579,11 @@ app.get('/debug/reenganche', async (req, res) => {
   const enviar = req.query.send === '1';
   const fecha = String(req.query.fecha || '').trim();
   if (!fecha) return res.status(200).json({ error: 'falta ?fecha=AAAA-MM-DD' });
+  // ?zona=beni|lapaz limita a quienes llegaron por el anuncio de ESA zona.
+  const zonaPedida = String(req.query.zona || '').toLowerCase().trim();
+  const PISTAS_ZONA = zonaPedida === 'beni' ? ['san borja', 'rurrenabaque', 'beni']
+                    : zonaPedida === 'lapaz' ? ['la paz', 'lapaz']
+                    : [];
   const cfg = await getBeniConfig();
   const dia = ((cfg && cfg.dias) || []).find(function (x) { return x.fecha === fecha; });
   if (!dia) return res.status(200).json({ error: 'esa fecha no es un día de la jornada' });
@@ -3599,7 +3604,7 @@ app.get('/debug/reenganche', async (req, res) => {
   });
 
   const ahora = Date.now();
-  const elegidos = [], descartados = { fuera_ventana: 0, ya_reservo: 0, no_seguir: 0, ya_insistido: 0, pausado: 0 };
+  const elegidos = [], descartados = { fuera_ventana: 0, ya_reservo: 0, no_seguir: 0, ya_insistido: 0, pausado: 0, otra_zona: 0 };
   const chats = await db.collection('valeria_chats').get();
   for (const d of chats.docs) {
     const c = d.data() || {};
@@ -3613,6 +3618,13 @@ app.get('/debug/reenganche', async (req, res) => {
     const horas = lu ? (ahora - lu.getTime()) / 3600000 : 999;
     if (horas >= 22) { descartados.fuera_ventana++; continue; }  // margen: a las 24h se cierra
     if (c.reenganchadoAt) { descartados.ya_insistido++; continue; }
+    // La zona sale del ORIGEN del anuncio, que trae la ciudad en su título. Es el dato
+    // fiable: el texto del chat menciona todas las sedes porque Valeria las nombra.
+    if (zonaPedida) {
+      const _org = String(c.origen || '').toLowerCase();
+      const _deLaZona = PISTAS_ZONA.some(function (p) { return _org.indexOf(p) !== -1; });
+      if (!_deLaZona) { descartados.otra_zona++; continue; }
+    }
     const ult = String(c.ultimoTexto || '').toLowerCase();
     if (YA_INSISTIDO.some(function (p) { return ult.indexOf(p) !== -1; })) { descartados.ya_insistido++; continue; }
     elegidos.push({ chatId: d.id, tel: c.contacto, nombre: String(c.nombre || '').split(/\s+/)[0], horas: Math.round(horas) });
