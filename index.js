@@ -168,7 +168,7 @@ const BENI_SEED = {
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true, // 🚀 LANZADA 28 ago 2026 (dirección real, 3 días)
-  campaignVersion: 'lapaz-2026-09b',
+  campaignVersion: 'lapaz-2026-09c',   // 3 sep: San Borja se movió del viernes 4 al lunes 7
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
@@ -183,9 +183,9 @@ const BENI_SEED = {
     { fecha: '2026-08-31', label: 'Lunes 31 de agosto', subsede: 'La Paz' },
     { fecha: '2026-09-01', label: 'Martes 1 de septiembre', subsede: 'La Paz' },
     { fecha: '2026-09-02', label: 'Miércoles 2 de septiembre', subsede: 'La Paz' },
-    { fecha: '2026-09-04', label: 'Viernes 4 de septiembre', subsede: 'San Borja' },
     { fecha: '2026-09-05', label: 'Sábado 5 de septiembre', subsede: 'Rurrenabaque' },
-    { fecha: '2026-09-06', label: 'Domingo 6 de septiembre', subsede: 'Rurrenabaque' }
+    { fecha: '2026-09-06', label: 'Domingo 6 de septiembre', subsede: 'Rurrenabaque' },
+    { fecha: '2026-09-07', label: 'Lunes 7 de septiembre', subsede: 'San Borja' }
   ],
   horas: ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00']
 };
