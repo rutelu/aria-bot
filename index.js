@@ -2567,9 +2567,10 @@ async function ubicacionATexto(text) {
   if (!u.sede) return text;
   let loc = null;
   try { loc = ubicacionDeSede(await getBeniConfig(), u.sede); } catch (e) {}
-  if (!loc) return u.texto;
-  const enlace = 'https://www.google.com/maps?q=' + loc.lat + ',' + loc.lng;
-  return (u.texto + '\n\n📍 ' + (loc.nombre || u.sede) + (loc.direccion ? (' — ' + loc.direccion) : '') + '\n' + enlace).trim();
+  // Se reemplaza EN SU LUGAR, no al final: si no, el enlace queda suelto después de la
+  // despedida y donde estaba el marcador queda un hueco.
+  const reemplazo = loc ? ('📍 ' + (loc.nombre || u.sede) + (loc.direccion ? (' — ' + loc.direccion) : '') + '\n' + 'https://www.google.com/maps?q=' + loc.lat + ',' + loc.lng) : '';
+  return String(text).replace(/\[\[\s*UBICACION\s*:[^\]]*\]\]/ig, reemplazo).replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function extraerMarcadorLlamada(text) {
