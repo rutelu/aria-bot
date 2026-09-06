@@ -677,7 +677,7 @@ const CONTACTOS_BENI = {
   '+591 76951552': { nombre: 'el especialista de Harmonie', rol: 'especialista' }
 };
 
-function buildBeniSection(cfg, dispo) {
+function buildBeniSection(cfg, dispo, _rsvPropia) {
   if (!cfg || cfg.publicada !== true) return ''; // solo si la campaña está PUBLICADA
   // AUTO-EXPIRA: si TODOS los días de la campaña ya pasaron (aunque siga publicada:true), NO la ofrezcas como vigente.
   var _hoyISOb = fechaBoliviaISO();
@@ -735,6 +735,10 @@ function buildBeniSection(cfg, dispo) {
     dispo.disponibilidad.forEach(function(r){
       s += '- ' + r.label + ' en ' + r.subsede + ': ' + ((r.horas_libres && r.horas_libres.length) ? r.horas_libres.join(', ') : 'SIN cupos libres') + ' (turnos de 60 min)';
       if (r.horas_ya_pasaron && r.horas_ya_pasaron.length) s += ' — HORAS QUE YA PASARON HOY (si pide una de estas, dile que YA VENCIÓ, no que está ocupada): ' + r.horas_ya_pasaron.join(', ');
+      // Su propia cita NO es una hora ocupada: es SU hora. Decirle que está ocupada la marea.
+      if (_rsvPropia && _rsvPropia.fecha === r.fecha) {
+        s += ' — ⚠️ LAS ' + _rsvPropia.hora + ' DE ESE DÍA SON SU PROPIA CITA: si pregunta por esa hora, NO le digas que está ocupada — dile que esa ES su reserva.';
+      }
       // Ya separadas por franja: elegir es donde el modelo se equivoca (1 sep: ofreció
       // 15:00 y 17:00 del miércoles, ambas ocupadas). Así solo tiene que copiar.
       var _lib = r.horas_libres || [];
@@ -2057,6 +2061,45 @@ function _sanearHorasOfrecidas(texto, dispo, cfg, contexto) {
 
 // ¿Dijo que la canceló o la movió, pero la reserva sigue igual? Se comprueba contra el
 // ESTADO REAL de la agenda, que es más fiable que rastrear qué herramientas corrieron.
+// ¿La hora que le confirma coincide con la que quedó realmente en la agenda? El 6/09 le
+// dijo cinco veces a Eylin "confirmada a las 9:00" y la reserva se creó a las 10:00: la
+// paciente iba a llegar a una hora en la que no tenía cita. Aquí se corrige el texto con
+// la hora REAL antes de enviarlo, y se avisa al equipo.
+async function _sanearHoraConfirmada(userId, texto) {
+  var t = String(texto || '');
+  if (!t || !RE_CONFIRMA.test(t) || !db) return { texto: t };
+  var tel = String(userId || '').split('_').slice(1).join('_').replace(/\D/g, '').slice(-8);
+  if (!tel) return { texto: t };
+  try {
+    var hoyISO = fechaBoliviaISO();
+    var rsv = (await getReservasConfirmadas()).find(function (r) {
+      return String(r.telefono || '').replace(/\D/g, '').slice(-8) === tel && String(r.fecha || '') >= hoyISO;
+    });
+    if (!rsv || !rsv.hora) return { texto: t };
+    // Horas que menciona el mensaje (ignorando rangos de atención tipo "de 9:00 a 20:00").
+    var marcado = t.replace(/\b(de|desde|entre)\s*\d{1,2}:\d{2}\s*(a|hasta|y)\s*\d{1,2}:\d{2}/gi, function (m) { return m.replace(/:/g, '§'); });
+    var dichas = [];
+    var nuevo = marcado.replace(/\b([01]?\d|2[0-3]):[0-5]\d\b/g, function (h) {
+      var norm = (h.length === 4 ? '0' + h : h);
+      if (norm === rsv.hora) return h;
+      dichas.push(norm);
+      return rsv.hora;
+    });
+    nuevo = nuevo.replace(/§/g, ':');
+    if (!dichas.length) return { texto: t };
+    console.error('🕐 confirmó ' + dichas.join(', ') + ' pero la reserva está a las ' + rsv.hora + ' → ' + userId);
+    var aviso = ['⚠️ CONFIRMÓ UNA HORA Y GUARDÓ OTRA', '',
+      'Valeria le dijo a la persona que su cita era a las ' + dichas.join(' / ') + ',',
+      'pero en la agenda quedó a las ' + rsv.hora + '.', '',
+      '  ' + (rsv.nombre || '?') + ' — ' + _fechaEs(rsv.fecha) + ' ' + rsv.hora + (rsv.subsede ? (' — ' + rsv.subsede) : ''),
+      '  Chat: ' + userId, '',
+      'El mensaje salió corregido con la hora real. Revisa si la hora guardada es la que ella quería.'].join('\n');
+    waSend(ADMIN_WHATSAPP, aviso).catch(function () {});
+    getAdminTelegram().then(function (adm) { if (adm) bot.sendMessage(adm, aviso).catch(function () {}); }).catch(function () {});
+    return { texto: nuevo, corregidas: dichas, real: rsv.hora };
+  } catch (e) { console.error('sanearHoraConfirmada:', e.message); return { texto: t }; }
+}
+
 async function _vigilarCancelacionFalsa(userId, texto) {
   if (!texto || !RE_CANCELA.test(texto) || !db) return;
   const tel = String(userId || '').split('_').slice(1).join('_').replace(/\D/g, '').slice(-8);
@@ -2212,6 +2255,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
   // ¿Esta persona YA tiene una reserva activa de la jornada? Se la informamos a Valeria para que la RECONOZCA
   // (y no trate "ya agendé / mi cita del sábado 11" como un pedido nuevo ni diga que ese horario no está libre).
   let bloqueReserva = '';
+  let rsvPropia = null;   // la reserva vigente de quien escribe, si tiene
   try {
     const _contacto = String(userId || '').split('_').slice(1).join('_');
     const _tel8 = String(_contacto).replace(/\D/g, '').slice(-8);
@@ -2220,6 +2264,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
       let _rsv = null;
       const _rows = await getReservasConfirmadas();
       _rows.forEach(function (r) { const rt = String(r.telefono || '').replace(/\D/g, '').slice(-8); if (rt === _tel8 && (r.fecha || '') >= _hoy && !_rsv) _rsv = r; });
+      rsvPropia = _rsv;
       if (_rsv) {
         const _dia = ((beniCfg && beniCfg.dias) || []).find(function (x) { return x.fecha === _rsv.fecha; });
         const _lbl = (_dia && _dia.label) || _rsv.fecha;
@@ -2232,7 +2277,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
   const systemPrompt = notaHandoff + bloqueReserva + bloqueInstruccion + reglasCriticas
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
-    + buildBeniSection(beniCfg, dispoBeni)
+    + buildBeniSection(beniCfg, dispoBeni, rsvPropia)
     + espPauSection;
   if (instruccionEspecial) console.log('📝 Instrucción especial activa para ' + userId + ': ' + instruccionEspecial.substring(0, 80));
 
@@ -2317,6 +2362,11 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
           reply = _san.texto;
         }
       } catch (e) { console.error('saneo horas:', e.message); }
+      // La hora que confirma debe ser la que quedó guardada, no la que ella recuerde.
+      try {
+        var _sh = await _sanearHoraConfirmada(userId, reply);
+        if (_sh && _sh.corregidas && _sh.corregidas.length) reply = _sh.texto;
+      } catch (e) { console.error('saneo hora confirmada:', e.message); }
       try { _vigilarConfirmacionFalsa(userId, reply, _reservoEnEsteTurno); } catch (e) { console.error('vigilante:', e.message); }
       try { _vigilarCancelacionFalsa(userId, reply); } catch (e) { console.error('vigilante cancel:', e.message); }
       addToHistory(userId, 'assistant', reply);
