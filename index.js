@@ -168,7 +168,7 @@ const BENI_SEED = {
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true, // 🚀 LANZADA 28 ago 2026 (dirección real, 3 días)
-  campaignVersion: 'lapaz-2026-09d',   // 3 sep: San Borja pasa a dos días, lunes 7 y martes 8
+  campaignVersion: 'lapaz-2026-09e',   // 3 sep: San Borja pasa a dos días, lunes 7 y martes 8
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
@@ -177,7 +177,7 @@ const BENI_SEED = {
   subsedes: [
     { id: 'La Paz', nombre: 'La Paz', direccion: 'Av. 20 de Octubre Nro. 1756, casi esq. Conchitas — timbre Reyna y Harmonie, piso 2', telefonos: ['+591 76951552'] },
     { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
-    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 76951552'] }
+    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 76951552'], lat: -14.4435725, lng: -67.5279381 }
   ],
   dias: [
     { fecha: '2026-08-31', label: 'Lunes 31 de agosto', subsede: 'La Paz' },
@@ -765,7 +765,7 @@ function buildBeniSection(cfg, dispo, _rsvPropia) {
   s += '🎯 NO LE PIDAS QUE ELIJA: OFRÉCELE LA VALORACIÓN GRATIS (REGLA DURA): cuando alguien recién pregunta "¿qué tratamientos hay?" o "¿cuánto cuesta?", está averiguando — todavía NO puede elegir entre seis tratamientos ni sabe qué necesita. Si cierras con "¿cuál te llama la atención?" o "¿alguno te interesa?", le estás pidiendo una decisión que no puede tomar y la conversación se muere ahí (pasó con las tres personas del Beni el 2/09: las tres se fueron en el primer mensaje). En su lugar, usa la VALORACIÓN GRATIS como puerta de entrada, que no le cuesta nada decidir: cuéntale en una frase lo que preguntó y cierra ofreciéndole la valoración con día concreto (ej. "Justamente para eso la valoración con el especialista es GRATIS: él te dice qué te conviene y cuánto sería exactamente. El viernes estamos en San Borja, ¿te aparto una hora?"). Le pides venir a que le expliquen, no que decida sola. Solo cuando ELLA nombra un tratamiento concreto le das su precio, y ahí sí cierras pidiendo la reserva.\n\n';
   s += '👥 SI VIENEN VARIAS PERSONAS, AGENDA A TODAS (REGLA DURA): cuando diga "somos 2", "vamos 3", "voy con mi hermana", "con una amiga" o parecido, ⛔ NO lo dejes pasar ni agendes una sola cita. Es DOBLEMENTE importante: cada persona necesita SU PROPIA hora (el especialista atiende de a una), y además ahí se gana el 50% — si trae a alguien recomendado que se atienda, ELLA obtiene 50% OFF en su tratamiento. TU RESPUESTA en ese momento tiene que decir las DOS cosas, copia esta forma: "¡Qué bien! 💛 Como tu acompañante se atiende, TÚ te llevas el 50% de descuento en tu tratamiento. Necesito una hora para cada una: te dejo las 11:00 y las 12:00. ¿Me pasas los dos nombres?". Después llamas a crear_reserva_beni DOS VECES, una por cada persona con su propia hora. Pasó el 3/09: Branddy escribió "el lunes somos 2", se le agendó una sola cita y nunca se enteró de su 50%.\n\n';
   s += '🔄 SI NO LE SIRVE NINGUNA HORA, NO LA DEJES IR (REGLA DURA): antes de aceptar un "no gracias", ofrécele lo que todavía NO probó — los OTROS DÍAS y las OTRAS SEDES de la jornada. Muchas veces la hora que quiere SÍ está libre, pero en otro día. Recién si tampoco le sirve, ofrécele que le avises para la próxima jornada, y despídete con calidez. Pasó el 3/09: Nelly Poma pidió las 4 de la tarde del sábado y del domingo, ambas ocupadas; se le ofrecieron otras horas de ESOS dos días, nunca San Borja el lunes o el martes —donde las 4 estaban libres— y se fue.\n\n';
-  if (cfg.promo) s += 'Promo: ' + cfg.promo + '\n';
+  s += "📍 CUANDO PREGUNTEN CÓMO LLEGAR O POR LA UBICACIÓN: dale la dirección en texto Y agrega al final, en una línea aparte, el marcador [[UBICACION:<sede>]] con el nombre de la sede que corresponda (ej. [[UBICACION:Rurrenabaque]]). El sistema lo convierte en el PIN DEL MAPA, que ella abre en Google Maps o Waze y le traza la ruta desde donde esté — mucho más útil que el nombre del local escrito. Ponlo también cuando le confirmes una reserva, que es cuando más lo necesita. ⛔ NUNCA pegues un enlace de mapa en el texto: usa el marcador.\n\n";
 
   // Atención principal y derivación a secundarios (solo si la persona lo necesita)
   s += '\nATENCIÓN: TÚ (Valeria) eres la atención PRINCIPAL y respondes TODO; no derives por defecto. Si la persona necesita hablar con alguien del equipo, usa estas reglas por sub-sede:\n';
@@ -2474,6 +2474,26 @@ async function waSend(to, text) {
 
 // Botón "Llamar a Valeria" (WhatsApp interactive cta_url): abre la página correcta donde
 // están el botón Llamar, el calendario para agendar y el botón de WhatsApp para volver.
+// El pin del mapa: WhatsApp lo muestra como mapa y se abre en Google Maps o Waze con la
+// ruta desde donde esté la persona. Mucho más útil que el nombre del local en texto.
+async function waSendUbicacion(to, lat, lng, nombre, direccion) {
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+  try {
+    const r = await fetch(`https://graph.facebook.com/v25.0/${PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to: to, type: 'location',
+        location: { latitude: lat, longitude: lng, name: nombre || 'Harmonie', address: direccion || '' }
+      })
+    });
+    const data = await r.json().catch(function () { return {}; });
+    if (data && data.error) console.error('❌ ubicación a ' + to + ':', JSON.stringify(data.error).slice(0, 300));
+    return data;
+  } catch (err) { console.error('Error ubicación a ' + to + ':', err.message); return { error: { message: err.message } }; }
+}
+
 async function waSendCallButton(to, url, bodyText, label) {
   const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
   const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
@@ -2518,6 +2538,26 @@ function extraerMarcadorAgendar(text) {
   re.lastIndex = 0;
   var texto = String(text).replace(re, '').trim();
   return { texto: texto, url: url };
+}
+
+// [[UBICACION:San Borja]] → se envía el pin de esa sede como mensaje aparte.
+function extraerMarcadorUbicacion(text) {
+  if (!text) return { texto: text, sede: null };
+  const m = text.match(/\[\[\s*UBICACION\s*:\s*([^\]]+?)\s*\]\]/i);
+  const texto = text.replace(/\[\[\s*UBICACION\s*:[^\]]*\]\]/ig, '').trim();
+  return { texto: texto, sede: m ? m[1].trim() : null };
+}
+
+// Busca la sede en la config y devuelve sus coordenadas, si las tiene cargadas.
+function ubicacionDeSede(cfg, sede) {
+  if (!cfg || !sede) return null;
+  const s = String(sede).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const sub = (cfg.subsedes || []).find(function (x) {
+    const id = String(x.id || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return id === s || id.indexOf(s) !== -1 || s.indexOf(id) !== -1;
+  });
+  if (!sub || typeof sub.lat !== 'number' || typeof sub.lng !== 'number') return null;
+  return { lat: sub.lat, lng: sub.lng, nombre: sub.nombre || sub.id, direccion: sub.direccion || '' };
 }
 
 function extraerMarcadorLlamada(text) {
@@ -2685,13 +2725,19 @@ app.post('/webhook', async (req, res) => {
             await waTyping(message.id);
             const reply = await askValeria(`wa_${from}`, text, origenDesc);
             if (reply) {
-              const _ag = extraerMarcadorAgendar(reply);
+              const _ub = extraerMarcadorUbicacion(reply);
+              const _ag = extraerMarcadorAgendar(_ub.texto);
               const { texto, url } = extraerMarcadorLlamada(_ag.texto);
               const espera = typingDelay(texto || reply) - (Date.now() - t0);
               if (espera > 0) await sleep(espera);
               if (texto) await waSend(from, texto);
               if (_ag.url) await waSendCallButton(from, _ag.url, 'Mira el calendario y elige tu hora 👇', 'Agendar mi cita 📅');
               if (url) await waSendCallButton(from, url); // botón "Llamar a Valeria"
+              if (_ub.sede) {
+                const _loc = ubicacionDeSede(await getBeniConfig(), _ub.sede);
+                if (_loc) await waSendUbicacion(from, _loc.lat, _loc.lng, _loc.nombre, _loc.direccion);
+                else console.warn('📍 sin coordenadas cargadas para: ' + _ub.sede);
+              }
             }
           });
         }
