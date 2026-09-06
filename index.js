@@ -168,7 +168,7 @@ const BENI_SEED = {
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true, // 🚀 LANZADA 28 ago 2026 (dirección real, 3 días)
-  campaignVersion: 'lapaz-2026-09e',   // 3 sep: San Borja pasa a dos días, lunes 7 y martes 8
+  campaignVersion: 'lapaz-2026-09f',   // 3 sep: San Borja pasa a dos días, lunes 7 y martes 8
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
@@ -176,7 +176,7 @@ const BENI_SEED = {
   rutaMinisitio: 'lapaz', // ruta del minisitio que Valeria comparte para agendar (por campaña; cae a slug si falta)
   subsedes: [
     { id: 'La Paz', nombre: 'La Paz', direccion: 'Av. 20 de Octubre Nro. 1756, casi esq. Conchitas — timbre Reyna y Harmonie, piso 2', telefonos: ['+591 76951552'] },
-    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'], lat: -14.8570042, lng: -66.7507243 },
+    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Spa Kamajal', telefonos: ['+591 76951552'], lat: -14.8570042, lng: -66.7507243 },
     { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 76951552'], lat: -14.4435725, lng: -67.5279381 }
   ],
   dias: [
