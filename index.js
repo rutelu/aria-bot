@@ -2569,7 +2569,7 @@ async function ubicacionATexto(text) {
   try { loc = ubicacionDeSede(await getBeniConfig(), u.sede); } catch (e) {}
   // Se reemplaza EN SU LUGAR, no al final: si no, el enlace queda suelto después de la
   // despedida y donde estaba el marcador queda un hueco.
-  const reemplazo = loc ? ('📍 ' + (loc.nombre || u.sede) + (loc.direccion ? (' — ' + loc.direccion) : '') + '\n' + 'https://www.google.com/maps?q=' + loc.lat + ',' + loc.lng) : '';
+  const reemplazo = loc ? ('📍 ' + (loc.nombre || u.sede) + (loc.direccion ? (' — ' + loc.direccion) : '') + '\n' + 'https://www.google.com/maps/place/' + loc.lat + ',' + loc.lng + '/@' + loc.lat + ',' + loc.lng + ',18z') : '';
   return String(text).replace(/\[\[\s*UBICACION\s*:[^\]]*\]\]/ig, reemplazo).replace(/\n{3,}/g, '\n\n').trim();
 }
 
