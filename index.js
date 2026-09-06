@@ -2485,7 +2485,7 @@ async function waSendUbicacion(to, lat, lng, nombre, direccion) {
       headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         messaging_product: 'whatsapp', to: to, type: 'location',
-        location: { latitude: lat, longitude: lng, name: nombre || 'Harmonie', address: direccion || '' }
+        location: { latitude: lat, longitude: lng }
       })
     });
     const data = await r.json().catch(function () { return {}; });
