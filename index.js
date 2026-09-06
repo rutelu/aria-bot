@@ -176,7 +176,7 @@ const BENI_SEED = {
   rutaMinisitio: 'lapaz', // ruta del minisitio que Valeria comparte para agendar (por campaña; cae a slug si falta)
   subsedes: [
     { id: 'La Paz', nombre: 'La Paz', direccion: 'Av. 20 de Octubre Nro. 1756, casi esq. Conchitas — timbre Reyna y Harmonie, piso 2', telefonos: ['+591 76951552'] },
-    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'] },
+    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Kamahal', telefonos: ['+591 76951552'], lat: -14.8570042, lng: -66.7507243 },
     { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 76951552'], lat: -14.4435725, lng: -67.5279381 }
   ],
   dias: [
