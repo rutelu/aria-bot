@@ -2416,7 +2416,7 @@ bot.on('message', async (msg) => {
   console.log(`📱 Telegram de ${chatId}: ${text}`);
   const t0 = Date.now();
   bot.sendChatAction(chatId, 'typing');
-  const reply = await askValeria(`tg_${chatId}`, text);
+  const reply = await ubicacionATexto((await askValeria(`tg_${chatId}`, text)) || '');
   if (reply) {
     const { texto, url } = extraerMarcadorLlamada(reply);
     const msg = url ? (texto + '\n👉 ' + url) : texto;
@@ -2558,6 +2558,18 @@ function ubicacionDeSede(cfg, sede) {
   });
   if (!sub || typeof sub.lat !== 'number' || typeof sub.lng !== 'number') return null;
   return { lat: sub.lat, lng: sub.lng, nombre: sub.nombre || sub.id, direccion: sub.direccion || '' };
+}
+
+// Para todo lo que NO es WhatsApp: el marcador se vuelve un enlace de Google Maps.
+// Nunca puede quedar visible tal cual (pasó en el chat web el 6/09).
+async function ubicacionATexto(text) {
+  const u = extraerMarcadorUbicacion(text);
+  if (!u.sede) return text;
+  let loc = null;
+  try { loc = ubicacionDeSede(await getBeniConfig(), u.sede); } catch (e) {}
+  if (!loc) return u.texto;
+  const enlace = 'https://www.google.com/maps?q=' + loc.lat + ',' + loc.lng;
+  return (u.texto + '\n\n📍 ' + (loc.nombre || u.sede) + (loc.direccion ? (' — ' + loc.direccion) : '') + '\n' + enlace).trim();
 }
 
 function extraerMarcadorLlamada(text) {
@@ -2759,7 +2771,7 @@ app.post('/webhook', async (req, res) => {
           await fbAction(userId, 'typing_on');
           const reply = await askValeria(`fb_${userId}`, text);
           if (reply) {
-            const { texto, url } = extraerMarcadorLlamada(reply);
+            const { texto, url } = extraerMarcadorLlamada(await ubicacionATexto(reply));
             const msg = url ? (texto + '\n👉 ' + url) : texto;
             const espera = typingDelay(msg) - (Date.now() - t0);
             if (espera > 0) await sleep(espera);
@@ -2782,7 +2794,7 @@ app.post('/webhook', async (req, res) => {
           console.log(`📸 Instagram DM de ${userId}: ${text}`);
           const t0 = Date.now();
           await igAction(userId, 'typing_on');
-          const reply = await askValeria(`ig_${userId}`, text);
+          const reply = await ubicacionATexto((await askValeria(`ig_${userId}`, text)) || '');
           if (reply) {
             const { texto, url } = extraerMarcadorLlamada(reply);
             const msg = url ? (texto + '\n👉 ' + url) : texto;
@@ -2875,7 +2887,7 @@ app.post('/chat', async (req, res) => {
       return res.json({ answer: 'Ahora mismo tengo mucha demanda. Escríbeme por WhatsApp ' + WA + ' y te atiendo enseguida. 💬' });
     }
     const answer = (data.content && data.content[0] && data.content[0].text) || ('Disculpa, no pude procesar tu consulta. Escríbenos por WhatsApp ' + WA + '.');
-    res.json({ answer: _fmtSalida(answer, 'web') });
+    res.json({ answer: _fmtSalida(await ubicacionATexto(answer), 'web') });
   } catch (e) {
     console.error('/chat:', e);
     res.json({ answer: 'Estamos con mucha demanda ahora. Escríbenos por WhatsApp ' + WA + ' y te atendemos enseguida. 💬' });
