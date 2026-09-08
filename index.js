@@ -168,12 +168,12 @@ const BENI_SEED = {
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true, // 🚀 LANZADA 28 ago 2026 (dirección real, 3 días)
-  campaignVersion: 'lapaz-2026-09g',   // 8 sep: se suma el miércoles 9 en San Borja, hasta las 15:00
+  campaignVersion: 'lapaz-2026-09h',   // 8 sep: los enlaces de Valeria van a /beni (/lapaz mostraba la jornada finalizada)
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
-  slug: 'lp', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
-  rutaMinisitio: 'lapaz', // ruta del minisitio que Valeria comparte para agendar (por campaña; cae a slug si falta)
+  slug: 'beni', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
+  rutaMinisitio: 'beni', // ruta que Valeria comparte. ⚠️ Debe ser la de la sede que se ATIENDE HOY: /lapaz mostraba 'Jornada finalizada' desde que la campaña paso al Beni
   subsedes: [
     { id: 'La Paz', nombre: 'La Paz', direccion: 'Av. 20 de Octubre Nro. 1756, casi esq. Conchitas — timbre Reyna y Harmonie, piso 2', telefonos: ['+591 76951552'] },
     { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Spa Kamajal', telefonos: ['+591 76951552'], lat: -14.8570042, lng: -66.7507243 },
