@@ -3288,6 +3288,34 @@ app.get('/debug/test-confirmacion', async (req, res) => {
 });
 
 // INSPECCIÓN de una plantilla (para diagnosticar el botón): /debug/tpl?key=diag-9x[&name=confirmacion_jornada]
+// GET /debug/plantillas?key=diag-9x  → todas las plantillas y su estado en Meta.
+// WHATSAPP_WABA_ID no sirve para esto (tiene el id del teléfono, no el de la cuenta),
+// así que la cuenta se descubre preguntándole al propio token por sus permisos.
+app.get('/debug/plantillas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN;
+  if (!TOKEN) return res.json({ error: 'falta WHATSAPP_TOKEN' });
+  try {
+    const dt = await fetch('https://graph.facebook.com/v25.0/debug_token?input_token=' + TOKEN + '&access_token=' + TOKEN);
+    const dj = await dt.json();
+    const scopes = ((dj.data || {}).granular_scopes) || [];
+    const ids = [];
+    scopes.forEach(function (g) {
+      if (/whatsapp_business/.test(g.scope || '')) (g.target_ids || []).forEach(function (i) { if (ids.indexOf(i) === -1) ids.push(i); });
+    });
+    const salida = [];
+    for (const id of ids) {
+      const r = await fetch('https://graph.facebook.com/v25.0/' + id + '/message_templates?limit=50&fields=name,status,language,components', { headers: { Authorization: 'Bearer ' + TOKEN } });
+      const j = await r.json();
+      if (j && j.data) j.data.forEach(function (t) {
+        const body = (t.components || []).filter(function (c) { return c.type === 'BODY'; }).map(function (c) { return c.text; }).join(' ');
+        salida.push({ waba: id, nombre: t.name, estado: t.status, idioma: t.language, texto: body });
+      });
+    }
+    res.json({ cuentas: ids, plantillas: salida });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/tpl', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const TOKEN = process.env.WHATSAPP_TOKEN, WABA = process.env.WHATSAPP_WABA_ID;
