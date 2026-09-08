@@ -1007,7 +1007,17 @@ function resolverFecha(fechaArg, subsede, cfg) {
   if (ex) return ex.fecha;
   var m = f.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (m) { var norm = m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2); var n = dias.find(function(d) { return d.fecha === norm; }); if (n) return n.fecha; }
-  var dm = f.match(/(\d{1,2})/);
+  // Los modelos escriben el AÑO mal muy seguido ("2025-09-06" por "2026-09-06"). Si el mes y
+  // el día coinciden con un día de la jornada, es ese día. Sin esto la fecha no resolvía y
+  // Valeria llegaba a decir que un día CON horas libres no era de la jornada (llamada del 6 sep).
+  if (m) {
+    var md = ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+    var porMesDia = dias.find(function(d) { return d.fecha.slice(5) === md; });
+    if (porMesDia) return porMesDia.fecha;
+  }
+  // Un número suelto ("el 6") se lee como día del mes. Ojo: solo si NO vino una fecha completa,
+  // porque de "2025-09-06" esta expresión sacaba "20" y buscaba el día 20.
+  var dm = !m && f.match(/(\d{1,2})/);
   if (dm) { var dd = ('0' + dm[1]).slice(-2); var byDay = dias.find(function(d) { return d.fecha.slice(-2) === dd; }); if (byDay) return byDay.fecha; }
   return f;
 }
@@ -1040,7 +1050,11 @@ async function toolConsultarDisponibilidad(args, cfg) {
     } else if (diaCfg) {
       consulta_fecha = { estado: 'vigente', fecha: frPed, label: diaCfg.label };
     } else {
-      consulta_fecha = { estado: 'fuera_de_jornada', mensaje: 'Ese día NO es parte de la jornada. Ofrécele SOLO los días de la jornada que estén vigentes.' };
+      // Red de seguridad: aunque no se entienda la fecha pedida, este aviso NUNCA debe hacerle
+      // negar días que sí existen. Por eso se los nombra aquí mismo.
+      const _vig = diasVigentes(cfg).map(function (d) { return (d.label || d.fecha) + " en " + d.subsede; }).join("; ");
+      consulta_fecha = { estado: 'fuera_de_jornada', dias_vigentes: _vig,
+        mensaje: 'No pude identificar ESA fecha como día de la jornada. ⛔ NO le digas que la jornada terminó ni que no hay horas: mira la lista "disponibilidad" de esta misma respuesta, que es la que manda, y ofrécele con calidez los días que aparecen ahí' + (_vig ? (' (' + _vig + ')') : '') + '.' };
     }
   }
   const horas = cfg.horas || [];
