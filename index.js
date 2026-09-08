@@ -3623,6 +3623,8 @@ app.get('/debug/plantilla-zona', async (req, res) => {
   const plantilla = String(req.query.plantilla || '').trim();
   if (!plantilla) return res.status(200).json({ error: 'falta ?plantilla=nombre_de_la_plantilla' });
   const zona = String(req.query.zona || 'beni').toLowerCase();
+  // &reenviar=N → incluye también a quien ya recibió una plantilla, si fue hace N días o más.
+  const reenviarDias = Number(req.query.reenviar || 0) || 0;
   const cfg = await getBeniConfig();
 
   // Las sedes de esa zona y sus días vigentes → el texto de la variable {{2}}.
@@ -3644,7 +3646,10 @@ app.get('/debug/plantilla-zona', async (req, res) => {
   const PISTAS = zona === 'beni' ? ['rurrenabaque', 'rurre', 'san borja', 'sanborja', 'yucumo', 'reyes', 'santa ana', 'trinidad'] : SEDES.map(function (x) { return x.toLowerCase(); });
   const conReserva = new Set();
   (await getReservasConfirmadas()).forEach(function (r) {
-    if ((r.fecha || '') >= hoyISO) { const t = String(r.telefono || '').replace(/\D/g, '').slice(-8); if (t) conReserva.add(t); }
+    const t = String(r.telefono || '').replace(/\D/g, '').slice(-8);
+    if (!t) return;
+    // Con &reenviar también se excluye a quien YA se atendió en un día anterior: ya vino.
+    if ((r.fecha || '') >= hoyISO || reenviarDias) conReserva.add(t);
   });
 
   const elegidos = [], descartados = { ya_reservo: 0, no_seguir: 0, sin_pista: 0, ventana_abierta: 0, ya_enviado: 0 };
@@ -3657,7 +3662,11 @@ app.get('/debug/plantilla-zona', async (req, res) => {
     if (!tel8 || tel8 === '78922666' || tel8 === '76951552') continue;
     if (c.noSeguir === true) { descartados.no_seguir++; continue; }
     if (conReserva.has(tel8)) { descartados.ya_reservo++; continue; }
-    if (c.plantillaZonaAt) { descartados.ya_enviado++; continue; }
+    if (c.plantillaZonaAt) {
+      const pz = c.plantillaZonaAt.toDate ? c.plantillaZonaAt.toDate() : null;
+      const diasDesde = pz ? (ahora - pz.getTime()) / 86400000 : 0;
+      if (!reenviarDias || diasDesde < reenviarDias) { descartados.ya_enviado++; continue; }
+    }
     const lu = c.lastUserMsgAt && c.lastUserMsgAt.toDate ? c.lastUserMsgAt.toDate() : null;
     const horas = lu ? (ahora - lu.getTime()) / 3600000 : 9999;
     // Si la ventana sigue abierta no hace falta plantilla: para esos está /debug/reenganche.
