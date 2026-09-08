@@ -1107,16 +1107,18 @@ async function toolConsultarDisponibilidad(args, cfg) {
     // MISMA regla que crear_reserva: excluir horas donde el ESPECIALISTA de la campaña ya está ocupado
     // por una cita general (presencial o virtual). Evita ofrecer horas que luego se rechazan al agendar.
     const libresReal = [];
-    for (const h of libres) {
+    for (const h of libres.concat(enGracia).sort()) {
       if (!(await especialistaOcupado(cfg.especialidadId, d.fecha, h, 60))) libresReal.push(h);
     }
+    // Las de tolerancia siguen marcadas aparte, pero solo para saber CÓMO ofrecerlas.
+    enGracia = enGracia.filter(function (h) { return libresReal.indexOf(h) !== -1; });
     if (!libresReal.length && !vencidas.length && !enGracia.length) continue;
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === d.subsede; }) || {};
     const entry = { subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libresReal };
     if (vencidas.length) entry.horas_ya_pasaron = vencidas; // horas de HOY que ya pasaron (vencidas, no ocupadas)
     if (enGracia.length) {
       entry.horas_recien_pasadas = enGracia;
-      entry.nota_horas_recien_pasadas = 'Estas horas de hoy ya pasaron pero SÍ se pueden agendar todavía (menos de 30 minutos). Si la persona quiere una de ellas, agéndasela: avísale con calidez que esa hora ya pasó pero que aún llega a tiempo para su tratamiento, y pídele que venga cuanto antes.';
+      entry.nota_horas_recien_pasadas = 'OJO: estas horas YA ESTÁN incluidas en horas_libres y SÍ se pueden reservar (vencieron hace menos de 30 minutos). Ofrécelas con normalidad, solo que avisando: dile con calidez que esa hora ya pasó pero que todavía llega a tiempo para su tratamiento, y pídele que venga cuanto antes. ⛔ Nunca digas que no hay disponibilidad si esta lista tiene horas.';
     }
     result.push(entry);
   }
@@ -1605,11 +1607,11 @@ async function toolConsultarDisponibilidadSede(args) {
       vencidas = libres.filter(function(h) { return h <= ahoraHHMM && enGracia2.indexOf(h) === -1; });
       libres = libres.filter(function(h) { return h > ahoraHHMM; });
     }
-    const entry = { fecha: d.fecha, label: d.label, horas_libres: libres };
+    const entry = { fecha: d.fecha, label: d.label, horas_libres: libres.concat(enGracia2).sort() };
     if (vencidas.length) entry.horas_ya_pasaron = vencidas;
     if (enGracia2.length) {
       entry.horas_recien_pasadas = enGracia2;
-      entry.nota_horas_recien_pasadas = 'Ya pasaron pero por menos de 30 minutos: SÍ se pueden agendar. Avísale que la hora venció y que aún llega a tiempo.';
+      entry.nota_horas_recien_pasadas = 'OJO: ya están incluidas en horas_libres y SÍ se pueden agendar (vencieron hace menos de 30 minutos). Ofrécelas avisando que la hora pasó pero que todavía llega a tiempo.';
     }
     out.push(entry);
   }
