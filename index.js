@@ -580,6 +580,25 @@ function diasVigentes(cfg) {
   return (cfg && cfg.dias ? cfg.dias : []).filter(function(d) { return d.fecha >= hoy; });
 }
 // Hora actual de Bolivia en formato "HH:MM" (para no ofrecer horas que ya pasaron hoy).
+// TOLERANCIA DE LLEGADA TARDE: una hora recién pasada NO se rechaza. Si la persona
+// pide las 15:00 a las 15:20 y esa hora sigue libre, se le agenda avisándole que
+// venció pero que todavía llega. Pasados los 30 minutos ya no alcanza el tratamiento.
+const GRACIA_MIN = 30;
+
+// Minutos transcurridos desde esa hora de HOY. Negativo si todavía no llegó.
+function _minutosDesde(fecha, hora) {
+  if (fecha !== fechaBoliviaISO()) return null;
+  const a = _hhmmAMin(horaBoliviaHHMM()), h = _hhmmAMin(hora);
+  if (a == null || h == null) return null;
+  return a - h;
+}
+
+// ¿Esa hora ya pasó pero todavía entra en la tolerancia?
+function _enGracia(fecha, hora) {
+  const m = _minutosDesde(fecha, hora);
+  return m !== null && m > 0 && m <= GRACIA_MIN;
+}
+
 function horaBoliviaHHMM() {
   const ahora = new Date(Date.now() - 4 * 60 * 60 * 1000);
   return String(ahora.getUTCHours()).padStart(2,'0') + ':' + String(ahora.getUTCMinutes()).padStart(2,'0');
@@ -759,6 +778,8 @@ function buildBeniSection(cfg, dispo, _rsvPropia) {
   s += '⏳ "TE CONFIRMO AL MEDIODÍA" NO ES UN HORARIO (REGLA DURA): cuando la persona dice "te confirmo al mediodía", "le confirmo hasta el mediodía", "te aviso más tarde", "te digo en la tarde" o "déjame ver y te escribo", te está diciendo CUÁNDO TE VA A RESPONDER, NO a qué hora quiere su cita. ⛔ NO le ofrezcas horas de esa franja ni des por hecho que ya eligió horario: se siente no escuchada y se va. Respóndele con calidez que quedas atenta, SIN volver a listar horas y SIN presionarla (ej. "Perfecto Ana, quedo atenta a tu confirmación 💛 Solo ten en cuenta que los cupos se van tomando, así que apenas sepas avísame y te la reservo"). CÓMO DISTINGUIRLO: si el verbo es CONFIRMAR, AVISAR, RESPONDER, DECIR o ESCRIBIR, habla de cuándo te contesta; solo es horario de la cita si dice "quiero", "prefiero", "me viene bien", "resérvame" o "a las…".\n';
   s += '📵 NUNCA LE PIDAS EL TELÉFONO POR CHAT (REGLA DURA): te está escribiendo DESDE su WhatsApp, así que su número YA lo tienes. Preguntarle "¿te agendo con este número o prefieres otro?" es un paso de más justo en el momento de cerrar, y ahí se pierden las reservas: a Rosa (31 ago) ya le tenías tratamiento, día, hora y nombre, le preguntaste por el número y no volvió a responder. En cuanto tengas TRATAMIENTO + DÍA + HORA + NOMBRE, llama a crear_reserva_beni de INMEDIATO con el número desde el que te escribe. Solo pides otro número si ELLA te lo ofrece. ⚠️ DOS EXCEPCIONES donde SÍ tienes que pedirlo, porque ahí NO lo tenemos: el CHAT DE LA WEB (harmonieinstitute.com) y las LLAMADAS DE VOZ. En esos dos casos pídeselo con naturalidad, ADVIRTIENDO SIEMPRE lo del código de país en la MISMA pregunta (ej. "¿Me pasas tu número de WhatsApp? Si es de otro país, con el código incluido 😊") y repíteselo para confirmar. Eso evita que te dicte un número extranjero suelto: sin el código no podríamos escribirle, y el sistema te lo va a rechazar.\n\n';
   s += '🤔 NO DES POR ACEPTADO LO QUE NO TE DIJERON (REGLA DURA): trata un horario como aceptado SOLO si te respondió algo inequívoco ("sí", "dale", "perfecto", "esa", "a las 2", "resérvame"). Frases sueltas como "estoy por acá", "ya veo", "ah ok" o "mmm" NO son un sí. Si no entendiste, PREGUNTA en una frase corta ("¿Te la reservo entonces a las 14:00?") en lugar de avanzar como si hubiera aceptado. A Rosa le confirmaste un horario que ella nunca eligió y la conversación se enredó.\n\n';
+  s += '⏱️ LA HORA RECIÉN PASADA NO SE NIEGA (REGLA DURA): si alguien pide una hora de HOY que acaba de pasar y sigue libre, AGÉNDASELA. La herramienta te la devuelve en "horas_recien_pasadas" (y el veredicto dice "hora_recien_pasada"): son horas vencidas hace MENOS de 30 minutos. Díselo con calidez —que esa hora ya pasó pero que TODAVÍA está a tiempo de hacerse su tratamiento— y pídele que venga cuanto antes. ⛔ NUNCA le digas que no hay espacio por eso. Pasados los 30 minutos sí se le explica, con amabilidad, que a esa altura ya no alcanzaría a realizarse el tratamiento, y se le ofrece otra hora.',
+  s += '\n\n';
   s += '⌛ "YA PASÓ" Y "ESTÁ OCUPADO" SON COSAS DISTINTAS (REGLA DURA): si una hora todavía no llegó pero está tomada, di que está OCUPADA o que ya se llenó — NUNCA que "ya pasó". Decirle a alguien a las 12:37 que "los horarios de esta tarde ya pasaron" es falso, se nota, y suena a excusa para no atenderla. Y al revés: si la hora sí venció, di que ya pasó, no que está ocupada. Si quiere venir HOY y hoy ya no quedan cupos, díselo con claridad y calidez ("hoy ya se nos llenó la agenda"), sin inventar que el día terminó.\n\n';
   s += '🎯 CONTESTA LA PREGUNTA QUE TE HICIERON, NO OTRA: si te pide HORARIOS, dale horarios; si te pide PRECIOS, dale precios. Rosa escribió "dígame de los horarios" y le respondiste el precio de los hilos con los descuentos: se quedó sin lo que pidió y la conversación se estancó. Y si quedó una pregunta suya sin responder, retómala tú antes de seguir con lo tuyo.\n\n';
   s += '📝 EL NOMBRE, CON CALIDEZ: si te da solo el nombre de pila, no respondas seco "necesito tu nombre completo". Pídele el apellido con simpatía y diciendo para qué (ej. "¡Gracias Rosa! ¿Me pasas tu apellido para dejar la reserva a tu nombre? 😊"). Y si insiste en darte solo el nombre, RESERVA IGUAL con lo que te dio: mejor una cita a nombre de "Rosa" que una paciente perdida por un apellido.\n\n';
@@ -1045,8 +1066,11 @@ async function toolConsultarDisponibilidad(args, cfg) {
     const horaPed = String(args.hora || '').trim() ? normalizarHora(args.hora, cfg.horas) : null;
     if (diaCfg && frPed < hoyISO) {
       consulta_fecha = { estado: 'fecha_vencida', fecha: frPed, label: diaCfg.label, mensaje: 'La fecha que pidió (' + diaCfg.label + ') YA PASÓ / ya venció. Aclárale eso PRIMERO con calidez y ofrécele SOLO los días vigentes.' };
+    } else if (diaCfg && frPed === hoyISO && horaPed && _enGracia(frPed, horaPed)) {
+      consulta_fecha = { estado: 'hora_recien_pasada', fecha: frPed, hora: horaPed, minutos: _minutosDesde(frPed, horaPed),
+        mensaje: 'Las ' + horaPed + ' ya pasaron (ahora son las ' + ahoraHHMM + '), pero por POCO: TODAVÍA SE LE PUEDE AGENDAR si esa hora está libre. Díselo con calidez —que la hora ya venció pero que aún está a tiempo de hacerse su tratamiento— y pídele que venga cuanto antes. ⛔ NO se la niegues.' };
     } else if (diaCfg && frPed === hoyISO && horaPed && horaPed <= ahoraHHMM) {
-      consulta_fecha = { estado: 'hora_vencida', fecha: frPed, hora: horaPed, mensaje: 'Las ' + horaPed + ' de hoy YA PASARON (ahora son las ' + ahoraHHMM + '). Aclárale que esa hora ya venció y ofrécele horas posteriores (de hoy si quedan, o de otro día vigente).' };
+      consulta_fecha = { estado: 'hora_vencida', fecha: frPed, hora: horaPed, mensaje: 'Las ' + horaPed + ' de hoy YA PASARON hace más de media hora (ahora son las ' + ahoraHHMM + '). A esta altura ya no alcanzaría a hacerse el tratamiento: díselo con calidez y ofrécele horas posteriores (de hoy si quedan, o de otro día vigente).' };
     } else if (diaCfg) {
       consulta_fecha = { estado: 'vigente', fecha: frPed, label: diaCfg.label };
     } else {
@@ -1073,9 +1097,11 @@ async function toolConsultarDisponibilidad(args, cfg) {
   for (const d of dias) {
     let libres = horas.filter(function(h) { return !ocupados.has(beniSlotId(d.fecha, h)); });
     // Si el día es HOY: separa las horas que YA PASARON (para poder decir "esa hora ya venció", NO "ocupada").
-    let vencidas = [];
+    let vencidas = [], enGracia = [];
     if (d.fecha === hoyISO) {
-      vencidas = libres.filter(function(h) { return h <= ahoraHHMM; });
+      // Recién pasadas (hasta 30 min): SE PUEDEN agendar, avisando. Más viejas: no.
+      enGracia = libres.filter(function(h) { return _enGracia(d.fecha, h); });
+      vencidas = libres.filter(function(h) { return h <= ahoraHHMM && enGracia.indexOf(h) === -1; });
       libres = libres.filter(function(h) { return h > ahoraHHMM; });
     }
     // MISMA regla que crear_reserva: excluir horas donde el ESPECIALISTA de la campaña ya está ocupado
@@ -1084,10 +1110,14 @@ async function toolConsultarDisponibilidad(args, cfg) {
     for (const h of libres) {
       if (!(await especialistaOcupado(cfg.especialidadId, d.fecha, h, 60))) libresReal.push(h);
     }
-    if (!libresReal.length && !vencidas.length) continue;
+    if (!libresReal.length && !vencidas.length && !enGracia.length) continue;
     const sub = (cfg.subsedes || []).find(function(s) { return s.id === d.subsede; }) || {};
     const entry = { subsede: d.subsede, direccion: sub.direccion || '', fecha: d.fecha, label: d.label, horas_libres: libresReal };
     if (vencidas.length) entry.horas_ya_pasaron = vencidas; // horas de HOY que ya pasaron (vencidas, no ocupadas)
+    if (enGracia.length) {
+      entry.horas_recien_pasadas = enGracia;
+      entry.nota_horas_recien_pasadas = 'Estas horas de hoy ya pasaron pero SÍ se pueden agendar todavía (menos de 30 minutos). Si la persona quiere una de ellas, agéndasela: avísale con calidez que esa hora ya pasó pero que aún llega a tiempo para su tratamiento, y pídele que venga cuanto antes.';
+    }
     result.push(entry);
   }
   // ¿Preguntó por una hora intermedia (15:45)? Le damos ya masticadas las dos horas
@@ -1166,9 +1196,9 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsede && d.fecha === fecha; });
   const horaOk = _horaJornadaValida(hora, cfg.horas);
   if (!diaOk || !horaOk) return { error: 'Ese día/hora no es parte de la jornada activa. Ofrece un día y hora válidos de la campaña.' };
-  // No permitir reservar una fecha/hora que ya pasó.
-  if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM())) {
-    return { error: 'Ese horario ya pasó. Ofrece un día y hora vigentes (de hoy en adelante).' };
+  // Una hora recién pasada SÍ se agenda (tolerancia de llegada tarde); más vieja, no.
+  if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM() && !_enGracia(fecha, hora))) {
+    return { error: 'Ese horario pasó hace más de media hora, ya no alcanzaría a hacerse el tratamiento. Ofrece un día y hora vigentes.' };
   }
 
   const slotId = beniSlotId(fecha, hora);
@@ -1325,8 +1355,8 @@ async function toolReagendarReserva(args, cfg) {
     const diaOk = (cfg.dias || []).some(function(d) { return d.subsede === subsedeNueva && d.fecha === fechaNueva; });
     const horaOk = _horaJornadaValida(horaNueva, cfg.horas);
     if (!diaOk || !horaOk) return { error: 'El nuevo día/hora no es parte de la jornada vigente. Ofrece un día y hora válidos.' };
-    if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM())) {
-      return { error: 'El nuevo horario ya pasó. Ofrece uno de hoy en adelante.' };
+    if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM() && !_enGracia(fechaNueva, horaNueva))) {
+      return { error: 'El nuevo horario pasó hace más de media hora. Ofrece uno de hoy en adelante.' };
     }
     const cupoNuevo = await db.collection('cupos_ocupados').doc(newSlot).get();
     if (cupoNuevo.exists && cupoNuevo.data().bloqueadoPor !== oldSlot) return { error: 'El nuevo horario ya está ocupado. Ofrece otro libre.' };
@@ -1569,9 +1599,18 @@ async function toolConsultarDisponibilidadSede(args) {
     const ocup = (await gcalHorasOcupadas(sc.calendarId, d.fecha)).concat(await citasHorasOcupadas(sede, d.fecha));
     let libres = (cfg.horas || []).filter(function(h) { return ocup.indexOf(h) === -1; });
     let vencidas = [];
-    if (d.fecha === hoy) { vencidas = libres.filter(function(h) { return h <= ahoraHHMM; }); libres = libres.filter(function(h) { return h > ahoraHHMM; }); }
+    let enGracia2 = [];
+    if (d.fecha === hoy) {
+      enGracia2 = libres.filter(function(h) { return _enGracia(d.fecha, h); });
+      vencidas = libres.filter(function(h) { return h <= ahoraHHMM && enGracia2.indexOf(h) === -1; });
+      libres = libres.filter(function(h) { return h > ahoraHHMM; });
+    }
     const entry = { fecha: d.fecha, label: d.label, horas_libres: libres };
     if (vencidas.length) entry.horas_ya_pasaron = vencidas;
+    if (enGracia2.length) {
+      entry.horas_recien_pasadas = enGracia2;
+      entry.nota_horas_recien_pasadas = 'Ya pasaron pero por menos de 30 minutos: SÍ se pueden agendar. Avísale que la hora venció y que aún llega a tiempo.';
+    }
     out.push(entry);
   }
   return { sede: sede, direccion: sc.direccion, disponibilidad: out, hora_actual_bolivia: ahoraHHMM };
@@ -1757,8 +1796,8 @@ async function toolCrearCita(args, canal) {
   const nombre = (args.nombre || '').trim(), telefono = (args.telefono || '').trim();
   const fecha = (args.fecha || '').trim(), hora = normalizarHora(args.hora, cfg.horas);
   if (!nombre || !telefono || !fecha || !hora) return { error: 'Necesito nombre completo, teléfono, fecha y hora.' };
-  if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM())) {
-    return { error: 'Ese horario ya pasó. Ofrece uno de hoy en adelante.' };
+  if (fecha < fechaBoliviaISO() || (fecha === fechaBoliviaISO() && hora <= horaBoliviaHHMM() && !_enGracia(fecha, hora))) {
+    return { error: 'Ese horario pasó hace más de media hora. Ofrece uno de hoy en adelante.' };
   }
   const virtual = esModalidadVirtual(args.modalidad) || esModalidadVirtual(args.sede) || esModalidadVirtual(args.plataforma);
   let sede, modalidad;
@@ -1848,7 +1887,7 @@ async function toolReagendarCita(args) {
     const found = await _buscarCitaDoc(args.telefono, fechaAct, horaAct);
     if (!found) return { error: 'No encontré la cita actual (' + fechaAct + ' ' + horaAct + '). Verifica con la persona.' };
     const c = found.data;
-    if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM())) return { error: 'El nuevo horario ya pasó. Ofrece uno de hoy en adelante.' };
+    if (fechaNueva < fechaBoliviaISO() || (fechaNueva === fechaBoliviaISO() && horaNueva <= horaBoliviaHHMM() && !_enGracia(fechaNueva, horaNueva))) return { error: 'El nuevo horario pasó hace más de media hora. Ofrece uno de hoy en adelante.' };
     const sede = args.sede_nueva ? resolverSedeGeneral(args.sede_nueva, cfg) : c.sede;
     if ((c.modalidad || 'presencial') !== 'virtual') {
       const sc = cfg.sedes && cfg.sedes[sede];
