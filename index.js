@@ -3583,6 +3583,17 @@ app.get('/debug/test-confirmacion', async (req, res) => {
 // El texto del cuerpo lo pone Meta y no se puede cambiar: es parte del formato.
 // Manda la plantilla del codigo y devuelve la respuesta CRUDA de Meta, para poder ver
 // el motivo exacto cuando no llega.
+// Que numero es el nuestro. Sirve para descartar lo obvio: WhatsApp no deja que un
+// numero se mande mensajes a si mismo, y el error que devuelve es generico.
+app.get('/debug/mi-numero', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '?fields=display_phone_number,verified_name,quality_rating', { headers: { Authorization: 'Bearer ' + TOKEN } });
+    res.json(await r.json());
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/probar-codigo', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
