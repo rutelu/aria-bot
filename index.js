@@ -2763,6 +2763,24 @@ function _portalCodigo() {
 
 function _portalTel8(t) { return String(t || "").replace(/\D/g, "").slice(-8); }
 
+// "juan  PEREZ de la cruz" → "Juan Perez de la Cruz"
+function _portalNombreBonito(nombre) {
+  const t = String(nombre || '').replace(/\s+/g, ' ').trim();
+  if (!t) return '';
+  const MIN = ['de', 'del', 'la', 'las', 'los', 'y'];
+  return t.split(' ').map(function (p, i) {
+    if (!p) return p;
+    if (i > 0 && MIN.indexOf(p.toLowerCase()) !== -1) return p.toLowerCase();
+    return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+// Un nombre sirve si trae nombre Y apellido: con "María" a secas no se distinguen dos.
+function _portalNombreValido(nombre) {
+  const t = String(nombre || '').replace(/\s+/g, ' ').trim();
+  return t.length >= 5 && t.indexOf(' ') !== -1;
+}
+
 // El texto del código. Corto y sin enlaces: es lo que se lee de un vistazo.
 function _portalTextoCodigo(codigo, nombre) {
   const hola = nombre ? ("Hola " + String(nombre).split(" ")[0] + " 💛") : "Hola 💛";
@@ -2842,10 +2860,13 @@ app.post('/portal/codigo', async (req, res) => {
     const datos = ficha.exists ? (ficha.data() || {}) : {};
 
     const codigo = _portalCodigo();
+    // El nombre queda guardado con el código y se usa al entrar, solo si la ficha
+    // todavía no tiene uno. A una paciente conocida no se le pisa el nombre.
     await db.collection('portal_codigos').doc(tel8).set({
       codigo: codigo,
       vence: Date.now() + PORTAL_CODIGO_MIN * 60000,
       intentos: 0,
+      nombreDado: _portalNombreBonito((req.body || {}).nombre),
       pedidoAt: new Date()
     });
     const enviado = await _portalEnviarCodigo(datos.telefono || tel8, codigo, datos.nombre || datos.patientName);
@@ -2889,13 +2910,20 @@ app.post('/portal/entrar', async (req, res) => {
     // Queda vacía a propósito — lo clínico lo llena quien la atienda, no el portal.
     const fref = db.collection('fichas').doc(tel8);
     const fsnap = await fref.get();
+    const fdatosPrev = fsnap.exists ? (fsnap.data() || {}) : {};
+    const nombrePrevio = String(fdatosPrev.nombre || fdatosPrev.patientName || '').trim();
+    const nombreDado = String(c.nombreDado || '').trim();
+
     if (!fsnap.exists) {
       await fref.set({
         id: tel8, telefono: b.telefono || tel8, phone: b.telefono || tel8,
-        nombre: '', patientName: '', patientEmail: '',
+        nombre: nombreDado, patientName: nombreDado, patientEmail: '',
         origen: 'Se registró desde el portal',
         creadaAt: new Date(), actualizadoAt: new Date()
       }, { merge: true });
+    } else if (!nombrePrevio && nombreDado) {
+      // Tenía ficha sin nombre (sembrada desde sus reservas, por ejemplo).
+      await fref.set({ nombre: nombreDado, patientName: nombreDado, actualizadoAt: new Date() }, { merge: true });
     }
     const token = require('crypto').randomBytes(24).toString('hex');
     await db.collection('portal_sesiones').doc(token).set({
@@ -2904,8 +2932,7 @@ app.post('/portal/entrar', async (req, res) => {
       creadaAt: new Date()
     });
     // Si la ficha no tiene nombre, la pantalla se lo va a pedir antes de mostrarle nada.
-    const fdatos = fsnap.exists ? (fsnap.data() || {}) : {};
-    const tieneNombre = String(fdatos.nombre || fdatos.patientName || '').trim().length > 2;
+    const tieneNombre = (nombrePrevio || nombreDado).length > 2;
     res.json({ ok: true, token: token, horas: PORTAL_SESION_HS, necesitaNombre: !tieneNombre });
   } catch (e) { console.error('/portal/entrar:', e.message); res.json({ ok: false, motivo: 'Algo falló, probá de nuevo.' }); }
 });
