@@ -834,17 +834,6 @@ function buildBeniSection(cfg, dispo, _rsvPropia) {
   s += 'SI PIDE OTRA FORMA DE AGENDAR (o prefiere hacerlo sola): respóndele CORTO y dale las DOS vias en el mismo mensaje: (a) el CALENDARIO: ⛔ NO pegues el enlace en el texto. Escribe al final, en una línea aparte y sola, el marcador [[AGENDAR]] — el sistema lo convierte en un BOTÓN que abre el calendario directo. NUNCA expliques ni menciones el marcador; y (b) hablar conmigo por voz, gratis, agregando en una linea aparte al final el marcador [[LLAMAR:beni]]. ⛔ NUNCA le mandes harmonieinstitute.com "pelado" ni el sitio general: siempre el enlace de ESTA jornada, que abre directo su calendario. Dos frases como maximo.\n';
   s += 'TELEFONO (WhatsApp): ya tenes su numero y NO se lo preguntas — ni siquiera para confirmar. Reservas directo con el numero del chat. Si ELLA te ofrece otro ("agendame con el 7...", "es para mi mama"), usas ese. En el CHAT DE LA WEB, Messenger, Instagram y Telegram SI hay que pedirselo, porque ahi no lo tenemos.\n';
   s += 'Usa SOLO las fechas vigentes listadas arriba. Apenas la reserva quede creada, confírmasela con entusiasmo (día, hora y sede) y recuérdale que con su reserva ya ganó el 20%, y el 50% si trae un recomendado que se atienda. Y cierra ese mismo mensaje con UNA frase tranquilizadora sobre como cambiar la cita: puede VER los horarios disponibles en ' + _ruta + ', y para hacer el cambio escribirte por aca o llamarte por voz gratis — para eso agrega al final, en una linea aparte, el marcador [[LLAMAR:beni]]. ⛔ NUNCA le digas que puede cambiar, mover o reprogramar su cita SOLA desde el calendario: el calendario solo sirve para VER la disponibilidad y crear reservas NUEVAS. El cambio lo haces TÚ. Si le dices lo contrario, entra al calendario, no encuentra cómo, y en el peor caso crea una segunda reserva y te ocupa dos cupos. Esto le baja la ansiedad de comprometerse con un horario y evita que falte sin avisar; aca SI conviene el enlace, porque la cita ya quedo hecha y no compite con la reserva.';
-  // Se arma desde FID_NIVELES: si manana cambian los niveles, cambia este texto solo.
-  s += '\nPROGRAMA DE FIDELIDAD (real, ya funcionando): nuestras pacientes acumulan puntos y suben de nivel. ' +
-       'Ganan ' + FID_PUNTOS.sesion + ' puntos por cada SESION REALIZADA y ' + FID_PUNTOS.recomendada +
-       ' por cada persona RECOMENDADA que venga y se atienda. Reservar una hora NO da puntos: los da atenderse. ' +
-       'Niveles: ' + FID_NIVELES.slice().reverse().map(function (v) { return v.nombre + ' (' + v.desde + ' pts)'; }).join(', ') + '. ' +
-       'Beneficios por nivel: ' + FID_NIVELES.slice().reverse().map(function (v) { return v.nombre + ': ' + v.beneficios.join(', '); }).join(' | ') + '. ' +
-       'Cada paciente ve sus puntos en su Area Paciente del sitio, entrando con su WhatsApp. ' +
-       '⛔ REGLA DURA: NUNCA digas de memoria cuantos puntos tiene alguien ni le prometas un nivel. ' +
-       'Si pregunta por SUS puntos, llama a consultar_puntos con su telefono y decile EXACTAMENTE lo que devuelva. ' +
-       'Si todavia no tiene puntos, no lo digas como un reproche: contale con entusiasmo que empiezan a sumar con su primera sesion.';
-
   s += 'REAGENDAR / CANCELAR: si la persona quiere cambiar o cancelar su cita (o el equipo te lo indica por instrucción especial), primero UBICA su reserva: usa buscar_reserva_beni con su teléfono, o pídele la fecha y hora actuales. CONFIRMA con ella cuál es la reserva antes de tocar nada. Para cancelar usa cancelar_reserva_beni; para mover, reagendar_reserva_beni (el nuevo horario debe estar libre y vigente). NUNCA canceles ni reagendes sin confirmar primero con la persona. Después, confírmale el cambio con calidez.';
   return s;
 }
@@ -2387,6 +2376,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
     + '\n' + SYSTEM_PROMPT
     + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.'
     + buildBeniSection(beniCfg, dispoBeni, rsvPropia)
+    + bloqueFidelidad()
     + espPauSection;
   if (instruccionEspecial) console.log('📝 Instrucción especial activa para ' + userId + ': ' + instruccionEspecial.substring(0, 80));
 
@@ -2836,6 +2826,21 @@ const FID_NIVELES = [
       "Te avisamos cuando la jornada llegue a tu ciudad" ] }
 ];
 
+// El texto que Valeria dice sobre el programa. Se arma desde FID_NIVELES para que
+// nunca contradiga lo que la paciente ve en su pantalla.
+// ⚠️ NO va dentro de buildBeniSection: esa funcion sale temprano cuando no hay
+// campaña activa, y el programa de fidelidad es permanente.
+function bloqueFidelidad() {
+  return '\nPROGRAMA DE FIDELIDAD (real, ya funcionando): nuestras pacientes acumulan puntos y suben de nivel. ' +
+       'Ganan ' + FID_PUNTOS.sesion + ' puntos por cada SESION REALIZADA y ' + FID_PUNTOS.recomendada +
+       ' por cada persona RECOMENDADA que venga y se atienda. Reservar una hora NO da puntos: los da atenderse. ' +
+       'Niveles: ' + FID_NIVELES.slice().reverse().map(function (v) { return v.nombre + ' (' + v.desde + ' pts)'; }).join(', ') + '. ' +
+       'Beneficios por nivel: ' + FID_NIVELES.slice().reverse().map(function (v) { return v.nombre + ': ' + v.beneficios.join(', '); }).join(' | ') + '. ' +
+       'Cada paciente ve sus puntos en su Area Paciente del sitio, entrando con su WhatsApp. ' +
+       '⛔ REGLA DURA: NUNCA digas de memoria cuantos puntos tiene alguien ni le prometas un nivel. ' +
+       'Si pregunta por SUS puntos, llama a consultar_puntos con su telefono y decile EXACTAMENTE lo que devuelva. ' +
+       'Si todavia no tiene puntos, no lo digas como un reproche: contale con entusiasmo que empiezan a sumar con su primera sesion.';
+}
 // Cuenta lo que esta paciente hizo de verdad. Devuelve tambien el detalle:
 // que nadie vea un numero sin poder saber de donde salio.
 async function _fidelidad(tel8) {
@@ -3393,7 +3398,8 @@ app.post('/chat', async (req, res) => {
       + '4) AGENDAR (MUY IMPORTANTE): NUNCA digas que "no tienes acceso al calendario" ni te disculpes por no poder agendar. Cuando la persona quiera reservar/agendar (o sea el momento natural para invitarla), hazlo con calidez y al FINAL de tu mensaje, en una línea aparte y sola, escribe EXACTAMENTE el marcador [[AGENDAR]] (nada más en esa línea; NUNCA lo expliques, menciones ni lo pongas en cada mensaje). El sistema convierte ese marcador en un botón "Agendar" que abre el calendario del sitio, donde la persona elige AGENDA VIRTUAL (consulta/valoración ONLINE por videollamada, sin salir de casa) o PRESENCIAL en las sedes. Ofrece ambas y destaca la virtual. En este canal NO uses los marcadores [[LLAMAR:...]].\n'
       + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
       + '6) MANTÉN EL HILO: recuerda lo que la persona ya te dijo en esta conversación y continúa desde ahí; si ya venían hablando, NO te vuelvas a presentar ni reinicies.\n'
-      + '7) NUNCA INVENTES UNA CAMPAÑA VIGENTE (REGLA DURA): si la sección "JORNADA ACTIVA" de arriba dice que NO hay ninguna activa, está PROHIBIDO decir "nuestra jornada actual", "la campaña de ahora" o cualquier frase que dé a entender que hay una en curso, y está PROHIBIDO prometer sus beneficios (20%, 50% por recomendado, valoración gratis) como si se pudieran reclamar hoy. Si preguntan por esos descuentos y NO hay jornada activa, explica con calidez que son beneficios de nuestras jornadas, que en este momento no hay una en curso, y ofrece agendar su valoración o dejar sus datos para avisarle de la próxima. Nunca le prometas a alguien un descuento que hoy no puede reclamar.]';
+      + '7) NUNCA INVENTES UNA CAMPAÑA VIGENTE (REGLA DURA): si la sección "JORNADA ACTIVA" de arriba dice que NO hay ninguna activa, está PROHIBIDO decir "nuestra jornada actual", "la campaña de ahora" o cualquier frase que dé a entender que hay una en curso, y está PROHIBIDO prometer sus beneficios (20%, 50% por recomendado, valoración gratis) como si se pudieran reclamar hoy. Si preguntan por esos descuentos y NO hay jornada activa, explica con calidez que son beneficios de nuestras jornadas, que en este momento no hay una en curso, y ofrece agendar su valoración o dejar sus datos para avisarle de la próxima. Nunca le prometas a alguien un descuento que hoy no puede reclamar.\n'
+      + '8) PUNTOS DE FIDELIDAD EN ESTE CANAL: acá NO podés ver los puntos de nadie — este chat no consulta la base. Si preguntan por SUS puntos, NO la mandes al WhatsApp de la clínica ni digas "no tengo acceso a tu cuenta": explicale con calidez cómo funciona el programa (lo tenés descrito arriba) y decile que sus puntos, su nivel y sus beneficios los ve ella misma entrando al ÁREA PACIENTE del sitio con su WhatsApp. ⛔ Nunca inventes un número de puntos ni le digas qué nivel tiene.]';
     // La JORNADA ACTIVA tambien va en el chat web: sin esta seccion, las reglas de este
     // canal (que dicen "guiate por la seccion JORNADA ACTIVA de arriba") no encontraban
     // nada y Valeria respondia que NO habia campana aunque estuviera publicada.
@@ -3401,7 +3407,7 @@ app.post('/chat', async (req, res) => {
     try { _espPau = await buildEspPausadasSection(); } catch (e) { console.error('chat web espPau:', e.message); }
     try { _bCfg = await getBeniConfig(); } catch (e) { console.error('chat web beniCfg:', e.message); }
     try { if (_bCfg && _bCfg.publicada === true) _bDispo = await toolConsultarDisponibilidad({}, _bCfg); } catch (e) { console.error('chat web dispo:', e.message); }
-    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + buildBeniSection(_bCfg, _bDispo) + webNote + _espPau;
+    const systemPrompt = SYSTEM_PROMPT + '\n\nFecha actual (Bolivia): ' + fechaBoliviaTexto() + '.' + buildBeniSection(_bCfg, _bDispo) + bloqueFidelidad() + webNote + _espPau;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
