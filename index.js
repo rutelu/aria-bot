@@ -3585,6 +3585,23 @@ app.get('/debug/test-confirmacion', async (req, res) => {
 // el motivo exacto cuando no llega.
 // Que numero es el nuestro. Sirve para descartar lo obvio: WhatsApp no deja que un
 // numero se mande mensajes a si mismo, y el error que devuelve es generico.
+// Pide a Meta cambiar el nombre que ven las clientas al recibir un mensaje.
+// Queda en revision: no es inmediato y no bloquea nada mientras tanto.
+app.get('/debug/cambiar-nombre', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const nombre = String(req.query.nombre || '').trim();
+  if (!nombre) return res.json({ error: 'falta ?nombre=' });
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_display_name: nombre })
+    });
+    res.json({ pedido: nombre, respuesta: await r.json() });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/mi-numero', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
