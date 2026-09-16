@@ -834,6 +834,17 @@ function buildBeniSection(cfg, dispo, _rsvPropia) {
   s += 'SI PIDE OTRA FORMA DE AGENDAR (o prefiere hacerlo sola): respóndele CORTO y dale las DOS vias en el mismo mensaje: (a) el CALENDARIO: ⛔ NO pegues el enlace en el texto. Escribe al final, en una línea aparte y sola, el marcador [[AGENDAR]] — el sistema lo convierte en un BOTÓN que abre el calendario directo. NUNCA expliques ni menciones el marcador; y (b) hablar conmigo por voz, gratis, agregando en una linea aparte al final el marcador [[LLAMAR:beni]]. ⛔ NUNCA le mandes harmonieinstitute.com "pelado" ni el sitio general: siempre el enlace de ESTA jornada, que abre directo su calendario. Dos frases como maximo.\n';
   s += 'TELEFONO (WhatsApp): ya tenes su numero y NO se lo preguntas — ni siquiera para confirmar. Reservas directo con el numero del chat. Si ELLA te ofrece otro ("agendame con el 7...", "es para mi mama"), usas ese. En el CHAT DE LA WEB, Messenger, Instagram y Telegram SI hay que pedirselo, porque ahi no lo tenemos.\n';
   s += 'Usa SOLO las fechas vigentes listadas arriba. Apenas la reserva quede creada, confírmasela con entusiasmo (día, hora y sede) y recuérdale que con su reserva ya ganó el 20%, y el 50% si trae un recomendado que se atienda. Y cierra ese mismo mensaje con UNA frase tranquilizadora sobre como cambiar la cita: puede VER los horarios disponibles en ' + _ruta + ', y para hacer el cambio escribirte por aca o llamarte por voz gratis — para eso agrega al final, en una linea aparte, el marcador [[LLAMAR:beni]]. ⛔ NUNCA le digas que puede cambiar, mover o reprogramar su cita SOLA desde el calendario: el calendario solo sirve para VER la disponibilidad y crear reservas NUEVAS. El cambio lo haces TÚ. Si le dices lo contrario, entra al calendario, no encuentra cómo, y en el peor caso crea una segunda reserva y te ocupa dos cupos. Esto le baja la ansiedad de comprometerse con un horario y evita que falte sin avisar; aca SI conviene el enlace, porque la cita ya quedo hecha y no compite con la reserva.';
+  // Se arma desde FID_NIVELES: si manana cambian los niveles, cambia este texto solo.
+  s += '\nPROGRAMA DE FIDELIDAD (real, ya funcionando): nuestras pacientes acumulan puntos y suben de nivel. ' +
+       'Ganan ' + FID_PUNTOS.sesion + ' puntos por cada SESION REALIZADA y ' + FID_PUNTOS.recomendada +
+       ' por cada persona RECOMENDADA que venga y se atienda. Reservar una hora NO da puntos: los da atenderse. ' +
+       'Niveles: ' + FID_NIVELES.slice().reverse().map(function (v) { return v.nombre + ' (' + v.desde + ' pts)'; }).join(', ') + '. ' +
+       'Beneficios por nivel: ' + FID_NIVELES.slice().reverse().map(function (v) { return v.nombre + ': ' + v.beneficios.join(', '); }).join(' | ') + '. ' +
+       'Cada paciente ve sus puntos en su Area Paciente del sitio, entrando con su WhatsApp. ' +
+       '⛔ REGLA DURA: NUNCA digas de memoria cuantos puntos tiene alguien ni le prometas un nivel. ' +
+       'Si pregunta por SUS puntos, llama a consultar_puntos con su telefono y decile EXACTAMENTE lo que devuelva. ' +
+       'Si todavia no tiene puntos, no lo digas como un reproche: contale con entusiasmo que empiezan a sumar con su primera sesion.';
+
   s += 'REAGENDAR / CANCELAR: si la persona quiere cambiar o cancelar su cita (o el equipo te lo indica por instrucción especial), primero UBICA su reserva: usa buscar_reserva_beni con su teléfono, o pídele la fecha y hora actuales. CONFIRMA con ella cuál es la reserva antes de tocar nada. Para cancelar usa cancelar_reserva_beni; para mover, reagendar_reserva_beni (el nuevo horario debe estar libre y vigente). NUNCA canceles ni reagendes sin confirmar primero con la persona. Después, confírmale el cambio con calidez.';
   return s;
 }
@@ -890,6 +901,15 @@ const BENI_TOOLS = [
         motivo: { type: 'string', description: 'Motivo breve por el que se necesita un humano (ej: "pide hablar con encargado", "queja por demora", "consulta médica compleja").' }
       },
       required: ['motivo']
+    }
+  },
+  {
+    name: 'consultar_puntos',
+    description: 'Dice cuantos puntos de fidelidad tiene una paciente, su nivel y que beneficios le corresponden. Usala SIEMPRE que pregunten por puntos, niveles, beneficios o el programa de fidelidad: NUNCA inventes ni estimes un numero de puntos.',
+    input_schema: {
+      type: 'object',
+      properties: { telefono: { type: 'string', description: 'Telefono / WhatsApp de la paciente' } },
+      required: ['telefono']
     }
   },
   {
@@ -1292,6 +1312,31 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
 
 // ── REAGENDAR / CANCELAR reservas (Plan B) ──
 // Busca las reservas CONFIRMADAS de una persona por su teléfono (compara los últimos 8 dígitos).
+// Los puntos de una paciente. Sale del MISMO calculo que ve en su Area Paciente:
+// si Valeria dijera un numero y la pantalla otro, perdemos la confianza de las dos.
+async function toolConsultarPuntos(args) {
+  const tel8 = _portalTel8(String((args && args.telefono) || ''));
+  if (tel8.length < 6) return { error: 'Necesito su telefono para revisar sus puntos.' };
+  const f = await _fidelidad(tel8);
+  const comoSuma = 'Suma ' + f.porSesion + ' puntos por cada sesion que se realiza, y ' +
+                   f.porRecomendada + ' si trae a alguien recomendado que se atienda.';
+  if (f.puntos === 0) {
+    return { puntos: 0, nivel: f.nivel.nombre,
+      mensaje: 'Todavia no tiene puntos acumulados. Decíselo con calidez y SIN que suene a reproche: ' +
+        'los puntos empiezan a sumar con su primera sesion realizada. ' + comoSuma +
+        ' Con ' + (f.siguiente ? f.siguiente.desde : 200) + ' puntos llega al nivel ' +
+        (f.siguiente ? f.siguiente.nombre : 'Plata') + '. Puede ver todo en su Area Paciente del sitio.' };
+  }
+  return {
+    puntos: f.puntos, nivel: f.nivel.nombre, sesiones: f.sesiones, recomendadas: f.recomendadas,
+    mensaje: 'Tiene ' + f.puntos + ' puntos y esta en el nivel ' + f.nivel.nombre + '. ' +
+      'Eso son ' + f.sesiones + ' sesion(es) realizada(s)' +
+      (f.recomendadas ? ' y ' + f.recomendadas + ' persona(s) que trajo' : '') + '. ' +
+      (f.siguiente ? ('Le faltan ' + f.faltan + ' puntos para ' + f.siguiente.nombre + '. ') : 'Ya esta en el nivel mas alto. ') +
+      'Lo que le corresponde hoy: ' + (f.nivel.beneficios || []).join('; ') + '. ' + comoSuma
+  };
+}
+
 async function toolBuscarReserva(args) {
   if (!db) return { error: 'No puedo acceder a la agenda ahora.' };
   const tel = String(args.telefono || '').replace(/\D/g, '').slice(-8);
@@ -2024,6 +2069,7 @@ async function ejecutarTool(block, cfg, canal, userId) {
   try {
     if (block.name === 'consultar_disponibilidad_beni') return await toolConsultarDisponibilidad(block.input || {}, cfg);
     if (block.name === 'crear_reserva_beni') return await toolCrearReserva(block.input || {}, cfg, canal, String(userId || '').split('_').slice(1).join('_'), userId);
+    if (block.name === 'consultar_puntos') return await toolConsultarPuntos(block.input || {});
     if (block.name === 'buscar_reserva_beni') return await toolBuscarReserva(block.input || {});
     if (block.name === 'cancelar_reserva_beni') return await toolCancelarReserva(block.input || {}, cfg);
     if (block.name === 'reagendar_reserva_beni') return await toolReagendarReserva(block.input || {}, cfg);
@@ -4004,6 +4050,7 @@ app.post('/vapi/tools', async (req, res) => {
       let result;
       if (name === 'consultar_disponibilidad_beni') result = await toolConsultarDisponibilidad(args, cfg);
       else if (name === 'crear_reserva_beni') result = await toolCrearReserva(args, cfg, 'voz');
+      else if (name === 'consultar_puntos') result = await toolConsultarPuntos(args);
       else if (name === 'buscar_reserva_beni') result = await toolBuscarReserva(args);
       else if (name === 'cancelar_reserva_beni') result = await toolCancelarReserva(args, cfg);
       else if (name === 'reagendar_reserva_beni') result = await toolReagendarReserva(args, cfg);
