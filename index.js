@@ -2743,6 +2743,189 @@ app.get('/webhook', (req, res) => {
   }
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PORTAL DE LA PACIENTE
+// La paciente entra con su teléfono y un código que le llega por WhatsApp. No se le
+// crea cuenta de Firebase a propósito: si la tuviera, las reglas actuales le dejarían
+// leer las fichas de TODAS. Acá el bot es la única puerta y solo devuelve lo suyo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const NL_ = String.fromCharCode(10);
+const PORTAL_CODIGO_MIN = 10;      // minutos que vive el código
+const PORTAL_SESION_HS = 12;       // horas que dura la sesión
+const PORTAL_MAX_INTENTOS = 5;     // intentos antes de invalidar el código
+
+function _portalCodigo() {
+  // Seis dígitos, sin empezar en cero para que no se pierda al copiar.
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function _portalTel8(t) { return String(t || "").replace(/\D/g, "").slice(-8); }
+
+// El texto del código. Corto y sin enlaces: es lo que se lee de un vistazo.
+function _portalTextoCodigo(codigo, nombre) {
+  const hola = nombre ? ("Hola " + String(nombre).split(" ")[0] + " 💛") : "Hola 💛";
+  return hola + NL_ +
+    "Tu código para entrar a tu historial es:" + NL_ + NL_ +
+    "*" + codigo + "*" + NL_ + NL_ +
+    "Vence en " + PORTAL_CODIGO_MIN + " minutos. Si no lo pediste, ignorá este mensaje.";
+}
+
+// Le manda el código por WhatsApp. Devuelve si se pudo.
+async function _portalEnviarCodigo(tel, codigo, nombre) {
+  try {
+    const r = await waSend(normalizarTelefono(tel), _portalTextoCodigo(codigo, nombre));
+    return !(r && r.error);
+  } catch (e) { return false; }
+}
+
+// ── Pedir el código ─────────────────────────────────────────────────────────
+// Si el código no se pudo mandar cuando lo pidió (Meta no deja escribir a quien no
+// escribió en las últimas 24 h), queda marcado como pendiente y sale apenas escribe.
+async function _portalEntregarPendiente(from) {
+  if (!db) return;
+  const tel8 = _portalTel8(from);
+  if (!tel8) return;
+  const ref = db.collection('portal_codigos').doc(tel8);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+  const c = snap.data() || {};
+  if (c.entregado === true) return;
+  if (Date.now() > (c.vence || 0)) { await ref.delete(); return; }
+  const f = await db.collection('fichas').doc(tel8).get();
+  const d = f.exists ? (f.data() || {}) : {};
+  const ok = await _portalEnviarCodigo(d.telefono || from, c.codigo, d.nombre || d.patientName);
+  if (ok) await ref.set({ entregado: true }, { merge: true });
+}
+
+app.options('/portal/codigo', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.post('/portal/codigo', async (req, res) => {
+  _setChatCors(req, res);
+  try {
+    const tel8 = _portalTel8((req.body || {}).telefono);
+    if (tel8.length < 7) return res.json({ ok: false, motivo: 'Ese número no parece completo.' });
+    if (!db) return res.json({ ok: false, motivo: 'No puedo acceder al historial ahora.' });
+
+    const ficha = await db.collection('fichas').doc(tel8).get();
+    // Si no hay ficha se responde IGUAL que si la hubiera: decir "ese número no
+    // existe" le confirmaría a un desconocido quién es paciente de la clínica.
+    const hay = ficha.exists;
+    const datos = hay ? (ficha.data() || {}) : {};
+
+    const codigo = _portalCodigo();
+    let enviado = false;
+    if (hay) {
+      await db.collection('portal_codigos').doc(tel8).set({
+        codigo: codigo,
+        vence: Date.now() + PORTAL_CODIGO_MIN * 60000,
+        intentos: 0,
+        pedidoAt: new Date()
+      });
+      enviado = await _portalEnviarCodigo(datos.telefono || tel8, codigo, datos.nombre || datos.patientName);
+      if (enviado) await db.collection('portal_codigos').doc(tel8).set({ entregado: true }, { merge: true });
+    }
+    // `enviado:false` con `ok:true` significa que la ventana de WhatsApp está cerrada:
+    // la paciente tiene que escribirnos primero para que podamos responderle.
+    res.json({ ok: true, enviado: hay && enviado });
+  } catch (e) { console.error('/portal/codigo:', e.message); res.json({ ok: false, motivo: 'Algo falló, probá de nuevo.' }); }
+});
+
+// ── Entrar con el código ────────────────────────────────────────────────────
+app.options('/portal/entrar', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.post('/portal/entrar', async (req, res) => {
+  _setChatCors(req, res);
+  try {
+    const b = req.body || {};
+    const tel8 = _portalTel8(b.telefono);
+    const codigo = String(b.codigo || '').replace(/\D/g, '');
+    if (!db) return res.json({ ok: false, motivo: 'No puedo acceder al historial ahora.' });
+
+    const ref = db.collection('portal_codigos').doc(tel8);
+    const snap = await ref.get();
+    if (!snap.exists) return res.json({ ok: false, motivo: 'Pedí un código nuevo.' });
+    const c = snap.data() || {};
+
+    if (Date.now() > (c.vence || 0)) { await ref.delete(); return res.json({ ok: false, motivo: 'El código venció. Pedí uno nuevo.' }); }
+    if ((c.intentos || 0) >= PORTAL_MAX_INTENTOS) {
+      await ref.delete();
+      return res.json({ ok: false, motivo: 'Demasiados intentos. Pedí un código nuevo.' });
+    }
+    if (codigo !== c.codigo) {
+      await ref.set({ intentos: (c.intentos || 0) + 1 }, { merge: true });
+      return res.json({ ok: false, motivo: 'Ese código no es correcto.' });
+    }
+
+    // Código correcto: se quema y se abre la sesión.
+    await ref.delete();
+    const token = require('crypto').randomBytes(24).toString('hex');
+    await db.collection('portal_sesiones').doc(token).set({
+      tel8: tel8,
+      vence: Date.now() + PORTAL_SESION_HS * 3600000,
+      creadaAt: new Date()
+    });
+    res.json({ ok: true, token: token, horas: PORTAL_SESION_HS });
+  } catch (e) { console.error('/portal/entrar:', e.message); res.json({ ok: false, motivo: 'Algo falló, probá de nuevo.' }); }
+});
+
+// ── Lo que la paciente puede ver ────────────────────────────────────────────
+async function _portalSesion(token) {
+  if (!token || !db) return null;
+  const s = await db.collection('portal_sesiones').doc(String(token)).get();
+  if (!s.exists) return null;
+  const d = s.data() || {};
+  if (Date.now() > (d.vence || 0)) { await s.ref.delete(); return null; }
+  return d.tel8 || null;
+}
+
+app.options('/portal/mis-datos', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.post('/portal/mis-datos', async (req, res) => {
+  _setChatCors(req, res);
+  try {
+    const tel8 = await _portalSesion((req.body || {}).token);
+    if (!tel8) return res.json({ ok: false, motivo: 'Tu sesión venció. Volvé a entrar.' });
+
+    const f = await db.collection('fichas').doc(tel8).get();
+    const x = f.exists ? (f.data() || {}) : {};
+
+    // Sus citas, de la colección de reservas. Se filtra por teléfono acá, del lado
+    // del servidor: la paciente nunca consulta la base por su cuenta.
+    const hoy = fechaBoliviaISO();
+    const citas = [];
+    try {
+      const rs = await db.collection('reservas_beni').get();
+      rs.forEach(function (d) {
+        const r = d.data() || {};
+        if (_portalTel8(r.telefono) !== tel8) return;
+        citas.push({
+          fecha: r.fecha || '', hora: r.hora || '',
+          sede: r.subsede || r.lugar || '',
+          tratamiento: r.tratamiento || r.servicio || '',
+          estado: r.estado || 'confirmada',
+          futura: (r.fecha || '') >= hoy
+        });
+      });
+      citas.sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); });
+    } catch (e) {}
+
+    // ⛔ Deliberadamente NO se devuelven las observaciones del profesional ni los
+    // antecedentes: son notas clínicas internas. La paciente ve su historial de
+    // visitas y sus citas, no el cuaderno de quien la atiende.
+    res.json({
+      ok: true,
+      paciente: {
+        nombre: x.nombre || x.patientName || '',
+        telefono: x.telefono || x.phone || '',
+        sede: x.sede || '',
+      },
+      citas: citas,
+      visitas: (x.treatments || []).map(function (t) {
+        return { fecha: t.date || '', tratamiento: t.name || '', profesional: t.doc || '' };
+      })
+    });
+  } catch (e) { console.error('/portal/mis-datos:', e.message); res.json({ ok: false, motivo: 'Algo falló.' }); }
+});
+
 app.post('/webhook', async (req, res) => {
   const body = req.body;
 
@@ -2788,6 +2971,9 @@ app.post('/webhook', async (req, res) => {
               await waSend(from, '🧹 Listo, borré nuestra conversación. Escríbeme de nuevo y empezamos de cero 😊');
               return;
             }
+            // ¿Quedó un código del portal sin entregar? Se manda ahora que escribió.
+            try { await _portalEntregarPendiente(from); } catch (e) {}
+
             let origenDesc = null;
             const refz = message.referral;
             if (refz && (refz.source_type === 'ad' || refz.headline || refz.body)) {
