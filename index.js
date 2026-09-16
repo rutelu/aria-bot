@@ -2972,6 +2972,29 @@ app.post('/webhook', async (req, res) => {
   if (body.object === 'whatsapp_business_account') {
     body.entry?.forEach(entry => {
       entry.changes?.forEach(change => {
+        // ESTADOS DE ENTREGA. Meta responde "accepted" al aceptar el mensaje, no al
+        // entregarlo: si despues falla, avisa por aca. Sin escuchar esto, un mensaje que
+        // nunca llega desaparece sin dejar rastro — ya nos paso con los recordatorios.
+        const estados = change.value?.statuses;
+        if (estados && db) {
+          estados.forEach(function (st) {
+            if (st.status === "failed" || (st.errors && st.errors.length)) {
+              const motivo = (st.errors && st.errors[0]) || {};
+              console.error("❌ WA no entregado a " + st.recipient_id + ": " +
+                (motivo.title || motivo.message || st.status) + " (" + (motivo.code || "?") + ")");
+              db.collection("wa_fallos").add({
+                telefono: st.recipient_id || "",
+                estado: st.status || "",
+                codigo: motivo.code || null,
+                titulo: motivo.title || "",
+                detalle: (motivo.error_data && motivo.error_data.details) || motivo.message || "",
+                wamid: st.id || "",
+                cuando: new Date()
+              }).catch(function () {});
+            }
+          });
+        }
+
         const messages = change.value?.messages;
         const nombreWa = change.value?.contacts?.[0]?.profile?.name;
         if (messages) {
