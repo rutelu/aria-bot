@@ -2821,13 +2821,33 @@ async function _fidelidad(tel8) {
           yaContadas[clave] = 1; sesiones++;
           movimientos.push({ fecha: r.fecha || "", detalle: r.tratamiento || r.servicio || "Sesión", puntos: FID_PUNTOS.sesion });
         }
-      } else if (_portalTel8(r.recomendadaPor) === tel8) {
-        // Alguien que ella trajo Y que efectivamente se atendio.
-        recomendadas++;
-        movimientos.push({ fecha: r.fecha || "", detalle: "Trajiste a " + _portalNombreBonito(r.nombre || "una recomendada").split(" ")[0], puntos: FID_PUNTOS.recomendada });
       }
     });
   } catch (e) {}
+  // Las que ella trajo. El dato lo escribe el equipo en la ficha, al preguntarle
+  // a la nueva paciente quien la recomendo. Solo suma si esa persona SE ATENDIO:
+  // traer un telefono no es traer a una paciente.
+  try {
+    const fs2 = await db.collection("fichas").where("recomendadaPor", "==", tel8).get();
+    for (const d of fs2.docs) {
+      const y = d.data() || {};
+      let seAtendio = (y.treatments || []).length > 0;
+      if (!seAtendio) {
+        try {
+          const rr = await db.collection("reservas_beni").where("telefono", "==", y.telefono || "").get();
+          rr.forEach(function (z) {
+            const e2 = String((z.data() || {}).estado || "").toLowerCase();
+            if (e2 === "completada" || e2 === "realizada") seAtendio = true;
+          });
+        } catch (e) {}
+      }
+      if (!seAtendio) continue;
+      recomendadas++;
+      const quien = _portalNombreBonito(y.nombre || y.patientName || "").split(" ")[0] || "alguien";
+      movimientos.push({ fecha: "", detalle: "Trajiste a " + quien, puntos: FID_PUNTOS.recomendada });
+    }
+  } catch (e) {}
+
   const puntos = sesiones * FID_PUNTOS.sesion + recomendadas * FID_PUNTOS.recomendada;
   const nivel = FID_NIVELES.find(function (v) { return puntos >= v.desde; }) || FID_NIVELES[FID_NIVELES.length - 1];
   // El nivel de arriba, para poder decirle cuanto le falta.
