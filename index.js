@@ -3596,14 +3596,17 @@ app.get('/debug/probar-codigo', async (req, res) => {
         messaging_product: 'whatsapp', to: to, type: 'template',
         template: {
           name: 'codigo_acceso', language: { code: 'es' },
-          components: [
-            { type: 'body', parameters: [{ type: 'text', text: codigo }] },
-            { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: codigo }] }
-          ]
+          components: (function () {
+            const cuerpo = { type: 'body', parameters: [{ type: 'text', text: codigo }] };
+            const m = String(req.query.modo || 'url');
+            if (m === 'solo') return [cuerpo];
+            if (m === 'copy') return [cuerpo, { type: 'button', sub_type: 'copy_code', index: '0', parameters: [{ type: 'coupon_code', coupon_code: codigo }] }];
+            return [cuerpo, { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: codigo }] }];
+          })()
         }
       })
     });
-    res.json({ numero_propio: PHONE, destino: to, respuesta: await r.json() });
+    res.json({ destino: to, modo: req.query.modo, respuesta: await r.json() });
   } catch (e) { res.json({ error: e.message }); }
 });
 
