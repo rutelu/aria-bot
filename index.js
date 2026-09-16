@@ -3538,6 +3538,34 @@ app.get('/debug/test-confirmacion', async (req, res) => {
 // GET /debug/plantillas?key=diag-9x  → todas las plantillas y su estado en Meta.
 // WHATSAPP_WABA_ID no sirve para esto (tiene el id del teléfono, no el de la cuenta),
 // así que la cuenta se descubre preguntándole al propio token por sus permisos.
+// Crea la plantilla de AUTENTICACIÓN para los códigos del portal. Meta solo deja
+// escribirle a quien nos escribió en las últimas 24 h; las de esta categoría son la
+// excepción, y por eso el código puede llegar solo sin pedirle nada a la paciente.
+// El texto del cuerpo lo pone Meta y no se puede cambiar: es parte del formato.
+app.get('/debug/crear-plantilla-codigo', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN;
+  const WABA = req.query.waba || '2396268927545198';
+  if (!TOKEN) return res.json({ error: 'falta WHATSAPP_TOKEN' });
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + WABA + '/message_templates', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'codigo_acceso',
+        language: 'es',
+        category: 'AUTHENTICATION',
+        components: [
+          { type: 'BODY', add_security_recommendation: true },
+          { type: 'FOOTER', code_expiration_minutes: 10 },
+          { type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE', text: 'Copiar código' }] }
+        ]
+      })
+    });
+    res.json(await r.json());
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/plantillas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const TOKEN = process.env.WHATSAPP_TOKEN;
