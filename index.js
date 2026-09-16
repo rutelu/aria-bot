@@ -3099,6 +3099,9 @@ app.post('/portal/mis-datos', async (req, res) => {
           sede: r.subsede || r.lugar || '',
           tratamiento: r.tratamiento || r.servicio || '',
           estado: r.estado || 'confirmada',
+          // Si alguien del equipo la marco como hecha. Sin esto el historial
+          // afirmaba 'Realizado' de citas a las que quiza nunca vino.
+          hecha: ['completada', 'realizada'].indexOf(String(r.estado || '').toLowerCase()) !== -1,
           futura: (r.fecha || '') >= hoy
         });
       });
