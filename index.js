@@ -2978,6 +2978,12 @@ app.post('/webhook', async (req, res) => {
         const estados = change.value?.statuses;
         if (estados && db) {
           estados.forEach(function (st) {
+            // Se guardan TODOS los estados por un rato, no solo los fallos: sin eso no se
+            // puede distinguir "se entrego bien" de "los avisos no estan llegando".
+            db.collection("wa_estados").add({
+              telefono: st.recipient_id || "", estado: st.status || "",
+              wamid: st.id || "", cuando: new Date()
+            }).catch(function () {});
             if (st.status === "failed" || (st.errors && st.errors.length)) {
               const motivo = (st.errors && st.errors[0]) || {};
               console.error("❌ WA no entregado a " + st.recipient_id + ": " +
