@@ -3859,6 +3859,13 @@ app.get('/debug/mi-numero', async (req, res) => {
 // cada punto. Si un numero no cuadra, aca se ve por que.
 // Cuantas pacientes tienen hoy algo que sumar. Sirve para saber de donde parte
 // el programa: si nadie tiene sesiones marcadas, todas veran cero, y con razon.
+// Lo que Valeria tiene escrito sobre el programa, tal cual le llega. Sirve para
+// comprobar que el build desplegado es el nuevo, sin adivinar por sus respuestas.
+app.get('/debug/fidelidad-texto', (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  res.type('text/plain').send(bloqueFidelidad());
+});
+
 app.get('/debug/fidelidad-resumen', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   let fichas = 0, conSesiones = 0, conRecomendadora = 0, reservas = 0, completadas = 0;
