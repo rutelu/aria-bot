@@ -2903,7 +2903,10 @@ app.post('/portal/entrar', async (req, res) => {
       vence: Date.now() + PORTAL_SESION_HS * 3600000,
       creadaAt: new Date()
     });
-    res.json({ ok: true, token: token, horas: PORTAL_SESION_HS });
+    // Si la ficha no tiene nombre, la pantalla se lo va a pedir antes de mostrarle nada.
+    const fdatos = fsnap.exists ? (fsnap.data() || {}) : {};
+    const tieneNombre = String(fdatos.nombre || fdatos.patientName || '').trim().length > 2;
+    res.json({ ok: true, token: token, horas: PORTAL_SESION_HS, necesitaNombre: !tieneNombre });
   } catch (e) { console.error('/portal/entrar:', e.message); res.json({ ok: false, motivo: 'Algo falló, probá de nuevo.' }); }
 });
 
@@ -2916,6 +2919,35 @@ async function _portalSesion(token) {
   if (Date.now() > (d.vence || 0)) { await s.ref.delete(); return null; }
   return d.tel8 || null;
 }
+
+// La clienta nueva da su nombre completo para terminar de registrarse.
+app.options('/portal/nombre', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
+app.post('/portal/nombre', async (req, res) => {
+  _setChatCors(req, res);
+  try {
+    const b = req.body || {};
+    const tel8 = await _portalSesion(b.token);
+    if (!tel8) return res.json({ ok: false, motivo: 'Tu sesión venció. Volvé a entrar.' });
+
+    const nombre = String(b.nombre || '').replace(/\s+/g, ' ').trim();
+    // Se pide COMPLETO: con un solo nombre no se distingue a dos Marías en la agenda.
+    if (nombre.length < 5 || nombre.indexOf(' ') === -1) {
+      return res.json({ ok: false, motivo: 'Escribí tu nombre y tu apellido.' });
+    }
+    // Cada palabra con mayúscula inicial, como se escribe un nombre.
+    const bonito = nombre.split(' ').map(function (p) {
+      if (!p) return p;
+      const min = ['de', 'del', 'la', 'las', 'los', 'y'];
+      return min.indexOf(p.toLowerCase()) !== -1 ? p.toLowerCase()
+                                                 : (p.charAt(0).toUpperCase() + p.slice(1).toLowerCase());
+    }).join(' ');
+
+    await db.collection('fichas').doc(tel8).set({
+      nombre: bonito, patientName: bonito, actualizadoAt: new Date()
+    }, { merge: true });
+    res.json({ ok: true, nombre: bonito });
+  } catch (e) { console.error('/portal/nombre:', e.message); res.json({ ok: false, motivo: 'No se pudo guardar.' }); }
+});
 
 app.options('/portal/mis-datos', (req, res) => { _setChatCors(req, res); res.status(204).end(); });
 app.post('/portal/mis-datos', async (req, res) => {
@@ -2952,6 +2984,7 @@ app.post('/portal/mis-datos', async (req, res) => {
     // visitas y sus citas, no el cuaderno de quien la atiende.
     res.json({
       ok: true,
+      necesitaNombre: String(x.nombre || x.patientName || '').trim().length <= 2,
       paciente: {
         nombre: x.nombre || x.patientName || '',
         telefono: x.telefono || x.phone || '',
