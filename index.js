@@ -2772,11 +2772,39 @@ function _portalTextoCodigo(codigo, nombre) {
     "Vence en " + PORTAL_CODIGO_MIN + " minutos. Si no lo pediste, ignorá este mensaje.";
 }
 
-// Le manda el código por WhatsApp. Devuelve si se pudo.
+// Le manda el código por WhatsApp.
+// Primero por PLANTILLA de autenticación: es la única forma de escribirle a quien no
+// nos escribió en las últimas 24 h, que es el caso normal de alguien entrando al portal.
+// Si la plantilla falla (todavía sin aprobar, por ejemplo) se intenta texto suelto, que
+// funciona solo si la conversación está abierta.
 async function _portalEnviarCodigo(tel, codigo, nombre) {
+  const to = normalizarTelefono(tel);
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  if (TOKEN && PHONE) {
+    try {
+      const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp', to: to, type: 'template',
+          template: {
+            name: 'codigo_acceso', language: { code: 'es' },
+            components: [
+              { type: 'body', parameters: [{ type: 'text', text: codigo }] },
+              { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: codigo }] }
+            ]
+          }
+        })
+      });
+      const j = await r.json().catch(function () { return {}; });
+      if (!(j && j.error)) return true;
+      console.error('plantilla codigo_acceso:', JSON.stringify(j.error).slice(0, 220));
+    } catch (e) {}
+  }
+  // Respaldo: texto suelto (solo si la conversación está abierta).
   try {
-    const r = await waSend(normalizarTelefono(tel), _portalTextoCodigo(codigo, nombre));
-    return !(r && r.error);
+    const r2 = await waSend(to, _portalTextoCodigo(codigo, nombre));
+    return !(r2 && r2.error);
   } catch (e) { return false; }
 }
 
@@ -2807,27 +2835,25 @@ app.post('/portal/codigo', async (req, res) => {
     if (tel8.length < 7) return res.json({ ok: false, motivo: 'Ese número no parece completo.' });
     if (!db) return res.json({ ok: false, motivo: 'No puedo acceder al historial ahora.' });
 
+    // El código se manda a CUALQUIER número, tenga ficha o no. Quien entra por primera
+    // vez queda con su cuenta creada y un historial vacío, que es lo correcto: exigir
+    // ficha previa dejaba a las clientas nuevas en un callejón sin salida.
     const ficha = await db.collection('fichas').doc(tel8).get();
-    // Si no hay ficha se responde IGUAL que si la hubiera: decir "ese número no
-    // existe" le confirmaría a un desconocido quién es paciente de la clínica.
-    const hay = ficha.exists;
-    const datos = hay ? (ficha.data() || {}) : {};
+    const datos = ficha.exists ? (ficha.data() || {}) : {};
 
     const codigo = _portalCodigo();
-    let enviado = false;
-    if (hay) {
-      await db.collection('portal_codigos').doc(tel8).set({
-        codigo: codigo,
-        vence: Date.now() + PORTAL_CODIGO_MIN * 60000,
-        intentos: 0,
-        pedidoAt: new Date()
-      });
-      enviado = await _portalEnviarCodigo(datos.telefono || tel8, codigo, datos.nombre || datos.patientName);
-      if (enviado) await db.collection('portal_codigos').doc(tel8).set({ entregado: true }, { merge: true });
-    }
-    // `enviado:false` con `ok:true` significa que la ventana de WhatsApp está cerrada:
-    // la paciente tiene que escribirnos primero para que podamos responderle.
-    res.json({ ok: true, enviado: hay && enviado });
+    await db.collection('portal_codigos').doc(tel8).set({
+      codigo: codigo,
+      vence: Date.now() + PORTAL_CODIGO_MIN * 60000,
+      intentos: 0,
+      pedidoAt: new Date()
+    });
+    const enviado = await _portalEnviarCodigo(datos.telefono || tel8, codigo, datos.nombre || datos.patientName);
+    if (enviado) await db.collection('portal_codigos').doc(tel8).set({ entregado: true }, { merge: true });
+
+    // `enviado:false` solo puede pasar si la plantilla falló Y la conversación está
+    // cerrada. Ahí sí hace falta que nos escriba, y el código sale apenas lo haga.
+    res.json({ ok: true, enviado: enviado });
   } catch (e) { console.error('/portal/codigo:', e.message); res.json({ ok: false, motivo: 'Algo falló, probá de nuevo.' }); }
 });
 
@@ -2858,6 +2884,19 @@ app.post('/portal/entrar', async (req, res) => {
 
     // Código correcto: se quema y se abre la sesión.
     await ref.delete();
+
+    // Primera vez: se le crea su ficha con el número que acaba de demostrar que es suyo.
+    // Queda vacía a propósito — lo clínico lo llena quien la atienda, no el portal.
+    const fref = db.collection('fichas').doc(tel8);
+    const fsnap = await fref.get();
+    if (!fsnap.exists) {
+      await fref.set({
+        id: tel8, telefono: b.telefono || tel8, phone: b.telefono || tel8,
+        nombre: '', patientName: '', patientEmail: '',
+        origen: 'Se registró desde el portal',
+        creadaAt: new Date(), actualizadoAt: new Date()
+      }, { merge: true });
+    }
     const token = require('crypto').randomBytes(24).toString('hex');
     await db.collection('portal_sesiones').doc(token).set({
       tel8: tel8,
