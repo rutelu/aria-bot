@@ -3581,6 +3581,32 @@ app.get('/debug/test-confirmacion', async (req, res) => {
 // escribirle a quien nos escribió en las últimas 24 h; las de esta categoría son la
 // excepción, y por eso el código puede llegar solo sin pedirle nada a la paciente.
 // El texto del cuerpo lo pone Meta y no se puede cambiar: es parte del formato.
+// Manda la plantilla del codigo y devuelve la respuesta CRUDA de Meta, para poder ver
+// el motivo exacto cuando no llega.
+app.get('/debug/probar-codigo', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  const to = normalizarTelefono(String(req.query.tel || ''));
+  const codigo = String(req.query.codigo || '123456');
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', to: to, type: 'template',
+        template: {
+          name: 'codigo_acceso', language: { code: 'es' },
+          components: [
+            { type: 'body', parameters: [{ type: 'text', text: codigo }] },
+            { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: codigo }] }
+          ]
+        }
+      })
+    });
+    res.json({ numero_propio: PHONE, destino: to, respuesta: await r.json() });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/crear-plantilla-codigo', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const TOKEN = process.env.WHATSAPP_TOKEN;
