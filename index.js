@@ -3802,6 +3802,36 @@ app.get('/debug/mi-numero', async (req, res) => {
 
 // Para auditar los puntos de alguien sin entrar como ella: muestra de donde sale
 // cada punto. Si un numero no cuadra, aca se ve por que.
+// Cuantas pacientes tienen hoy algo que sumar. Sirve para saber de donde parte
+// el programa: si nadie tiene sesiones marcadas, todas veran cero, y con razon.
+app.get('/debug/fidelidad-resumen', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  let fichas = 0, conSesiones = 0, conRecomendadora = 0, reservas = 0, completadas = 0;
+  const conPuntos = [];
+  try {
+    const fs2 = await db.collection('fichas').get();
+    fs2.forEach(function (d) {
+      const x = d.data() || {};
+      fichas++;
+      const t = (x.treatments || []).length;
+      if (t > 0) { conSesiones++; conPuntos.push({ tel: d.id, nombre: x.nombre || x.patientName || '', sesiones: t }); }
+      if (x.recomendadaPor) conRecomendadora++;
+    });
+  } catch (e) {}
+  try {
+    const rs = await db.collection('reservas_beni').get();
+    rs.forEach(function (d) {
+      const e2 = String((d.data() || {}).estado || '').toLowerCase();
+      reservas++;
+      if (e2 === 'completada' || e2 === 'realizada') completadas++;
+    });
+  } catch (e) {}
+  res.json({ fichas: fichas, fichasConSesionesRegistradas: conSesiones,
+             fichasQueDicenQuienLasRecomendo: conRecomendadora,
+             reservas: reservas, reservasMarcadasComoHechas: completadas,
+             quienesYaSumarian: conPuntos });
+});
+
 app.get('/debug/fidelidad', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const tel8 = _portalTel8(String(req.query.tel || ''));
