@@ -2764,6 +2764,85 @@ function _portalCodigo() {
 function _portalTel8(t) { return String(t || "").replace(/\D/g, "").slice(-8); }
 
 // "juan  PEREZ de la cruz" → "Juan Perez de la Cruz"
+
+// ── PROGRAMA DE FIDELIDAD ──────────────────────────────────────────────────
+// Las reglas viven ACA y en ningun otro lado. Si cambian, se cambian aca.
+// Solo suman hechos que el equipo verifica: una sesion que alguien marco como
+// hecha, o una recomendada que efectivamente vino y se atendio. Una cita
+// reservada NO suma: reservar es gratis, y en las jornadas mucha gente no vino.
+const FID_PUNTOS = { sesion: 100, recomendada: 250 };
+const FID_NIVELES = [
+  { id: "elite", nombre: "Élite",    desde: 1000, beneficios: [
+      "Cupo reservado en cada jornada, sin competir por horarios",
+      "Atención prioritaria y el horario que prefieras",
+      "Valoración sin costo con el especialista que elijas",
+      "Te avisamos de cada campaña antes que a nadie" ] },
+  { id: "oro",   nombre: "Oro",      desde: 500,  beneficios: [
+      "Una limpieza facial de regalo",
+      "Prioridad para elegir horario en las jornadas",
+      "Valoración sin costo",
+      "Aviso anticipado de cada campaña" ] },
+  { id: "plata", nombre: "Plata",    desde: 200,  beneficios: [
+      "Valoración sin costo",
+      "Aviso anticipado de cada campaña" ] },
+  { id: "nueva", nombre: "Bienvenida", desde: 0,  beneficios: [
+      "Tu primera valoración, sin costo",
+      "Te avisamos cuando la jornada llegue a tu ciudad" ] }
+];
+
+// Cuenta lo que esta paciente hizo de verdad. Devuelve tambien el detalle:
+// que nadie vea un numero sin poder saber de donde salio.
+async function _fidelidad(tel8) {
+  const vacio = { puntos: 0, nivel: FID_NIVELES[FID_NIVELES.length - 1], sesiones: 0, recomendadas: 0, movimientos: [], siguiente: null, faltan: 0, niveles: FID_NIVELES };
+  if (!db || !tel8) return vacio;
+  let sesiones = 0, recomendadas = 0;
+  const movimientos = [];
+  const yaContadas = {}; // misma sesion en la ficha y en la agenda = una sola
+  try {
+    const f = await db.collection("fichas").doc(tel8).get();
+    const x = f.exists ? (f.data() || {}) : {};
+    (x.treatments || []).forEach(function (t) {
+      const clave = String(t.date || "") + "|" + String(t.name || "").toLowerCase().trim();
+      if (yaContadas[clave]) return;
+      yaContadas[clave] = 1; sesiones++;
+      movimientos.push({ fecha: t.date || "", detalle: t.name || "Sesión", puntos: FID_PUNTOS.sesion });
+    });
+  } catch (e) {}
+  try {
+    const rs = await db.collection("reservas_beni").get();
+    rs.forEach(function (d) {
+      const r = d.data() || {};
+      const est = String(r.estado || "").toLowerCase();
+      // Solo las que el equipo marco como hechas desde el panel.
+      if (est !== "completada" && est !== "realizada") return;
+      if (_portalTel8(r.telefono) === tel8) {
+        const clave = String(r.fecha || "") + "|" + String(r.tratamiento || r.servicio || "").toLowerCase().trim();
+        if (!yaContadas[clave]) {
+          yaContadas[clave] = 1; sesiones++;
+          movimientos.push({ fecha: r.fecha || "", detalle: r.tratamiento || r.servicio || "Sesión", puntos: FID_PUNTOS.sesion });
+        }
+      } else if (_portalTel8(r.recomendadaPor) === tel8) {
+        // Alguien que ella trajo Y que efectivamente se atendio.
+        recomendadas++;
+        movimientos.push({ fecha: r.fecha || "", detalle: "Trajiste a " + _portalNombreBonito(r.nombre || "una recomendada").split(" ")[0], puntos: FID_PUNTOS.recomendada });
+      }
+    });
+  } catch (e) {}
+  const puntos = sesiones * FID_PUNTOS.sesion + recomendadas * FID_PUNTOS.recomendada;
+  const nivel = FID_NIVELES.find(function (v) { return puntos >= v.desde; }) || FID_NIVELES[FID_NIVELES.length - 1];
+  // El nivel de arriba, para poder decirle cuanto le falta.
+  const i = FID_NIVELES.indexOf(nivel);
+  const siguiente = i > 0 ? FID_NIVELES[i - 1] : null;
+  movimientos.sort(function (a, b) { return String(b.fecha).localeCompare(String(a.fecha)); });
+  return {
+    puntos: puntos, nivel: nivel, sesiones: sesiones, recomendadas: recomendadas,
+    movimientos: movimientos, siguiente: siguiente,
+    faltan: siguiente ? (siguiente.desde - puntos) : 0,
+    porSesion: FID_PUNTOS.sesion, porRecomendada: FID_PUNTOS.recomendada,
+    niveles: FID_NIVELES
+  };
+}
+
 function _portalNombreBonito(nombre) {
   const t = String(nombre || '').replace(/\s+/g, ' ').trim();
   if (!t) return '';
@@ -3020,7 +3099,8 @@ app.post('/portal/mis-datos', async (req, res) => {
       citas: citas,
       visitas: (x.treatments || []).map(function (t) {
         return { fecha: t.date || '', tratamiento: t.name || '', profesional: t.doc || '' };
-      })
+      }),
+      fidelidad: await _fidelidad(tel8)
     });
   } catch (e) { console.error('/portal/mis-datos:', e.message); res.json({ ok: false, motivo: 'Algo falló.' }); }
 });
@@ -3698,6 +3778,19 @@ app.get('/debug/mi-numero', async (req, res) => {
     const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '?fields=display_phone_number,verified_name,quality_rating', { headers: { Authorization: 'Bearer ' + TOKEN } });
     res.json(await r.json());
   } catch (e) { res.json({ error: e.message }); }
+});
+
+// Para auditar los puntos de alguien sin entrar como ella: muestra de donde sale
+// cada punto. Si un numero no cuadra, aca se ve por que.
+app.get('/debug/fidelidad', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const tel8 = _portalTel8(String(req.query.tel || ''));
+  if (!tel8) return res.json({ error: 'falta ?tel=' });
+  const f = await _fidelidad(tel8);
+  res.json({ telefono: tel8, puntos: f.puntos, nivel: f.nivel.nombre, sesiones: f.sesiones,
+             recomendadas: f.recomendadas, leFaltan: f.faltan,
+             siguiente: f.siguiente ? f.siguiente.nombre : 'ya esta en el tope',
+             deDondeSale: f.movimientos });
 });
 
 app.get('/debug/probar-codigo', async (req, res) => {
