@@ -4802,7 +4802,11 @@ app.listen(PORT, () => {
   iniciarWatcherReservas();
   iniciarWatcherCalendario(); // Sincroniza reservas ↔ Google Calendar
   // Confirmación automática de pagos (BCP/Yape por correo → confirma reserva + notifica)
-  if (iniciarWatcherPagos) {
+  // El watcher lee el correo del banco cada minuto para confirmar depositos. Como
+  // el deposito se retiro, trabaja al pepe y llena el registro: 469 de cada 1000
+  // lineas eran suyas, y con ese ruido no se encuentra un fallo real.
+  // NO se borra nada: si vuelve el deposito, se enciende con PAGOS_ACTIVOS=true.
+  if (iniciarWatcherPagos && process.env.PAGOS_ACTIVOS === 'true') {
     try {
       iniciarWatcherPagos({
         db: db, waSend: waSend, bot: bot, getAdminTelegram: getAdminTelegram, ADMIN_WHATSAPP: ADMIN_WHATSAPP,
@@ -4825,6 +4829,8 @@ app.listen(PORT, () => {
         }
       });
     } catch (e) { console.error('⚠️ no pude iniciar el watcher de pagos:', e.message); }
+  } else if (iniciarWatcherPagos) {
+    console.log('💤 watcher de pagos en reposo (no hay deposito). Encender con PAGOS_ACTIVOS=true');
   }
   iniciarWatcherExpiraciones(); // Aparta la reserva 60min; recordatorios 30/45min; expira sin pago
   iniciarWatcherRecordatorios(); // Recordatorio de confirmación ~8h antes + recordatorio simple ~2h antes
