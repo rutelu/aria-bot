@@ -3878,6 +3878,7 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   let fichas = 0, conSesiones = 0, conRecomendadora = 0, reservas = 0, completadas = 0;
   const porSeguimiento = {};
+  let conFotos = 0, fotos = 0;
   const conPuntos = [];
   try {
     const fs2 = await db.collection('fichas').get();
@@ -3887,6 +3888,13 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
       const t = (x.treatments || []).length;
       if (t > 0) { conSesiones++; conPuntos.push({ tel: d.id, nombre: x.nombre || x.patientName || '', sesiones: t }); }
       if (x.recomendadaPor) conRecomendadora++;
+      // Las fotos de tratamiento viven DENTRO de la ficha (data URI), no en Storage.
+      let f2 = 0;
+      ['ficha', 'tratamiento'].forEach(function (k) {
+        const arr = ((x[k] || {}).fotos) || [];
+        if (Array.isArray(arr)) f2 += arr.length;
+      });
+      if (f2) { conFotos++; fotos += f2; }
     });
   } catch (e) {}
   try {
@@ -3903,7 +3911,7 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
       }
     });
   } catch (e) {}
-  res.json({ fichas: fichas, fichasConSesionesRegistradas: conSesiones,
+  res.json({ fichas: fichas, fichasConSesionesRegistradas: conSesiones, fichasConFotos: conFotos, fotosTotales: fotos,
              fichasQueDicenQuienLasRecomendo: conRecomendadora,
              reservas: reservas, reservasMarcadasComoAtendidas: completadas,
              comoEstanMarcadas: porSeguimiento,
