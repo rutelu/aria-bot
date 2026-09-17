@@ -3896,7 +3896,11 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
       reservas++;
       const seg = String(r.seguimiento || 'sin marcar');
       porSeguimiento[seg] = (porSeguimiento[seg] || 0) + 1;
-      if (_seAtendio(r)) completadas++;
+      if (_seAtendio(r)) {
+        completadas++;
+        conPuntos.push({ tel: _portalTel8(r.telefono), nombre: r.nombre || '',
+                         cuando: r.fecha || '', tratamiento: r.tratamiento || r.servicio || '' });
+      }
     });
   } catch (e) {}
   res.json({ fichas: fichas, fichasConSesionesRegistradas: conSesiones,
