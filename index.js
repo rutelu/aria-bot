@@ -2807,6 +2807,17 @@ function _portalTel8(t) { return String(t || "").replace(/\D/g, "").slice(-8); }
 // hecha, o una recomendada que efectivamente vino y se atendio. Una cita
 // reservada NO suma: reservar es gratis, y en las jornadas mucha gente no vino.
 const FID_PUNTOS = { sesion: 100, recomendada: 250 };
+
+// Que cuenta como atendida. El equipo ya marca 'Asistio' en el selector de
+// seguimiento del Centro de Control: se usa ESE campo, el que de verdad tocan,
+// en vez de pedirles que aprendan a marcar otra cosa.
+function _seAtendio(r) {
+  const seg = String((r && r.seguimiento) || '').toLowerCase();
+  if (seg.indexOf('no asisti') === 0) return false;   // 'No asistio' nunca suma
+  if (seg.indexOf('asisti') === 0) return true;
+  const est = String((r && r.estado) || '').toLowerCase();
+  return est === 'completada' || est === 'realizada';
+}
 const FID_NIVELES = [
   { id: "elite", nombre: "Élite",    desde: 1000, beneficios: [
       "Cupo reservado en cada jornada, sin competir por horarios",
@@ -2863,9 +2874,7 @@ async function _fidelidad(tel8) {
     const rs = await db.collection("reservas_beni").get();
     rs.forEach(function (d) {
       const r = d.data() || {};
-      const est = String(r.estado || "").toLowerCase();
-      // Solo las que el equipo marco como hechas desde el panel.
-      if (est !== "completada" && est !== "realizada") return;
+      if (!_seAtendio(r)) return;
       if (_portalTel8(r.telefono) === tel8) {
         const clave = String(r.fecha || "") + "|" + String(r.tratamiento || r.servicio || "").toLowerCase().trim();
         if (!yaContadas[clave]) {
@@ -2887,8 +2896,7 @@ async function _fidelidad(tel8) {
         try {
           const rr = await db.collection("reservas_beni").where("telefono", "==", y.telefono || "").get();
           rr.forEach(function (z) {
-            const e2 = String((z.data() || {}).estado || "").toLowerCase();
-            if (e2 === "completada" || e2 === "realizada") seAtendio = true;
+            if (_seAtendio(z.data() || {})) seAtendio = true;
           });
         } catch (e) {}
       }
@@ -3150,9 +3158,9 @@ app.post('/portal/mis-datos', async (req, res) => {
           sede: r.subsede || r.lugar || '',
           tratamiento: r.tratamiento || r.servicio || '',
           estado: r.estado || 'confirmada',
-          // Si alguien del equipo la marco como hecha. Sin esto el historial
+          // Si alguien del equipo la marco como atendida. Sin esto el historial
           // afirmaba 'Realizado' de citas a las que quiza nunca vino.
-          hecha: ['completada', 'realizada'].indexOf(String(r.estado || '').toLowerCase()) !== -1,
+          hecha: _seAtendio(r),
           futura: (r.fecha || '') >= hoy
         });
       });
@@ -3869,6 +3877,7 @@ app.get('/debug/fidelidad-texto', (req, res) => {
 app.get('/debug/fidelidad-resumen', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   let fichas = 0, conSesiones = 0, conRecomendadora = 0, reservas = 0, completadas = 0;
+  const porSeguimiento = {};
   const conPuntos = [];
   try {
     const fs2 = await db.collection('fichas').get();
@@ -3883,14 +3892,17 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
   try {
     const rs = await db.collection('reservas_beni').get();
     rs.forEach(function (d) {
-      const e2 = String((d.data() || {}).estado || '').toLowerCase();
+      const r = d.data() || {};
       reservas++;
-      if (e2 === 'completada' || e2 === 'realizada') completadas++;
+      const seg = String(r.seguimiento || 'sin marcar');
+      porSeguimiento[seg] = (porSeguimiento[seg] || 0) + 1;
+      if (_seAtendio(r)) completadas++;
     });
   } catch (e) {}
   res.json({ fichas: fichas, fichasConSesionesRegistradas: conSesiones,
              fichasQueDicenQuienLasRecomendo: conRecomendadora,
-             reservas: reservas, reservasMarcadasComoHechas: completadas,
+             reservas: reservas, reservasMarcadasComoAtendidas: completadas,
+             comoEstanMarcadas: porSeguimiento,
              quienesYaSumarian: conPuntos });
 });
 
