@@ -120,6 +120,7 @@ async function _syncEventoReserva(docRef, before, after, mapFn) {
   const calId = (after.gcalCalendarId) || (await getCitasCalendarId());
   if (!calId) return;
   if (!before) { // NUEVA
+    if (after.recuperada) return; // restaurada del chat: es historia, no una cita nueva
     if (_esCancelado(after.estado) || !c.fecha || !c.hora) return;
     try { const id = await gcalCrearEvento(calId, c); await docRef.set({ gcalEventId: id, gcalCalendarId: calId }, { merge: true }); console.log('📅 Evento creado ' + id + ' (' + (c.nombre || '?') + ')'); }
     catch (e) { console.error('crearEvento:', e.message); }
@@ -4131,6 +4132,47 @@ app.get('/debug/recuperar-borradas', async (req, res) => {
              confirmacionesEncontradas: hallazgos.length, hallazgos: hallazgos });
 });
 
+// RESTAURAR las 10 reservas que borró /debug/limpiar-todo el 9 ago, reconstruidas
+// de las confirmaciones escritas por Valeria (ver /debug/recuperar-borradas).
+// Lista cerrada y revisada con Julio el 18 sep. Van marcadas `recuperada: true`:
+// ni avisan al equipo, ni le escriben a la paciente, ni crean eventos en el
+// calendario. Ids propios (recuperada_…) → correrlo dos veces no duplica nada.
+// Sin &confirmar=1 solo muestra lo que haría.
+const _RECUPERADAS = [
+  { j: 'beni-2026-06',  sede: 'San Borja',    lugar: 'San Borja — Hotel Kamahal',              f: '2026-06-15', h: '16:00', n: 'María del Carmen', t: '73930934', tr: 'Delineado de ojos' },
+  { j: 'beni-2026-06',  sede: 'San Borja',    lugar: 'San Borja — Hotel Kamahal',              f: '2026-06-17', h: '15:00', n: 'Marisol',          t: '71127997', tr: 'Valoración' },
+  { j: 'beni-2026-06',  sede: 'San Borja',    lugar: 'San Borja — Hotel Kamahal',              f: '2026-06-17', h: '19:00', n: 'Yandira',          t: '71149747', tr: 'Valoración de cirugía estética' },
+  { j: 'beni-2026-06',  sede: 'Rurrenabaque', lugar: 'Rurrenabaque — Body Face Center Spa',    f: '2026-06-20', h: '10:00', n: 'Georgina',         t: '68969465', tr: 'Rinomodelación (valoración)' },
+  { j: 'beni-2026-06',  sede: 'San Borja',    lugar: 'San Borja — Hotel Kamahal',              f: '2026-06-22', h: '09:00', n: 'Beibi',            t: '73915005', tr: 'Valoración' },
+  { j: 'oruro-2026-06', sede: 'Oruro',        lugar: 'Oruro',                                  f: '2026-06-27', h: '18:00', n: '',                 t: '72496813', tr: 'Rinomodelación con hilos tensores' },
+  { j: 'sucre-2026-07', sede: 'Sucre',        lugar: 'Sucre — Centro de Salud Victoria',       f: '2026-07-02', h: '10:00', n: 'Paola',            t: '73465392', tr: 'Armonización facial' },
+  { j: 'sucre-2026-07', sede: 'Sucre',        lugar: 'Sucre — Centro de Salud Victoria',       f: '2026-07-02', h: '12:00', n: 'Eliza',            t: '74070337', tr: 'Hilos tensores' },
+  { j: 'sucre-2026-07', sede: 'Sucre',        lugar: 'Sucre — Centro de Salud Victoria',       f: '2026-07-02', h: '15:00', n: 'Lilian',           t: '77134649', tr: 'Valoración' },
+  { j: 'sucre-2026-07', sede: 'Sucre',        lugar: 'Sucre — Centro de Salud Victoria',       f: '2026-07-02', h: '16:00', n: 'Flora (mamá de Lilian)', t: '77134649', tr: 'Valoración' }
+];
+app.get('/debug/restaurar-recuperadas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const escribir = req.query.confirmar === '1';
+  const hechas = [];
+  try {
+    for (const r of _RECUPERADAS) {
+      const id = 'recuperada_' + r.f + '_' + r.h.replace(':', '') + '_' + r.t;
+      const doc = {
+        jornadaId: r.j, fecha: r.f, hora: r.h, subsede: r.sede, lugar: r.lugar,
+        nombre: r.n || ('Paciente ' + r.t), telefono: '591' + r.t,
+        tratamiento: r.tr, servicio: r.tr, notas: r.tr,
+        estado: 'confirmada', canal: 'wa', chatId: 'wa_591' + r.t,
+        recuperada: true, recuperadaDe: 'confirmación escrita por Valeria en el chat',
+        recuperadaAt: new Date(), createdAt: new Date(r.f + 'T12:00:00-04:00')
+      };
+      if (escribir) await db.collection('reservas_beni').doc(id).set(doc, { merge: true });
+      hechas.push({ id: id, nombre: doc.nombre, sede: r.sede, fecha: r.f, hora: r.h });
+    }
+  } catch (e) { return res.json({ error: e.message, hechasAntesDelError: hechas }); }
+  res.json({ escrito: escribir, cantidad: hechas.length, reservas: hechas });
+});
+
 // Todas las reservas de todas las colecciones, por mes y sede, SIN excluir nada.
 // Para saber que campañas existen de verdad en la base y cuales se perdieron.
 app.get('/debug/reservas-por-mes', async (req, res) => {
@@ -4634,6 +4676,9 @@ function iniciarWatcherReservas() {
       const r = ch.doc.data();
       _marcarReservoOk(r); // marca "ya reservó" en su chat → el seguimiento no le insiste (backfill + nuevas)
       if (!init) return; // las que ya existían al arrancar: solo backfill, sin re-notificar al equipo
+      // Una reserva RESTAURADA (recuperada del chat tras el borrado del 9 ago) no es
+      // nueva: no se avisa al equipo ni se le escribe a la paciente por una cita de junio.
+      if (r.recuperada) return;
       notificarNuevaReserva(r);
       // Confirmación al cliente por WhatsApp (solo web/voz; los de chat ya recibieron el saludo+referido de Valeria).
       if (process.env.CONFIRMACION_ACTIVA === 'true' && (!r.canal || r.canal === 'voz')) enviarConfirmacionReserva(r).catch(function () {});
