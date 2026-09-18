@@ -3999,6 +3999,34 @@ app.get('/debug/crear-plantilla-codigo', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
+// Si un mensaje LLEGO de verdad. Meta responde 'accepted' al aceptarlo, no al
+// entregarlo: dar eso por entregado ya nos hizo cantar victoria en falso una vez.
+// El webhook guarda los estados reales en wa_estados; aca se leen.
+app.get('/debug/entregas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const tel = String(req.query.tel || '').replace(/[^0-9]/g, '');
+  try {
+    const snap = await db.collection('wa_estados').orderBy('cuando', 'desc').limit(60).get();
+    const filas = [];
+    snap.forEach(function (d) {
+      const x = d.data() || {};
+      if (tel && String(x.telefono || '').indexOf(tel.slice(-8)) === -1) return;
+      filas.push({ telefono: x.telefono || '', estado: x.estado || '',
+                   cuando: x.cuando && x.cuando.toDate ? x.cuando.toDate().toISOString() : '' });
+    });
+    const fs2 = await db.collection('wa_fallos').orderBy('cuando', 'desc').limit(20).get();
+    const fallos = [];
+    fs2.forEach(function (d) {
+      const x = d.data() || {};
+      if (tel && String(x.telefono || '').indexOf(tel.slice(-8)) === -1) return;
+      fallos.push({ telefono: x.telefono || '', codigo: x.codigo, titulo: x.titulo || '',
+                    detalle: String(x.detalle || '').slice(0, 160) });
+    });
+    res.json({ buscado: tel || 'todos', estados: filas, fallos: fallos });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/plantillas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const TOKEN = process.env.WHATSAPP_TOKEN;
