@@ -4090,6 +4090,47 @@ app.get('/debug/crear-plantilla-codigo', async (req, res) => {
 // Si un mensaje LLEGO de verdad. Meta responde 'accepted' al aceptarlo, no al
 // entregarlo: dar eso por entregado ya nos hizo cantar victoria en falso una vez.
 // El webhook guarda los estados reales en wa_estados; aca se leen.
+// RECUPERACION (solo lectura): el 9 ago /debug/limpiar-todo borro TODAS las reservas
+// creyendo que eran de prueba, y se llevo las reales de junio y julio. Las
+// conversaciones de Valeria no se tocaron: cada reserva por chat dejo escrita su
+// confirmacion. Esto las busca y las lista. NO ESCRIBE NADA.
+app.get('/debug/recuperar-borradas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const corte = new Date('2026-08-10T04:00:00Z');   // el borrado fue el 9 ago 23:39 (Bolivia)
+  const confirma = /(reserva|cita)[^.\n]{0,60}(confirmad|agendad|registrad|qued[oó])|qued[oó] (confirmad|agendad|reservad)|te (espero|esperamos) el/i;
+  const hallazgos = [];
+  let chats = 0, mensajes = 0;
+  try {
+    const snap = await db.collection('valeria_chats').get();
+    for (const c of snap.docs) {
+      chats++;
+      const cx = c.data() || {};
+      let ms;
+      try { ms = await c.ref.collection('mensajes').where('ts', '<', corte).get(); } catch (e) { continue; }
+      if (ms.empty) continue;
+      const lista = ms.docs.map(function (m) { return m.data() || {}; })
+        .sort(function (a, b) { return (a.ts && b.ts) ? a.ts.toMillis() - b.ts.toMillis() : 0; });
+      mensajes += lista.length;
+      lista.forEach(function (m, i) {
+        if (m.rol !== 'valeria' || !confirma.test(String(m.texto || ''))) return;
+        // El mensaje anterior de la persona suele traer su nombre o el dia pedido.
+        const previo = lista.slice(Math.max(0, i - 3), i).filter(function (p) { return p.rol === 'user'; })
+          .map(function (p) { return String(p.texto || '').slice(0, 140); });
+        hallazgos.push({
+          chat: c.id, contacto: cx.contacto || '', nombreChat: cx.nombre || cx.nombreContacto || '',
+          cuando: m.ts && m.ts.toDate ? m.ts.toDate().toISOString().slice(0, 16) : '',
+          confirmacion: String(m.texto || '').replace(/\s+/g, ' ').slice(0, 320),
+          loQueDijoAntes: previo
+        });
+      });
+    }
+  } catch (e) { return res.json({ error: e.message }); }
+  hallazgos.sort(function (a, b) { return String(a.cuando).localeCompare(String(b.cuando)); });
+  res.json({ chatsRevisados: chats, mensajesAnterioresAlBorrado: mensajes,
+             confirmacionesEncontradas: hallazgos.length, hallazgos: hallazgos });
+});
+
 // Todas las reservas de todas las colecciones, por mes y sede, SIN excluir nada.
 // Para saber que campañas existen de verdad en la base y cuales se perdieron.
 app.get('/debug/reservas-por-mes', async (req, res) => {
