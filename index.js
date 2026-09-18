@@ -4090,6 +4090,30 @@ app.get('/debug/crear-plantilla-codigo', async (req, res) => {
 // Si un mensaje LLEGO de verdad. Meta responde 'accepted' al aceptarlo, no al
 // entregarlo: dar eso por entregado ya nos hizo cantar victoria en falso una vez.
 // El webhook guarda los estados reales en wa_estados; aca se leen.
+// Todas las reservas de todas las colecciones, por mes y sede, SIN excluir nada.
+// Para saber que campañas existen de verdad en la base y cuales se perdieron.
+app.get('/debug/reservas-por-mes', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const out = {};
+  for (const col of ['reservas_beni', 'citas', 'appointments', 'cupos_ocupados']) {
+    try {
+      const snap = await db.collection(col).get();
+      const t = {};
+      snap.forEach(function (d) {
+        const x = d.data() || {};
+        const f = String(x.fecha || x.date || '') || (String(d.id).match(/\d{4}-\d\d-\d\d/) || ['sin fecha'])[0];
+        const mes = f.slice(0, 7);
+        const sede = x.subsede || x.lugar || x.sede || '(sin sede)';
+        t[mes] = t[mes] || {};
+        t[mes][sede] = (t[mes][sede] || 0) + 1;
+      });
+      out[col] = { total: snap.size, porMes: t };
+    } catch (e) { out[col] = { error: e.message }; }
+  }
+  res.json(out);
+});
+
 // Cuantas reservas faltan revisar, desglosadas por sede y por mes. Es el mismo
 // criterio que usa el Centro de Control (seguimiento vacio = nadie la reviso).
 app.get('/debug/por-revisar', async (req, res) => {
