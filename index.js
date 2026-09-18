@@ -2420,7 +2420,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
 
       if (data.error) {
         console.error('Claude API error:', data.error);
-        return 'Hola! Soy Valeria de HARMONIE 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 76951552 y te atendemos de inmediato 😊';
+        return 'Hola! Soy Valeria, de HARMONIE 💆‍♀️ Tengo un problema técnico en este momento. Por favor escríbenos al WhatsApp +591 76951552 y te atendemos de inmediato 😊';
       }
 
       // ¿Claude pide usar una herramienta? Ejecutarla y volver a llamar.
@@ -2479,7 +2479,7 @@ async function _askValeriaRaw(userId, userMessage, origenDirecto) {
 
   } catch (err) {
     console.error('Error Claude AI:', err);
-    return 'Hola! Soy Valeria de HARMONIE 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 76951552 😊';
+    return 'Hola! Soy Valeria, de HARMONIE 💆‍♀️ Tengo un problema técnico. Por favor escríbenos al WhatsApp +591 76951552 😊';
   }
 }
 
@@ -3397,10 +3397,10 @@ app.post('/chat', async (req, res) => {
       else norm.push({ role: m.role, content: m.content });
     });
     while (norm.length && norm[0].role !== 'user') norm.shift();
-    if (!norm.length) return res.json({ answer: '¡Hola! Soy Valeria de HARMONIE 💆‍♀️ ¿En qué puedo ayudarte?' });
+    if (!norm.length) return res.json({ answer: '¡Hola! Soy Valeria, de HARMONIE 💆‍♀️ ¿En qué puedo ayudarte?' });
 
     const webNote = '\n\n---\n[CANAL: CHAT WEB de harmonieinstitute.com — REGLAS DE ESTE CANAL (PRIORIDAD MÁXIMA, por encima de todo lo de arriba):\n'
-      + '1) Preséntate y refiérete a ti misma como "asistente de Harmonie". NUNCA digas "asistente virtual".\n'
+      + '1) IDENTIDAD — SIEMPRE LA MISMA: cuando te presentes, decí exactamente "Soy Valeria, de HARMONIE". Ni "asistente de Harmonie" a secas, ni "la asistente", ni "asistente virtual": con tu nombre, como en el WhatsApp y en las llamadas, para que quien ya te conoce de otro canal te reconozca acá. (Te presentás UNA sola vez, al principio de la conversación; si ya venían hablando, no repitas la presentación.)\n'
       + '2) CAMPAÑAS EN EL CHAT WEB: este canal es general y nacional, así que NO promociones la jornada de forma proactiva. Habla de los tratamientos y las 8 sedes de forma general. Si la persona pregunta EXPRESAMENTE si hay una campaña/jornada activa, guíate por la sección "JORNADA ACTIVA" de arriba: si la hay, cuéntale con calidez que puede ver las fechas y reservar en el calendario (usa el botón [[AGENDAR]]); si no hay ninguna activa, ofrécele dejar sus datos para la próxima. Tú NO des fechas concretas ni los descuentos en este chat; que lo vea en el calendario.\n'
       + '3) AYUDA AQUÍ MISMO, en este chat: responde sus dudas con calidez y resuélvelas tú directamente. NO derives a WhatsApp de forma proactiva ni repitas "escríbenos por WhatsApp". SOLO menciona el WhatsApp (' + WA + ') si la persona pide EXPRESAMENTE hablar con alguien del equipo.\n'
       + '4) AGENDAR (MUY IMPORTANTE): NUNCA digas que "no tienes acceso al calendario" ni te disculpes por no poder agendar. Cuando la persona quiera reservar/agendar (o sea el momento natural para invitarla), hazlo con calidez y al FINAL de tu mensaje, en una línea aparte y sola, escribe EXACTAMENTE el marcador [[AGENDAR]] (nada más en esa línea; NUNCA lo expliques, menciones ni lo pongas en cada mensaje). El sistema convierte ese marcador en un botón "Agendar" que abre el calendario del sitio, donde la persona elige AGENDA VIRTUAL (consulta/valoración ONLINE por videollamada, sin salir de casa) o PRESENCIAL en las sedes. Ofrece ambas y destaca la virtual. En este canal NO uses los marcadores [[LLAMAR:...]].\n'
