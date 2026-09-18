@@ -2901,6 +2901,29 @@ function bloqueFidelidad() {
 }
 // Cuenta lo que esta paciente hizo de verdad. Devuelve tambien el detalle:
 // que nadie vea un numero sin poder saber de donde salio.
+// Todas las reservas, de las DOS colecciones: 'reservas_beni' (jornadas) y 'citas'
+// (calendario general del sitio). Antes el cálculo de puntos y el Área Paciente
+// solo miraban las jornadas: quien reservaba en el calendario del sitio y venía no
+// sumaba puntos ni veía su cita. Devuelve objetos con .id / .ref / .data() como los
+// de Firestore, y a las citas les agrega `subsede` y `tratamiento` con los nombres
+// de campo que usan las jornadas.
+async function _todasLasReservas() {
+  const out = [];
+  const a = await db.collection('reservas_beni').get();
+  a.forEach(function (d) { out.push(d); });
+  try {
+    const b = await db.collection('citas').get();
+    b.forEach(function (d) {
+      const x = d.data() || {};
+      const virtual = x.modalidad === 'virtual';
+      const punto = x.subsede || (virtual ? ('Virtual · ' + (x.sede || 'online')) : (x.sede || ''));
+      out.push({ id: 'citas::' + d.id, ref: d.ref,
+                 data: function () { return Object.assign({}, x, { subsede: punto, tratamiento: x.tratamiento || x.servicio || '' }); } });
+    });
+  } catch (e) { console.error('_todasLasReservas citas:', e.message); }
+  return out;
+}
+
 async function _fidelidad(tel8) {
   const vacio = { puntos: 0, nivel: FID_NIVELES[FID_NIVELES.length - 1], sesiones: 0, recomendadas: 0, movimientos: [], siguiente: null, faltan: 0, niveles: FID_NIVELES };
   if (!db || !tel8) return vacio;
@@ -2926,7 +2949,7 @@ async function _fidelidad(tel8) {
     });
   } catch (e) {}
   try {
-    const rs = await db.collection("reservas_beni").get();
+    const rs = await _todasLasReservas();
     rs.forEach(function (d) {
       const r = d.data() || {};
       if (!_seAtendio(r)) return;
@@ -3222,7 +3245,7 @@ app.post('/portal/mis-datos', async (req, res) => {
     const hoy = fechaBoliviaISO();
     const citas = [];
     try {
-      const rs = await db.collection('reservas_beni').get();
+      const rs = await _todasLasReservas();
       rs.forEach(function (d) {
         const r = d.data() || {};
         if (_portalTel8(r.telefono) !== tel8) return;
@@ -4203,7 +4226,7 @@ app.get('/debug/por-revisar', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
   try {
-    const snap = await db.collection('reservas_beni').get();
+    const snap = await _todasLasReservas(); // jornadas + calendario del sitio
     const porSede = {}, porMes = {};
     let total = 0, sinRevisar = 0, asistieron = 0, noAsistieron = 0, canceladas = 0;
     snap.forEach(function (d) {
@@ -4255,9 +4278,9 @@ async function _sincronizarPuntos() {
   try {
     const yaTiene = {};
     snap.forEach(function (d) { yaTiene[d.id] = 1; });
-    const rs = await db.collection('reservas_beni').get();
+    const rs = await _todasLasReservas(); // jornadas + calendario del sitio
     const vistos = {};
-    for (const d of rs.docs) {
+    for (const d of rs) {
       const r = d.data() || {};
       if (!_seAtendio(r)) continue;
       const t8 = _portalTel8(r.telefono);
