@@ -4109,6 +4109,26 @@ app.get('/debug/por-revisar', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
+// Cuantas fichas ya tienen puntos cargados por el panel de admin (loyaltyPoints).
+// Hace falta para saber si ese sistema esta EN USO o solo instalado.
+app.get('/debug/loyalty-admin', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  try {
+    const snap = await db.collection('fichas').get();
+    let conPuntos = 0, conHistorial = 0, totalPts = 0;
+    const quienes = [];
+    snap.forEach(function (d) {
+      const x = d.data() || {};
+      const p = Number(x.loyaltyPoints || 0);
+      const h = (x.pointsHistory || []).length;
+      if (p) { conPuntos++; totalPts += p; quienes.push({ tel: d.id, nombre: x.nombre || x.patientName || '', puntos: p, movimientos: h }); }
+      if (h) conHistorial++;
+    });
+    res.json({ fichas: snap.size, conPuntosCargados: conPuntos, conHistorial: conHistorial, puntosTotales: totalPts, quienes: quienes });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 // Los leads que dejo la gente en el chat del sitio. Es la lista para reenganchar:
 // hasta ahora esta gente se perdia sin dejar rastro.
 app.get('/debug/leads-web', async (req, res) => {
