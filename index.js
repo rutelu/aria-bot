@@ -2906,7 +2906,7 @@ async function _fidelidad(tel8) {
   let sesiones = 0, recomendadas = 0;
   const movimientos = [];
   const yaContadas = {}; // misma sesion en la ficha y en la agenda = una sola
-  let _vinoEnFicha = false, _fechaFicha = '';
+  let _vinoEnFicha = false, _fechaFicha = '', _ajustes = 0;
   try {
     const f = await db.collection("fichas").doc(tel8).get();
     const x = f.exists ? (f.data() || {}) : {};
@@ -2914,6 +2914,8 @@ async function _fidelidad(tel8) {
     // que escriben ACA y no en el seguimiento de la reserva. Si no se mirara este
     // campo, marcar ahi no daria ningun punto y nadie entenderia por que.
     _vinoEnFicha = (x.asistio === true);
+    // loyaltyPoints del admin pasa a significar SOLO los ajustes manuales.
+    _ajustes = Number(x.loyaltyPoints || 0) || 0;
     try { _fechaFicha = x.asistioAt && x.asistioAt.toDate ? x.asistioAt.toDate().toISOString().slice(0, 10) : ''; } catch (e) {}
     (x.treatments || []).forEach(function (t) {
       const clave = String(t.date || "") + "|" + String(t.name || "").toLowerCase().trim();
@@ -2968,7 +2970,15 @@ async function _fidelidad(tel8) {
     movimientos.push({ fecha: _fechaFicha, detalle: 'Visita registrada por el equipo', puntos: FID_PUNTOS.sesion });
   }
 
-  const puntos = sesiones * FID_PUNTOS.sesion + recomendadas * FID_PUNTOS.recomendada;
+  // Ajustes que el equipo carga a mano desde el Dashboard de Fidelización del admin:
+  // el regalo de cumpleaños, una compensación, un canje. Se SUMAN a lo calculado, no
+  // lo reemplazan: el cálculo sigue siendo la base y nadie tiene que acordarse de
+  // cargar los puntos de cada sesión.
+  const ganados = sesiones * FID_PUNTOS.sesion + recomendadas * FID_PUNTOS.recomendada;
+  const puntos = Math.max(0, ganados + _ajustes);
+  if (_ajustes) {
+    movimientos.push({ fecha: '', detalle: 'Ajustes del equipo', puntos: _ajustes });
+  }
   const nivel = FID_NIVELES.find(function (v) { return puntos >= v.desde; }) || FID_NIVELES[FID_NIVELES.length - 1];
   // El nivel de arriba, para poder decirle cuanto le falta.
   const i = FID_NIVELES.indexOf(nivel);
@@ -2978,6 +2988,7 @@ async function _fidelidad(tel8) {
     puntos: puntos, nivel: nivel, sesiones: sesiones, recomendadas: recomendadas,
     movimientos: movimientos, siguiente: siguiente,
     faltan: siguiente ? (siguiente.desde - puntos) : 0,
+    ganados: ganados, ajustes: _ajustes,
     porSesion: FID_PUNTOS.sesion, porRecomendada: FID_PUNTOS.recomendada,
     niveles: FID_NIVELES
   };
@@ -4108,6 +4119,41 @@ app.get('/debug/por-revisar', async (req, res) => {
                sinRevisarPorSede: porSede, sinRevisarPorMes: porMes });
   } catch (e) { res.json({ error: e.message }); }
 });
+
+// Escribe en cada ficha los puntos YA CALCULADOS, para que el Dashboard de
+// Fidelizacion del admin los muestre sin tener que recalcularlos (el admin lee
+// Firestore directo, no pasa por aca). La fuente de verdad sigue siendo el
+// calculo: esto es una copia para mostrar, que se refresca cada vez que corre.
+async function _sincronizarPuntos() {
+  if (!db) return { error: 'sin base' };
+  const snap = await db.collection('fichas').get();
+  let escritas = 0, conPuntos = 0;
+  for (const d of snap.docs) {
+    const f = await _fidelidad(d.id);
+    await d.ref.set({
+      puntosCalculados: f.puntos,
+      nivelCalculado: f.nivel.nombre,
+      sesionesContadas: f.sesiones,
+      recomendadasContadas: f.recomendadas,
+      puntosAt: new Date()
+    }, { merge: true });
+    escritas++;
+    if (f.puntos) conPuntos++;
+  }
+  return { fichas: snap.size, actualizadas: escritas, conPuntos: conPuntos };
+}
+
+app.get('/debug/sincronizar-puntos', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  try { res.json(await _sincronizarPuntos()); } catch (e) { res.json({ error: e.message }); }
+});
+
+// Se refresca solo: a los 2 minutos de arrancar y despues cada 6 horas. Asi el
+// admin nunca muestra un numero viejo aunque nadie toque nada.
+if (db) {
+  setTimeout(function () { _sincronizarPuntos().then(function (r) { console.log('⭐ puntos sincronizados: ' + JSON.stringify(r)); }).catch(function (e) { console.error('sincronizar puntos:', e.message); }); }, 120000);
+  setInterval(function () { _sincronizarPuntos().catch(function () {}); }, 6 * 3600 * 1000);
+}
 
 // Cuantas fichas ya tienen puntos cargados por el panel de admin (loyaltyPoints).
 // Hace falta para saber si ese sistema esta EN USO o solo instalado.
