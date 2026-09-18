@@ -4135,6 +4135,7 @@ async function _sincronizarPuntos() {
       nivelCalculado: f.nivel.nombre,
       sesionesContadas: f.sesiones,
       recomendadasContadas: f.recomendadas,
+      ajustesAlCalcular: f.ajustes || 0,
       puntosAt: new Date()
     }, { merge: true });
     escritas++;
@@ -4163,6 +4164,7 @@ async function _sincronizarPuntos() {
         creadaAuto: true, creadaAutoMotivo: 'se atendio y no tenia ficha',
         puntosCalculados: f.puntos, nivelCalculado: f.nivel.nombre,
         sesionesContadas: f.sesiones, recomendadasContadas: f.recomendadas,
+        ajustesAlCalcular: f.ajustes || 0,
         puntosAt: new Date(), actualizadoAt: new Date()
       }, { merge: true });
       creadas.push({ tel: t8, nombre: r.nombre || '', puntos: f.puntos });
