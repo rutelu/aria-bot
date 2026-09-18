@@ -4070,6 +4070,14 @@ app.get('/debug/leads-web', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
   try {
+    // Borrar una conversacion (para sacar las de prueba, que si no se mezclan con
+    // los leads de verdad). Solo chats del sitio, nunca los de WhatsApp.
+    const _borrar = String(req.query.borrar || '');
+    if (_borrar) {
+      if (_borrar.indexOf('web_') !== 0) return res.json({ error: 'solo se pueden borrar chats web_' });
+      await db.collection('valeria_chats').doc(_borrar).delete();
+      return res.json({ borrado: _borrar });
+    }
     const snap = await db.collection('valeria_chats').get();
     const conTel = [], sinTel = [];
     snap.forEach(function (d) {
