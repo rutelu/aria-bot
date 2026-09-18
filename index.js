@@ -1600,14 +1600,16 @@ async function _buscarCitaDoc(telefono, fecha, hora) {
   });
   return found;
 }
-function notificarNuevaCita(c) {
+async function notificarNuevaCita(c) {
   if (!c) return;
+  const _hist = await _lineaHistorial(c); // "ya reservó antes…" o "primera vez"
   const txt = '🗓️ NUEVA CITA — ' + (c.modalidad === 'virtual' ? 'Videollamada' : (c.sede || 'Presencial')) + '\n'
     + '👤 ' + (c.nombre || '(sin nombre)') + '\n'
     + '📞 ' + (c.telefono || '-') + '\n'
     + '📅 ' + (c.fecha || '-') + ' · ' + (c.hora || '-') + '\n'
     + (c.servicio ? ('💬 ' + c.servicio + '\n') : '')
-    + '🔗 Por: ' + (c.canal === 'voz' ? 'llamada de voz' : (c.canal || 'chat'));
+    + '🔗 Por: ' + (c.canal === 'voz' ? 'Llamada con Valeria' : _caminoDe(c, 'citas'))
+    + _hist;
   try { waSend(ADMIN_WHATSAPP, txt).catch(function(){}); } catch (e) {}
   try { getAdminTelegram().then(function(adm){ if (adm) bot.sendMessage(adm, txt).catch(function(){}); }).catch(function(){}); } catch (e) {}
   console.log('🗓️ Notificada nueva cita: ' + (c.nombre || '?') + ' ' + (c.fecha || '') + ' ' + (c.hora || ''));
@@ -2901,6 +2903,194 @@ function bloqueFidelidad() {
 }
 // Cuenta lo que esta paciente hizo de verdad. Devuelve tambien el detalle:
 // que nadie vea un numero sin poder saber de donde salio.
+// ── HISTORIAL DE RESERVAS EN LA FICHA + LEADS ────────────────────────────────
+// Cada persona (últimos 8 dígitos del teléfono) tiene UNA ficha, y adentro la
+// lista de TODAS sus reservas: jornadas, calendario del sitio y recuperadas.
+// La asistencia vive en la RESERVA (`seguimiento`), que es lo que leen el Centro
+// de Control, el Admin y los puntos; la ficha guarda una copia para mostrarla y
+// para usar a la persona como lead. Se refresca sola cuando cambia una reserva.
+const _MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const _PUNTOS_BENI = ['San Borja', 'Rurrenabaque', 'Reyes', 'Santa Rosa'];
+
+// Por dónde reservó, dicho como lo diría una persona.
+function _caminoDe(r, col) {
+  if (col === 'citas') {
+    if (String(r.canal || '') === 'voz') return 'Llamada con Valeria';
+    return r.modalidad === 'virtual' ? 'Calendario del sitio (consulta virtual)' : 'Calendario del sitio';
+  }
+  const pref = String(r.chatId || '').split('_')[0];
+  const canal = String(r.canal || '');
+  if (canal === 'voz') return 'Llamada con Valeria';
+  if (pref === 'wa' || canal === 'wa') return 'WhatsApp con Valeria';
+  if (pref === 'fb' || canal === 'fb') return 'Messenger con Valeria';
+  if (pref === 'ig' || canal === 'ig') return 'Instagram con Valeria';
+  if (pref === 'tg' || canal === 'tg') return 'Telegram con Valeria';
+  if (pref === 'web' || canal === 'web') return 'Chat del sitio con Valeria';
+  if (canal) return 'Chat con Valeria';
+  return 'Minisitio de la campaña (reservó sola)';
+}
+// A qué jornada pertenece. Se arma de la sede y el mes, sin un tercer registro de
+// campañas que mantener: "Jornada Beni · junio", "Jornada Oruro · agosto".
+function _jornadaDe(r, col) {
+  if (col === 'citas') return 'Agenda del sitio';
+  const sede = String(r.subsede || r.lugar || '');
+  let grupo = sede;
+  if (_PUNTOS_BENI.indexOf(sede) !== -1) grupo = 'Beni';
+  else if (sede.indexOf('Oruro') === 0) grupo = 'Oruro';
+  const m = Number(String(r.fecha || '').slice(5, 7));
+  return 'Jornada ' + (grupo || 'sin sede') + (m ? (' · ' + _MESES[m - 1]) : '');
+}
+function _asistenciaDe(r) {
+  if (String(r.estado || '').toLowerCase() === 'cancelada') return 'cancelada';
+  const s = String(r.seguimiento || '');
+  if (s === 'Asistió') return 'vino';
+  if (s === 'No asistió') return 'no vino';
+  return 'sin marcar';
+}
+function _colDe(d) { return String(d.id).indexOf('citas::') === 0 ? 'citas' : 'reservas_beni'; }
+
+function _historialDe(docs) {
+  const reservas = docs.map(function (d) {
+    const r = d.data() || {};
+    const col = _colDe(d);
+    return {
+      col: col, docId: col === 'citas' ? String(d.id).slice(7) : String(d.id),
+      nombre: r.nombre || '', fecha: r.fecha || '', hora: r.hora || '',
+      sede: r.subsede || r.lugar || '', jornada: _jornadaDe(r, col),
+      tratamiento: r.tratamiento || r.servicio || '', camino: _caminoDe(r, col),
+      asistencia: _asistenciaDe(r), recuperada: !!r.recuperada
+    };
+  }).sort(function (a, b) { return (b.fecha + b.hora).localeCompare(a.fecha + a.hora); });
+  const cuenta = function (k) { return reservas.filter(function (x) { return x.asistencia === k; }).length; };
+  const unicos = function (arr) { return arr.filter(function (v, i, a) { return v && a.indexOf(v) === i; }); };
+  return {
+    reservas: reservas,
+    resumen: {
+      total: reservas.length, vino: cuenta('vino'), noVino: cuenta('no vino'),
+      sinMarcar: cuenta('sin marcar'), canceladas: cuenta('cancelada'),
+      caminos: unicos(reservas.map(function (x) { return x.camino; })),
+      jornadas: unicos(reservas.map(function (x) { return x.jornada; })),
+      sedes: unicos(reservas.map(function (x) { return x.sede; })),
+      ultima: reservas.length ? reservas[0].fecha : '',
+      primera: reservas.length ? reservas[reservas.length - 1].fecha : ''
+    }
+  };
+}
+
+// Escribe el historial en la ficha de cada persona (o de una sola, si se pasa su
+// teléfono). Crea la ficha si no existía. NUNCA toca los datos clínicos, las fotos
+// ni las sesiones: solo agrega `reservas`, `historial` y, si faltan, nombre y teléfono.
+async function _sincronizarFichas(soloTel8) {
+  if (!db) return { error: 'sin base' };
+  const todas = await _todasLasReservas();
+  const porTel = {};
+  todas.forEach(function (d) {
+    const t = _portalTel8((d.data() || {}).telefono);
+    if (!t || t.length < 8) return;
+    if (soloTel8 && t !== soloTel8) return;
+    (porTel[t] = porTel[t] || []).push(d);
+  });
+  let creadas = 0, actualizadas = 0;
+  for (const t of Object.keys(porTel)) {
+    const docs = porTel[t];
+    const h = _historialDe(docs);
+    const ref = db.collection('fichas').doc(t);
+    const snap = await ref.get();
+    const x = snap.exists ? (snap.data() || {}) : {};
+    const up = { reservas: h.reservas, historial: h.resumen, esLead: true, historialAt: new Date() };
+    const conNombre = h.reservas.filter(function (r) { return r.nombre && r.nombre.indexOf('Paciente ') !== 0; });
+    if (!x.nombre && !x.patientName && conNombre.length) { up.nombre = conNombre[0].nombre; up.patientName = conNombre[0].nombre; }
+    if (!x.telefono && !x.phone) {
+      const tel = (docs.map(function (d) { return (d.data() || {}).telefono; }).filter(Boolean)[0]) || t;
+      up.telefono = tel; up.phone = tel;
+    }
+    if (!x.id) up.id = t;
+    if (!x.sede && h.resumen.sedes[0]) up.sede = h.resumen.sedes[0];
+    if (!snap.exists) { up.creadaAuto = true; up.origenFicha = 'reserva'; up.actualizadoAt = new Date(); creadas++; }
+    else actualizadas++;
+    await ref.set(up, { merge: true });
+  }
+  return { personas: Object.keys(porTel).length, fichasCreadas: creadas, fichasActualizadas: actualizadas };
+}
+
+async function _puntosDe(t) {
+  const f = await _fidelidad(t);
+  await db.collection('fichas').doc(t).set({
+    puntosCalculados: f.puntos, nivelCalculado: f.nivel.nombre,
+    sesionesContadas: f.sesiones, recomendadasContadas: f.recomendadas,
+    ajustesAlCalcular: f.ajustes || 0, puntosAt: new Date()
+  }, { merge: true });
+}
+
+// Cuando una reserva cambia (se marca "vino", se cancela, llega una nueva), se
+// refresca SOLO la ficha de esa persona. Con una espera corta: marcar tres cosas
+// seguidas dispara un solo refresco.
+const _syncPendiente = {};
+function _programarSyncFicha(tel) {
+  const t = _portalTel8(tel);
+  if (!t || t.length < 8) return;
+  clearTimeout(_syncPendiente[t]);
+  _syncPendiente[t] = setTimeout(function () {
+    delete _syncPendiente[t];
+    _sincronizarFichas(t).then(function () { return _puntosDe(t); })
+      .catch(function (e) { console.error('sync ficha ' + t + ':', e.message); });
+  }, 2500);
+}
+
+// Para el aviso al equipo: si esta persona ya había reservado antes, por dónde y
+// si vino. Así se sabe al instante si es una clienta que vuelve o una que ya faltó.
+async function _lineaHistorial(r) {
+  try {
+    const t = _portalTel8(r && r.telefono);
+    if (!t || t.length < 8) return '';
+    const todas = await _todasLasReservas();
+    const antes = todas.filter(function (d) {
+      const x = d.data() || {};
+      if (_portalTel8(x.telefono) !== t) return false;
+      return !(x.fecha === r.fecha && x.hora === r.hora); // no contar esta misma reserva
+    });
+    if (!antes.length) return '\n🆕 Primera vez que reserva';
+    const h = _historialDe(antes);
+    const icono = { 'vino': '✅ vino', 'no vino': '❌ no vino', 'sin marcar': '❔ sin marcar', 'cancelada': '🚫 cancelada' };
+    return '\n🔁 YA RESERVÓ ANTES (' + h.resumen.total + '):\n' + h.reservas.slice(0, 5).map(function (x) {
+      return '  • ' + x.jornada + ' — ' + x.fecha.slice(8, 10) + '/' + x.fecha.slice(5, 7) + ' ' + x.hora
+        + ' — por ' + x.camino + ' — ' + (icono[x.asistencia] || x.asistencia);
+    }).join('\n');
+  } catch (e) { return ''; }
+}
+
+// Vigila las dos colecciones: cualquier cambio refresca la ficha de esa persona, y
+// una cita NUEVA del calendario del sitio le avisa al equipo (antes solo avisaban
+// las que tomaba Valeria por llamada: las del navegador no le llegaban a nadie).
+function iniciarWatcherFichas() {
+  if (!db) return;
+  ['reservas_beni', 'citas'].forEach(function (col) {
+    let init = false;
+    db.collection(col).onSnapshot(function (snap) {
+      if (init) {
+        snap.docChanges().forEach(function (ch) {
+          const x = ch.doc.data() || {};
+          if (ch.type === 'added' || ch.type === 'modified') _programarSyncFicha(x.telefono);
+          if (col === 'citas' && ch.type === 'added' && String(x.canal || '') !== 'voz' && !x.recuperada) {
+            notificarNuevaCita(Object.assign({}, x, { canal: x.canal || 'calendario del sitio' }));
+          }
+        });
+      }
+      init = true;
+    }, function (err) { console.error('watcher fichas ' + col + ':', err.message); });
+  });
+  console.log('📇 Watcher de fichas activo (reservas_beni + citas → historial en la ficha)');
+}
+
+app.get('/debug/sincronizar-fichas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  try {
+    const a = await _sincronizarFichas(req.query.tel ? _portalTel8(req.query.tel) : null);
+    const b = await _sincronizarPuntos();
+    res.json({ fichas: a, puntos: b });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 // Todas las reservas, de las DOS colecciones: 'reservas_beni' (jornadas) y 'citas'
 // (calendario general del sitio). Antes el cálculo de puntos y el Área Paciente
 // solo miraban las jornadas: quien reservaba en el calendario del sitio y venía no
@@ -4313,8 +4503,15 @@ app.get('/debug/sincronizar-puntos', async (req, res) => {
 // Se refresca solo: a los 2 minutos de arrancar y despues cada 6 horas. Asi el
 // admin nunca muestra un numero viejo aunque nadie toque nada.
 if (db) {
-  setTimeout(function () { _sincronizarPuntos().then(function (r) { console.log('⭐ puntos sincronizados: ' + JSON.stringify(r)); }).catch(function (e) { console.error('sincronizar puntos:', e.message); }); }, 120000);
-  setInterval(function () { _sincronizarPuntos().catch(function () {}); }, 6 * 3600 * 1000);
+  // Primero el historial en las fichas (crea las que falten), después los puntos.
+  const _syncCompleto = function () {
+    return _sincronizarFichas()
+      .then(function (a) { console.log('📇 fichas sincronizadas: ' + JSON.stringify(a)); return _sincronizarPuntos(); })
+      .then(function (r) { console.log('⭐ puntos sincronizados: ' + JSON.stringify(r)); })
+      .catch(function (e) { console.error('sincronizar fichas/puntos:', e.message); });
+  };
+  setTimeout(_syncCompleto, 120000);
+  setInterval(_syncCompleto, 6 * 3600 * 1000);
 }
 
 // Cuantas fichas ya tienen puntos cargados por el panel de admin (loyaltyPoints).
@@ -4654,15 +4851,17 @@ app.get('/disponibilidad', async (req, res) => {
 });
 // ── NOTIFICACIÓN DE NUEVAS RESERVAS (web + Valeria) al equipo ──
 // reservas_beni la usan TANTO la web como Valeria (chat/voz), así que un solo watcher las capta todas.
-function notificarNuevaReserva(r) {
+async function notificarNuevaReserva(r) {
   if (!r) return;
+  const _hist = await _lineaHistorial(r); // "ya reservó antes…" o "primera vez"
   const txt = '🗓️ NUEVA RESERVA (jornada)\n'
     + '👤 ' + (r.nombre || '(sin nombre)') + '\n'
     + '📞 ' + (r.telefono || '-') + '\n'
     + '📍 ' + (r.subsede || r.lugar || '-') + '\n'
     + '📅 ' + (r.fecha || '-') + ' · ' + (r.hora || '-') + '\n'
     + (r.notas ? ('💬 ' + r.notas + '\n') : '')
-    + '🔗 Por: ' + (r.canal === 'voz' ? 'llamada de voz' : (r.canal && r.canal !== 'chat' ? r.canal : 'web/chat'));
+    + '🔗 Por: ' + _caminoDe(r, 'reservas_beni')
+    + _hist;
   // WhatsApp al equipo (78922666). Nota: si no hay ventana de 24h, Meta puede rechazarlo.
   waSend(ADMIN_WHATSAPP, txt).catch(function(e){ console.error('notif reserva WA:', e.message); });
   // Telegram (respaldo confiable si el admin está registrado con /admin)
@@ -5281,4 +5480,5 @@ app.listen(PORT, () => {
   }
   iniciarWatcherExpiraciones(); // Aparta la reserva 60min; recordatorios 30/45min; expira sin pago
   iniciarWatcherRecordatorios(); // Recordatorio de confirmación ~8h antes + recordatorio simple ~2h antes
+  iniciarWatcherFichas(); // cada cambio de reserva refresca la ficha (historial + puntos) de esa persona
 });
