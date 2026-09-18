@@ -4064,6 +4064,36 @@ app.get('/debug/crear-plantilla-codigo', async (req, res) => {
 // Si un mensaje LLEGO de verdad. Meta responde 'accepted' al aceptarlo, no al
 // entregarlo: dar eso por entregado ya nos hizo cantar victoria en falso una vez.
 // El webhook guarda los estados reales en wa_estados; aca se leen.
+// Cuantas reservas faltan revisar, desglosadas por sede y por mes. Es el mismo
+// criterio que usa el Centro de Control (seguimiento vacio = nadie la reviso).
+app.get('/debug/por-revisar', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  try {
+    const snap = await db.collection('reservas_beni').get();
+    const porSede = {}, porMes = {};
+    let total = 0, sinRevisar = 0, asistieron = 0, noAsistieron = 0, canceladas = 0;
+    snap.forEach(function (d) {
+      const r = d.data() || {};
+      total++;
+      const sede = r.subsede || r.lugar || '(sin sede)';
+      const mes = String(r.fecha || '').slice(0, 7) || '(sin fecha)';
+      if (String(r.estado || '').toLowerCase() === 'cancelada') { canceladas++; return; }
+      const seg = String(r.seguimiento || '');
+      if (seg === 'Asistió') { asistieron++; return; }
+      if (seg === 'No asistió') { noAsistieron++; return; }
+      if (!seg) {
+        sinRevisar++;
+        porSede[sede] = (porSede[sede] || 0) + 1;
+        porMes[mes] = (porMes[mes] || 0) + 1;
+      }
+    });
+    res.json({ total: total, canceladas: canceladas, asistieron: asistieron,
+               noAsistieron: noAsistieron, sinRevisar: sinRevisar,
+               sinRevisarPorSede: porSede, sinRevisarPorMes: porMes });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 // Los leads que dejo la gente en el chat del sitio. Es la lista para reenganchar:
 // hasta ahora esta gente se perdia sin dejar rastro.
 app.get('/debug/leads-web', async (req, res) => {
