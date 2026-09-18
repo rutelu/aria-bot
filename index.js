@@ -4140,7 +4140,37 @@ async function _sincronizarPuntos() {
     escritas++;
     if (f.puntos) conPuntos++;
   }
-  return { fichas: snap.size, actualizadas: escritas, conPuntos: conPuntos };
+  // Quien se atendio pero NO tiene ficha quedaria invisible en el admin, aunque
+  // tenga puntos. Se le crea una ficha minima: si vino a la clinica, le
+  // corresponde tener ficha, y sin ella tampoco se la puede contactar despues.
+  const creadas = [];
+  try {
+    const yaTiene = {};
+    snap.forEach(function (d) { yaTiene[d.id] = 1; });
+    const rs = await db.collection('reservas_beni').get();
+    const vistos = {};
+    for (const d of rs.docs) {
+      const r = d.data() || {};
+      if (!_seAtendio(r)) continue;
+      const t8 = _portalTel8(r.telefono);
+      if (!t8 || yaTiene[t8] || vistos[t8]) continue;
+      vistos[t8] = 1;
+      const f = await _fidelidad(t8);
+      await db.collection('fichas').doc(t8).set({
+        telefono: r.telefono || t8, nombre: r.nombre || '',
+        patientName: r.nombre || '', phone: r.telefono || t8,
+        id: t8, sede: r.subsede || r.lugar || '',
+        creadaAuto: true, creadaAutoMotivo: 'se atendio y no tenia ficha',
+        puntosCalculados: f.puntos, nivelCalculado: f.nivel.nombre,
+        sesionesContadas: f.sesiones, recomendadasContadas: f.recomendadas,
+        puntosAt: new Date(), actualizadoAt: new Date()
+      }, { merge: true });
+      creadas.push({ tel: t8, nombre: r.nombre || '', puntos: f.puntos });
+    }
+  } catch (e) { console.error('crear fichas faltantes:', e.message); }
+
+  return { fichas: snap.size, actualizadas: escritas, conPuntos: conPuntos + creadas.length,
+           fichasCreadas: creadas };
 }
 
 app.get('/debug/sincronizar-puntos', async (req, res) => {
