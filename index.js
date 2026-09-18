@@ -2536,7 +2536,7 @@ bot.on('message', async (msg) => {
     const msg = url ? (texto + '\n👉 ' + url) : texto;
     const espera = typingDelay(msg) - (Date.now() - t0);
     if (espera > 0) { bot.sendChatAction(chatId, 'typing'); await sleep(espera); }
-    bot.sendMessage(chatId, msg);
+    bot.sendMessage(chatId, _fmtSalida(msg, 'tg'));
   }
 });
 
@@ -2567,6 +2567,21 @@ function _fmtSalida(texto, canal) {
     t = t.replace(/(?:por WhatsApp:?\s*)?por aquí mismo/gi, 'por aquí mismo');
   }
   t = t.replace(/^#{1,6}\s+/gm, '');
+
+  // ÚLTIMA BARRERA — ningún marcador puede llegar crudo al cliente.
+  // ⚠️ El chat del SITIO se excluye a propósito: ahí el marcador viaja entero hasta el
+  // navegador, que lo detecta para dibujar el botón "Agendar mi cita" (index.html) y
+  // después limpia lo que sobra. Si lo tocáramos acá, ese botón dejaría de aparecer.
+  if (canal !== 'web') {
+    // En WhatsApp ya se convirtió en BOTÓN antes de llegar acá, así que no queda nada
+    // que reemplazar. En Telegram, Messenger e Instagram no hay botones y le llegaba el
+    // texto "[[AGENDAR]]" tal cual al cliente: ahí se vuelve enlace.
+    t = t.replace(/\[\[\s*AGENDAR\s*\]\]/ig, function () { return '👉 ' + _urlAgendar(); });
+    // Y cualquier OTRO marcador que se nos escape se borra: mostrarlo crudo es peor que
+    // perderlo. Misma lección que el markdown roto — esto no se confía al prompt, se
+    // limpia al enviar.
+    t = t.replace(/\[\[[^\]\n]{0,80}\]\]/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
   return t;
 }
 
@@ -2638,6 +2653,14 @@ async function waSendCallButton(to, url, bodyText, label) {
 
 // Extrae el marcador [[LLAMAR:beni|web]] del texto de Valeria. Devuelve el texto ya limpio
 // y la URL destino (o null si no hay marcador).
+// La URL del calendario de la jornada vigente. Vive aca sola para que el marcador
+// y la red de seguridad de _fmtSalida no puedan discrepar.
+function _urlAgendar() {
+  var _c = (typeof _beniCache !== 'undefined' && _beniCache) ? _beniCache.data : null;
+  var _r = (_c && (_c.rutaMinisitio || _c.slug)) || 'jornada';
+  return 'https://harmonieinstitute.com/' + _r + '?agendar=1';
+}
+
 // Extrae el marcador [[AGENDAR]] y devuelve la URL del CALENDARIO de la jornada vigente
 // (con ?agendar=1, que lo abre directo). Se manda como BOTON, no como link pelado.
 function extraerMarcadorAgendar(text) {
@@ -2645,9 +2668,7 @@ function extraerMarcadorAgendar(text) {
   var re = new RegExp("\\[\\[\\s*AGENDAR\\s*\\]\\]", "ig");
   var url = null;
   if (re.test(text)) {
-    var _c = (typeof _beniCache !== 'undefined' && _beniCache) ? _beniCache.data : null;
-    var _r = (_c && (_c.rutaMinisitio || _c.slug)) || 'jornada';
-    url = 'https://harmonieinstitute.com/' + _r + '?agendar=1';
+    url = _urlAgendar();
   }
   re.lastIndex = 0;
   var texto = String(text).replace(re, '').trim();
