@@ -4064,6 +4064,36 @@ app.get('/debug/crear-plantilla-codigo', async (req, res) => {
 // Si un mensaje LLEGO de verdad. Meta responde 'accepted' al aceptarlo, no al
 // entregarlo: dar eso por entregado ya nos hizo cantar victoria en falso una vez.
 // El webhook guarda los estados reales en wa_estados; aca se leen.
+// Los leads que dejo la gente en el chat del sitio. Es la lista para reenganchar:
+// hasta ahora esta gente se perdia sin dejar rastro.
+app.get('/debug/leads-web', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  try {
+    const snap = await db.collection('valeria_chats').get();
+    const conTel = [], sinTel = [];
+    snap.forEach(function (d) {
+      if (String(d.id).indexOf('web_') !== 0) return;
+      const x = d.data() || {};
+      const fila = {
+        id: d.id, telefono: x.telefono || null,
+        mensajes: x.totalMensajes || 0,
+        ultimoTexto: String(x.ultimoTexto || '').slice(0, 90),
+        cuando: x.ultimaActividad && x.ultimaActividad.toDate ? x.ultimaActividad.toDate().toISOString().slice(0, 16) : ''
+      };
+      if (x.telefono) conTel.push(fila); else sinTel.push(fila);
+    });
+    const orden = function (a, b) { return String(b.cuando).localeCompare(String(a.cuando)); };
+    conTel.sort(orden); sinTel.sort(orden);
+    res.json({
+      conversaciones: conTel.length + sinTel.length,
+      dejaronSuWhatsApp: conTel.length,
+      leads: conTel,
+      sinContacto: sinTel.slice(0, 25)
+    });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 // ── CAPTURA DE LEAD EN EL CHAT WEB ─────────────────────────────────────────
 // El telefono lo detecta el CODIGO, no el prompt: si dependiera del modelo, unas
 // veces lo guardaria y otras no. Valeria solo se encarga de PEDIRLO.
