@@ -1767,6 +1767,21 @@ async function _enviarRecordatorio(d, c, tel, campo, etiqueta, texto) {
     console.log('🔔 recordatorio ' + etiqueta + ' ENTREGADO → ' + d.id);
     return;
   }
+  // El texto libre fue rechazado: casi siempre es la ventana de 24h de WhatsApp,
+  // que se cierra si la paciente nunca nos escribio (reservo por la web o por voz).
+  // La PLANTILLA aprobada SI cruza esa ventana, asi que se intenta antes de darlo
+  // por perdido. No es un mensaje de mas: es el mismo recordatorio por otra via.
+  try {
+    const _cfgP = await getBeniConfig();
+    const okPlantilla = await enviarPlantillaRecordatorio(c, _cfgP);
+    if (okPlantilla) {
+      const u2 = {}; u2[campo] = new Date(); u2.recordatorioPorPlantilla = true;
+      await d.ref.update(u2);
+      console.log('🔔 recordatorio ' + etiqueta + ' ENTREGADO POR PLANTILLA (ventana cerrada) → ' + d.id);
+      return;
+    }
+  } catch (e) { console.error('🔔 plantilla de respaldo fallo:', e.message); }
+
   const motivo = (r && r.error && (r.error.message || r.error.code)) || 'desconocido';
   const intentos = (c.recordatorioIntentos || 0) + 1;
   // NO se marca el campo: al no marcarlo, el siguiente ciclo (30 min) lo reintenta solo.
@@ -3581,7 +3596,8 @@ async function enviarPlantillaRecordatorio(r, cfg) {
   const to = normalizarTelefono(r.telefono);
   if (!to || to.length < 8) { console.warn('Recordatorio: teléfono inválido', r.telefono); return false; }
   const dia = ((cfg && cfg.dias) || []).find(function (x) { return x.fecha === r.fecha; });
-  const diaLabel = (dia && dia.label) || r.fecha;
+  // Sin campaña activa no hay label, y mandar '2026-09-20' crudo se lee horrible.
+  const diaLabel = (dia && dia.label) || (typeof _fechaEs === 'function' ? _fechaEs(r.fecha) : r.fecha);
   const lugar = r.lugar || r.subsede || 'nuestra sede';
   const nombre = (r.nombre || 'paciente').trim().split(/\s+/)[0]; // primer nombre, más cálido
   try {
@@ -3800,10 +3816,13 @@ async function correrSeguimientos(dryRun, ignoraTiempo) {
 
 // Arranca a los 30s y luego cada 20 minutos
 if (db) {
-  // ⛔ DESACTIVADO: recordatorio por PLANTILLA de Meta 'recordatorio_jornada_beni' — su texto fijo
-  // dice "Jornada Beni de ARMONNIZA" (marca vieja + campaña equivocada) y confunde. Lo reemplaza el
-  // watcher de recordatorios de texto libre (revisarRecordatoriosConfirmar: 8h + 2h antes, marca "Harmonie").
-  // Para reactivarlo hace falta una PLANTILLA nueva aprobada en Meta y setear WA_TEMPLATE_RECORDATORIO.
+  // Este watcher queda apagado A PROPOSITO, pero NO por lo que decia la nota vieja.
+  // La plantilla 'recordatorio_jornada_beni' YA fue corregida y esta APPROVED: dice
+  // "Hola {{1}} 💛 Te recordamos tu cita: {{2}} a las {{3}}, en {{4}}. ¡Te esperamos en
+  // Harmonie!" — sin marca vieja y sin nombrar Beni, sirve para cualquier ciudad.
+  // Se deja apagado porque DUPLICARIA los recordatorios: el watcher de texto libre ya
+  // manda 20h/8h/2h, y desde hoy usa esa misma plantilla como respaldo automatico
+  // cuando la ventana de 24h esta cerrada (ver _enviarRecordatorio).
   // setTimeout(correrRecordatorios, 30000);
   // setInterval(correrRecordatorios, 20 * 60 * 1000);
   setTimeout(correrSeguimientos, 60000);
