@@ -2657,7 +2657,17 @@ async function waSendCallButton(to, url, bodyText, label) {
 // y la red de seguridad de _fmtSalida no puedan discrepar.
 function _urlAgendar() {
   var _c = (typeof _beniCache !== 'undefined' && _beniCache) ? _beniCache.data : null;
-  var _r = (_c && (_c.rutaMinisitio || _c.slug)) || 'jornada';
+  // La ruta de la campaña solo vale mientras la campaña esté VIVA. Si ya terminó,
+  // mandarla ahí lleva a un minisitio que dice "jornada finalizada" — le pasó a la
+  // gente con el /lapaz en septiembre. Sin campaña vigente va /jornada, la ruta
+  // universal, que siempre resuelve a lo que esté activo.
+  var _hoy = (function () {
+    var d = new Date(Date.now() - 4 * 3600 * 1000); // Bolivia, UTC-4
+    return d.toISOString().slice(0, 10);
+  })();
+  var _viva = !!(_c && _c.publicada === true &&
+                 (_c.dias || []).some(function (x) { return String(x.fecha || '') >= _hoy; }));
+  var _r = (_viva && (_c.rutaMinisitio || _c.slug)) || 'jornada';
   return 'https://harmonieinstitute.com/' + _r + '?agendar=1';
 }
 
