@@ -2857,15 +2857,24 @@ function _portalTel8(t) { return String(t || "").replace(/\D/g, "").slice(-8); }
 // reservada NO suma: reservar es gratis, y en las jornadas mucha gente no vino.
 const FID_PUNTOS = { sesion: 100, recomendada: 250 };
 
-// Que cuenta como atendida. El equipo ya marca 'Asistio' en el selector de
-// seguimiento del Centro de Control: se usa ESE campo, el que de verdad tocan,
-// en vez de pedirles que aprendan a marcar otra cosa.
+// Qué cuenta como SESIÓN REALIZADA — lo único que da puntos.
+// El seguimiento tiene tres estados de asistencia (18 sep, pedido de Julio):
+//   'No asistió'  → no vino.
+//   'Asistió'     → VINO, pero NO se atendió (ej. solo la valoración gratis).
+//   'Se atendió'  → vino Y se hizo un tratamiento.
+// Julio decidió que solo 'Se atendió' da puntos: venir a una valoración gratis no
+// es una sesión, y regalar puntos por eso le quita valor al programa.
 function _seAtendio(r) {
   const seg = String((r && r.seguimiento) || '').toLowerCase();
-  if (seg.indexOf('no asisti') === 0) return false;   // 'No asistio' nunca suma
-  if (seg.indexOf('asisti') === 0) return true;
+  if (seg.indexOf('se atendi') === 0) return true;
+  if (seg) return false;                                  // 'Asistió' o 'No asistió': no suma
   const est = String((r && r.estado) || '').toLowerCase();
   return est === 'completada' || est === 'realizada';
+}
+// Vino, se haya atendido o no.
+function _vino(r) {
+  const seg = String((r && r.seguimiento) || '');
+  return seg === 'Asistió' || seg === 'Se atendió';
 }
 const FID_NIVELES = [
   { id: "elite", nombre: "Élite",    desde: 1000, beneficios: [
@@ -2943,7 +2952,8 @@ function _jornadaDe(r, col) {
 function _asistenciaDe(r) {
   if (String(r.estado || '').toLowerCase() === 'cancelada') return 'cancelada';
   const s = String(r.seguimiento || '');
-  if (s === 'Asistió') return 'vino';
+  if (s === 'Se atendió') return 'se atendió';
+  if (s === 'Asistió') return 'vino';                     // vino, pero no se atendió
   if (s === 'No asistió') return 'no vino';
   return 'sin marcar';
 }
@@ -2966,7 +2976,10 @@ function _historialDe(docs) {
   return {
     reservas: reservas,
     resumen: {
-      total: reservas.length, vino: cuenta('vino'), noVino: cuenta('no vino'),
+      // "vino" cuenta a todas las que se presentaron (se hayan atendido o no);
+      // "seAtendio" solo a las que se hicieron un tratamiento.
+      total: reservas.length, vino: cuenta('vino') + cuenta('se atendió'), seAtendio: cuenta('se atendió'),
+      noVino: cuenta('no vino'),
       sinMarcar: cuenta('sin marcar'), canceladas: cuenta('cancelada'),
       caminos: unicos(reservas.map(function (x) { return x.camino; })),
       jornadas: unicos(reservas.map(function (x) { return x.jornada; })),
@@ -3051,7 +3064,7 @@ async function _lineaHistorial(r) {
     });
     if (!antes.length) return '\n🆕 Primera vez que reserva';
     const h = _historialDe(antes);
-    const icono = { 'vino': '✅ vino', 'no vino': '❌ no vino', 'sin marcar': '❔ sin marcar', 'cancelada': '🚫 cancelada' };
+    const icono = { 'se atendió': '💉 se atendió', 'vino': '✅ vino (no se atendió)', 'no vino': '❌ no vino', 'sin marcar': '❔ sin marcar', 'cancelada': '🚫 cancelada' };
     return '\n🔁 YA RESERVÓ ANTES (' + h.resumen.total + '):\n' + h.reservas.slice(0, 5).map(function (x) {
       return '  • ' + x.jornada + ' — ' + x.fecha.slice(8, 10) + '/' + x.fecha.slice(5, 7) + ' ' + x.hora
         + ' — por ' + x.camino + ' — ' + (icono[x.asistencia] || x.asistencia);
@@ -3081,6 +3094,28 @@ function iniciarWatcherFichas() {
   });
   console.log('📇 Watcher de fichas activo (reservas_beni + citas → historial en la ficha)');
 }
+
+// UNA SOLA VEZ (18 sep): al separar "Vino" de "Se atendió", Julio confirmó que
+// Noemí Ayma (Botox y ácido hialurónico) y Judith Tapia (rinomodelación) SÍ se
+// atendieron. Lista cerrada con esas dos; sin &confirmar=1 solo muestra.
+app.get('/debug/pasar-a-atendido', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const QUIENES = ['75419163', '70535916'];
+  const escribir = req.query.confirmar === '1';
+  const hechas = [];
+  try {
+    const todas = await _todasLasReservas();
+    for (const d of todas) {
+      const r = d.data() || {};
+      if (QUIENES.indexOf(_portalTel8(r.telefono)) === -1) continue;
+      if (r.seguimiento !== 'Asistió') continue;
+      if (escribir) await d.ref.set({ seguimiento: 'Se atendió', seguimientoAt: new Date() }, { merge: true });
+      hechas.push({ nombre: r.nombre, fecha: r.fecha, hora: r.hora, antes: 'Asistió', ahora: 'Se atendió' });
+    }
+  } catch (e) { return res.json({ error: e.message, hechas: hechas }); }
+  res.json({ escrito: escribir, cambios: hechas });
+});
 
 app.get('/debug/sincronizar-fichas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
@@ -3124,13 +3159,14 @@ async function _fidelidad(tel8) {
   try {
     const f = await db.collection("fichas").doc(tel8).get();
     const x = f.exists ? (f.data() || {}) : {};
-    // El buscador de fichas del panel tiene sus propios botones "Vino / No vino",
-    // que escriben ACA y no en el seguimiento de la reserva. Si no se mirara este
-    // campo, marcar ahi no daria ningun punto y nadie entenderia por que.
-    _vinoEnFicha = (x.asistio === true);
+    // Quien llega SIN reserva se marca desde su ficha en /panel ("Vino" / "Se
+    // atendió"), que escribe ACÁ y no en una reserva. Solo "Se atendió" (atendido)
+    // cuenta como sesión: "Vino" (asistio) sin tratamiento no suma, igual que en
+    // las reservas.
+    _vinoEnFicha = (x.atendido === true);
     // loyaltyPoints del admin pasa a significar SOLO los ajustes manuales.
     _ajustes = Number(x.loyaltyPoints || 0) || 0;
-    try { _fechaFicha = x.asistioAt && x.asistioAt.toDate ? x.asistioAt.toDate().toISOString().slice(0, 10) : ''; } catch (e) {}
+    try { const _ts = x.atendidoAt || x.asistioAt; _fechaFicha = _ts && _ts.toDate ? _ts.toDate().toISOString().slice(0, 10) : ''; } catch (e) {}
     (x.treatments || []).forEach(function (t) {
       const clave = String(t.date || "") + "|" + String(t.name || "").toLowerCase().trim();
       if (yaContadas[clave]) return;
@@ -3446,7 +3482,8 @@ app.post('/portal/mis-datos', async (req, res) => {
           estado: r.estado || 'confirmada',
           // Si alguien del equipo la marco como atendida. Sin esto el historial
           // afirmaba 'Realizado' de citas a las que quiza nunca vino.
-          hecha: _seAtendio(r),
+          hecha: _seAtendio(r),          // se hizo un tratamiento
+          vino: _vino(r) && !_seAtendio(r), // vino (ej. valoración) pero no se atendió
           futura: (r.fecha || '') >= hoy
         });
       });
@@ -4418,7 +4455,7 @@ app.get('/debug/por-revisar', async (req, res) => {
   try {
     const snap = await _todasLasReservas(); // jornadas + calendario del sitio
     const porSede = {}, porMes = {};
-    let total = 0, sinRevisar = 0, asistieron = 0, noAsistieron = 0, canceladas = 0;
+    let total = 0, sinRevisar = 0, asistieron = 0, seAtendieron = 0, noAsistieron = 0, canceladas = 0;
     snap.forEach(function (d) {
       const r = d.data() || {};
       total++;
@@ -4426,7 +4463,7 @@ app.get('/debug/por-revisar', async (req, res) => {
       const mes = String(r.fecha || '').slice(0, 7) || '(sin fecha)';
       if (String(r.estado || '').toLowerCase() === 'cancelada') { canceladas++; return; }
       const seg = String(r.seguimiento || '');
-      if (seg === 'Asistió') { asistieron++; return; }
+      if (seg === 'Asistió' || seg === 'Se atendió') { asistieron++; if (seg === 'Se atendió') seAtendieron++; return; }
       if (seg === 'No asistió') { noAsistieron++; return; }
       if (!seg) {
         sinRevisar++;
@@ -4435,7 +4472,7 @@ app.get('/debug/por-revisar', async (req, res) => {
       }
     });
     res.json({ total: total, canceladas: canceladas, asistieron: asistieron,
-               noAsistieron: noAsistieron, sinRevisar: sinRevisar,
+               seAtendieron: seAtendieron, noAsistieron: noAsistieron, sinRevisar: sinRevisar,
                sinRevisarPorSede: porSede, sinRevisarPorMes: porMes });
   } catch (e) { res.json({ error: e.message }); }
 });
