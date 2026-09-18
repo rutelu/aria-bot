@@ -4827,7 +4827,7 @@ app.get('/debug/recordatorios', async (req, res) => {
   const hBol = new Date(ahora - 4 * 3600 * 1000).getUTCHours();
   const filas = [];
   try {
-    for (const col of ['reservas_beni', 'citas']) {
+    for (const col of ['reservas_beni', 'citas', 'appointments']) {
       const snap = await db.collection(col).where('estado', '==', 'confirmada').get();
       snap.docs.forEach(function (d) {
         const c = d.data() || {};
