@@ -4023,6 +4023,16 @@ app.get('/debug/crear-plantilla-codigo', async (req, res) => {
 // Si un mensaje LLEGO de verdad. Meta responde 'accepted' al aceptarlo, no al
 // entregarlo: dar eso por entregado ya nos hizo cantar victoria en falso una vez.
 // El webhook guarda los estados reales en wa_estados; aca se leen.
+// Como queda un texto en cada canal, sin mandarselo a nadie. Sirve para comprobar
+// que ningun marcador ni asterisco llega crudo al cliente.
+app.get('/debug/formato', (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const texto = String(req.query.texto || 'Te espero. **Importante**\n[[AGENDAR]]');
+  const out = {};
+  ['wa', 'tg', 'fb', 'ig', 'web'].forEach(function (c) { out[c] = _fmtSalida(texto, c); });
+  res.json({ entra: texto, sale: out });
+});
+
 app.get('/debug/entregas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
