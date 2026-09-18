@@ -3453,6 +3453,7 @@ app.post('/chat', async (req, res) => {
       + '5) Respuestas MUY breves (1 a 2 frases), cálidas, en español latino neutro (sin voseo). No inventes fechas ni horas concretas.\n'
       + '6) MANTÉN EL HILO: recuerda lo que la persona ya te dijo en esta conversación y continúa desde ahí; si ya venían hablando, NO te vuelvas a presentar ni reinicies.\n'
       + '7) NUNCA INVENTES UNA CAMPAÑA VIGENTE (REGLA DURA): si la sección "JORNADA ACTIVA" de arriba dice que NO hay ninguna activa, está PROHIBIDO decir "nuestra jornada actual", "la campaña de ahora" o cualquier frase que dé a entender que hay una en curso, y está PROHIBIDO prometer sus beneficios (20%, 50% por recomendado, valoración gratis) como si se pudieran reclamar hoy. Si preguntan por esos descuentos y NO hay jornada activa, explica con calidez que son beneficios de nuestras jornadas, que en este momento no hay una en curso, y ofrece agendar su valoración o dejar sus datos para avisarle de la próxima. Nunca le prometas a alguien un descuento que hoy no puede reclamar.\n'
+      + '9) PEDIR SU WHATSAPP — SOLO EN ESTE CANAL, Y SOLO EN EL MOMENTO JUSTO: este chat es ANÓNIMO. Si la persona se va sin dejar su número, no hay forma de volver a contactarla nunca (por WhatsApp sí queda el contacto). Pedíselo en UNA frase cálida, diciendo PARA QUÉ, cuando la conversación se está cerrando SIN reserva: si dice que lo va a pensar, que después escribe, que lo consulta con alguien, si se despide, o si quedó algo que no pudiste resolverle. Ejemplo: "¿Me dejás tu WhatsApp? Así te aviso cuando la jornada llegue a tu ciudad y te paso los precios sin que tengas que estar pendiente." ⛔ NUNCA se lo pidas al principio de la conversación ni a alguien que está por agendar: ahí estorba y perdemos la reserva, que vale más que el contacto. ⛔ Si ya te lo dio en esta conversación, NO se lo vuelvas a pedir. ⛔ Si dice que no, aceptalo con calidez y seguí ayudándola igual: no insistas nunca.\n'
       + '8) PUNTOS DE FIDELIDAD EN ESTE CANAL: acá NO podés ver los puntos de nadie — este chat no consulta la base. Si preguntan por SUS puntos, NO la mandes al WhatsApp de la clínica ni digas "no tengo acceso a tu cuenta": explicale con calidez cómo funciona el programa (lo tenés descrito arriba) y decile que sus puntos, su nivel y sus beneficios los ve ella misma entrando al ÁREA PACIENTE del sitio con su WhatsApp. ⛔ Nunca inventes un número de puntos ni le digas qué nivel tiene.]';
     // La JORNADA ACTIVA tambien va en el chat web: sin esta seccion, las reglas de este
     // canal (que dicen "guiate por la seccion JORNADA ACTIVA de arriba") no encontraban
@@ -3474,7 +3475,37 @@ app.post('/chat', async (req, res) => {
       return res.json({ answer: 'Ahora mismo tengo mucha demanda. Escríbeme por WhatsApp ' + WA + ' y te atiendo enseguida. 💬' });
     }
     const answer = (data.content && data.content[0] && data.content[0].text) || ('Disculpa, no pude procesar tu consulta. Escríbenos por WhatsApp ' + WA + '.');
-    res.json({ answer: _fmtSalida(await ubicacionATexto(answer), 'web') });
+    const _limpio = _fmtSalida(await ubicacionATexto(answer), 'web');
+
+    // ── Que la conversación del sitio deje rastro ──────────────────────────
+    // Hasta hoy este canal no guardaba NADA: ni el hilo ni el contacto. Quien no
+    // reservaba se perdía para siempre, y encima nadie podía leer qué se pregunta
+    // en el sitio. Los demás canales (wa_/tg_/fb_/ig_) sí se guardan hace rato.
+    try {
+      const _wid = String((req.body && req.body.userId) || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
+      if (_wid && db) {
+        const _uid = _wid.indexOf('web_') === 0 ? _wid : ('web_' + _wid);
+        const _ultimo = norm[norm.length - 1];
+        if (_ultimo && _ultimo.role === 'user') logMensaje(_uid, 'user', _ultimo.content);
+        logMensaje(_uid, 'valeria', _limpio);
+        // El teléfono lo saca el CÓDIGO del mensaje de la persona, no el modelo.
+        // Se guarda el PRIMERO que dé y no se pisa después: si más adelante menciona
+        // el número de una amiga, el lead sigue siendo suyo.
+        const _tel = _telefonoEnTexto(_ultimo && _ultimo.content);
+        if (_tel) {
+          db.collection('valeria_chats').doc(_uid).get().then(function (d) {
+            const y = d.exists ? (d.data() || {}) : {};
+            if (y.telefono) return;
+            db.collection('valeria_chats').doc(_uid).set({
+              telefono: _tel, telefonoAt: new Date(), telefonoOrigen: 'chat web'
+            }, { merge: true }).catch(function () {});
+            console.log('📇 lead del sitio capturado: ' + _tel + ' (' + _uid + ')');
+          }).catch(function () {});
+        }
+      }
+    } catch (e) { console.error('chat web: no pude guardar el hilo:', e.message); }
+
+    res.json({ answer: _limpio });
   } catch (e) {
     console.error('/chat:', e);
     res.json({ answer: 'Estamos con mucha demanda ahora. Escríbenos por WhatsApp ' + WA + ' y te atendemos enseguida. 💬' });
@@ -4033,6 +4064,20 @@ app.get('/debug/crear-plantilla-codigo', async (req, res) => {
 // Si un mensaje LLEGO de verdad. Meta responde 'accepted' al aceptarlo, no al
 // entregarlo: dar eso por entregado ya nos hizo cantar victoria en falso una vez.
 // El webhook guarda los estados reales en wa_estados; aca se leen.
+// ── CAPTURA DE LEAD EN EL CHAT WEB ─────────────────────────────────────────
+// El telefono lo detecta el CODIGO, no el prompt: si dependiera del modelo, unas
+// veces lo guardaria y otras no. Valeria solo se encarga de PEDIRLO.
+// Solo celulares bolivianos: 8 digitos que empiezan en 6 o 7, con o sin +591.
+function _telefonoEnTexto(texto) {
+  const t = String(texto || '');
+  const limpio = t.replace(/[\s().\-]/g, '');
+  const m = limpio.match(/(?:\+?591)?([67]\d{7})(?!\d)/);
+  if (!m) return null;
+  // Un año (2026) o un precio largo no son telefonos; el patron ya lo evita al
+  // exigir que empiece en 6 o 7 y tenga exactamente 8 digitos.
+  return m[1];
+}
+
 // Como queda un texto en cada canal, sin mandarselo a nadie. Sirve para comprobar
 // que ningun marcador ni asterisco llega crudo al cliente.
 app.get('/debug/formato', (req, res) => {
