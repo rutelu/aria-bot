@@ -2906,9 +2906,15 @@ async function _fidelidad(tel8) {
   let sesiones = 0, recomendadas = 0;
   const movimientos = [];
   const yaContadas = {}; // misma sesion en la ficha y en la agenda = una sola
+  let _vinoEnFicha = false, _fechaFicha = '';
   try {
     const f = await db.collection("fichas").doc(tel8).get();
     const x = f.exists ? (f.data() || {}) : {};
+    // El buscador de fichas del panel tiene sus propios botones "Vino / No vino",
+    // que escriben ACA y no en el seguimiento de la reserva. Si no se mirara este
+    // campo, marcar ahi no daria ningun punto y nadie entenderia por que.
+    _vinoEnFicha = (x.asistio === true);
+    try { _fechaFicha = x.asistioAt && x.asistioAt.toDate ? x.asistioAt.toDate().toISOString().slice(0, 10) : ''; } catch (e) {}
     (x.treatments || []).forEach(function (t) {
       const clave = String(t.date || "") + "|" + String(t.name || "").toLowerCase().trim();
       if (yaContadas[clave]) return;
@@ -2952,6 +2958,15 @@ async function _fidelidad(tel8) {
       movimientos.push({ fecha: "", detalle: "Trajiste a " + quien, puntos: FID_PUNTOS.recomendada });
     }
   } catch (e) {}
+
+  // El "Vino" del buscador de fichas cuenta como UNA sesión, pero SOLO si no hay
+  // ninguna otra evidencia: si ya sumó por su ficha clínica o por una reserva
+  // marcada "Asistió", es la misma visita y contarla de nuevo sería regalarle
+  // puntos que no hizo.
+  if (_vinoEnFicha && sesiones === 0) {
+    sesiones = 1;
+    movimientos.push({ fecha: _fechaFicha, detalle: 'Visita registrada por el equipo', puntos: FID_PUNTOS.sesion });
+  }
 
   const puntos = sesiones * FID_PUNTOS.sesion + recomendadas * FID_PUNTOS.recomendada;
   const nivel = FID_NIVELES.find(function (v) { return puntos >= v.desde; }) || FID_NIVELES[FID_NIVELES.length - 1];
