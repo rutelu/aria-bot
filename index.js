@@ -1608,7 +1608,7 @@ async function notificarNuevaCita(c) {
     + '📞 ' + (c.telefono || '-') + '\n'
     + '📅 ' + (c.fecha || '-') + ' · ' + (c.hora || '-') + '\n'
     + (c.servicio ? ('💬 ' + c.servicio + '\n') : '')
-    + '🔗 Por: ' + (c.canal === 'voz' ? 'Llamada con Valeria' : _caminoDe(c, 'citas'))
+    + '🔗 Por: ' + _caminoDe(c, 'citas', await _origenesWa([_chatIdDe(c)]))
     + _hist;
   try { waSend(ADMIN_WHATSAPP, txt).catch(function(){}); } catch (e) {}
   try { getAdminTelegram().then(function(adm){ if (adm) bot.sendMessage(adm, txt).catch(function(){}); }).catch(function(){}); } catch (e) {}
@@ -2922,21 +2922,74 @@ const _MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 
 const _PUNTOS_BENI = ['San Borja', 'Rurrenabaque', 'Reyes', 'Santa Rosa'];
 
 // Por dónde reservó, dicho como lo diría una persona.
-function _caminoDe(r, col) {
-  if (col === 'citas') {
-    if (String(r.canal || '') === 'voz') return 'Llamada con Valeria';
-    return r.modalidad === 'virtual' ? 'Calendario del sitio (consulta virtual)' : 'Calendario del sitio';
+// ¿De dónde llegó a WhatsApp esta persona? (aclaración de Julio, 18 sep):
+// "WhatsApp · campaña" = llegó desde la campaña (el anuncio de Meta o el minisitio);
+// "WhatsApp · sitio web" = llegó desde el sitio (su botón de WhatsApp o su chat).
+// Se sabe por lo que guardó el bot (`origen`: el anuncio o "chat web") o por el
+// primer mensaje, que los botones escriben solos:
+//   minisitio → "…quiero información sobre la campaña" / "…de la Jornada …"
+//   sitio     → "Hola VALERIA, quiero información sobre HARMONIE" / "…Gift Card…"
+function _tipoOrigen(origen, primerTexto) {
+  const o = String(origen || '').toLowerCase();
+  const t = String(primerTexto || '').toLowerCase();
+  if (/anuncio|campa|jornada|minisitio/.test(o)) return 'campaña';
+  if (/chat web|sitio|portal/.test(o)) return 'sitio web';
+  if (/campa|jornada/.test(t)) return 'campaña';
+  if (/sobre harmonie|gift card/.test(t)) return 'sitio web';
+  return null; // escribió por su cuenta: no hay forma de saberlo
+}
+// Para cada conversación de WhatsApp, su origen. Se calcula una vez y queda guardado
+// en la conversación (`origenTipo`), así no se relee todo el chat en cada refresco.
+async function _origenesWa(chatIds) {
+  const out = {};
+  for (const id of chatIds) {
+    if (!id || id.indexOf('wa_') !== 0 || out[id] !== undefined) continue;
+    try {
+      const ref = db.collection('valeria_chats').doc(id);
+      const snap = await ref.get();
+      if (!snap.exists) { out[id] = null; continue; }
+      const c = snap.data() || {};
+      if (c.origenTipo) { out[id] = c.origenTipo === 'desconocido' ? null : c.origenTipo; continue; }
+      let primero = '';
+      try {
+        const m = await ref.collection('mensajes').orderBy('ts', 'asc').limit(3).get();
+        m.forEach(function (d) { const x = d.data() || {}; if (!primero && x.rol === 'user') primero = String(x.texto || ''); });
+      } catch (e) {}
+      const tipo = _tipoOrigen(c.origen, primero);
+      out[id] = tipo;
+      ref.set({ origenTipo: tipo || 'desconocido' }, { merge: true }).catch(function () {});
+    } catch (e) { out[id] = null; }
   }
+  return out;
+}
+function _chatIdDe(r) {
+  if (r && r.chatId) return String(r.chatId);
+  const t = String((r && r.telefono) || '').replace(/[^0-9]/g, '');
+  return t ? ('wa_' + (t.length === 8 ? '591' + t : t)) : '';
+}
+
+function _caminoDe(r, col, origenes) {
+  // Por dónde reservó, con las categorías que definió Julio (18 sep).
+  // "campaña" = reservó para una JORNADA (reservas_beni); "sitio web" = una cita de
+  // la AGENDA GENERAL del sitio (citas). Messenger, Instagram y Telegram no se
+  // separan: casi no se usan y dividirlos dejaría listas de una persona.
+  const ctx = (col === 'citas') ? 'sitio web' : 'campaña';
   const pref = String(r.chatId || '').split('_')[0];
   const canal = String(r.canal || '');
-  if (canal === 'voz') return 'Llamada con Valeria';
-  if (pref === 'wa' || canal === 'wa') return 'WhatsApp con Valeria';
-  if (pref === 'fb' || canal === 'fb') return 'Messenger con Valeria';
-  if (pref === 'ig' || canal === 'ig') return 'Instagram con Valeria';
-  if (pref === 'tg' || canal === 'tg') return 'Telegram con Valeria';
-  if (pref === 'web' || canal === 'web') return 'Chat del sitio con Valeria';
+  if (canal === 'voz') return 'Llamada · ' + ctx;
+  if (pref === 'wa' || canal === 'wa') {
+    // Por DÓNDE llegó a WhatsApp (anuncio/minisitio o sitio web); si no hay forma de
+    // saberlo, por el tipo de reserva (jornada = campaña, agenda = sitio web).
+    const o = origenes && origenes[_chatIdDe(r)];
+    return 'WhatsApp · ' + (o || ctx);
+  }
+  if (pref === 'fb' || canal === 'fb') return 'Messenger';
+  if (pref === 'ig' || canal === 'ig') return 'Instagram';
+  if (pref === 'tg' || canal === 'tg') return 'Telegram';
+  if (pref === 'web' || canal === 'web') return 'Chat del sitio web';
+  if (col === 'citas') return 'Calendario del sitio web';
   if (canal) return 'Chat con Valeria';
-  return 'Minisitio de la campaña (reservó sola)';
+  return 'Minisitio de la campaña';
 }
 // A qué jornada pertenece. Se arma de la sede y el mes, sin un tercer registro de
 // campañas que mantener: "Jornada Beni · junio", "Jornada Oruro · agosto".
@@ -2959,7 +3012,7 @@ function _asistenciaDe(r) {
 }
 function _colDe(d) { return String(d.id).indexOf('citas::') === 0 ? 'citas' : 'reservas_beni'; }
 
-function _historialDe(docs) {
+function _historialDe(docs, origenes) {
   const reservas = docs.map(function (d) {
     const r = d.data() || {};
     const col = _colDe(d);
@@ -2967,8 +3020,16 @@ function _historialDe(docs) {
       col: col, docId: col === 'citas' ? String(d.id).slice(7) : String(d.id),
       nombre: r.nombre || '', fecha: r.fecha || '', hora: r.hora || '',
       sede: r.subsede || r.lugar || '', jornada: _jornadaDe(r, col),
-      tratamiento: r.tratamiento || r.servicio || '', camino: _caminoDe(r, col),
-      asistencia: _asistenciaDe(r), recuperada: !!r.recuperada
+      tratamiento: r.tratamiento || r.servicio || '', camino: _caminoDe(r, col, origenes),
+      asistencia: _asistenciaDe(r), recuperada: !!r.recuperada,
+      // Lo que se cobró en esa atención (lo carga el equipo desde la ficha). El saldo
+      // se recalcula acá: nunca se confía en un saldo guardado a mano.
+      cobro: (r.cobro && typeof r.cobro === 'object') ? (function (c) {
+        const n = function (v) { return Math.max(0, Number(v) || 0); };
+        const precio = n(c.precio), descuento = Math.min(n(c.descuento), precio), cobrado = n(c.cobrado);
+        return { precio: precio, descuento: descuento, cobrado: cobrado,
+                 saldo: Math.max(0, precio - descuento - cobrado), nota: String(c.nota || '') };
+      })(r.cobro) : null
     };
   }).sort(function (a, b) { return (b.fecha + b.hora).localeCompare(a.fecha + a.hora); });
   const cuenta = function (k) { return reservas.filter(function (x) { return x.asistencia === k; }).length; };
@@ -2985,7 +3046,11 @@ function _historialDe(docs) {
       jornadas: unicos(reservas.map(function (x) { return x.jornada; })),
       sedes: unicos(reservas.map(function (x) { return x.sede; })),
       ultima: reservas.length ? reservas[0].fecha : '',
-      primera: reservas.length ? reservas[reservas.length - 1].fecha : ''
+      primera: reservas.length ? reservas[reservas.length - 1].fecha : '',
+      // Totales de lo cobrado a esta persona en todas sus atenciones, en Bs.
+      facturado: reservas.reduce(function (t, x) { return t + (x.cobro ? (x.cobro.precio - x.cobro.descuento) : 0); }, 0),
+      cobrado: reservas.reduce(function (t, x) { return t + (x.cobro ? x.cobro.cobrado : 0); }, 0),
+      saldo: reservas.reduce(function (t, x) { return t + (x.cobro ? x.cobro.saldo : 0); }, 0)
     }
   };
 }
@@ -3004,9 +3069,12 @@ async function _sincronizarFichas(soloTel8) {
     (porTel[t] = porTel[t] || []).push(d);
   });
   let creadas = 0, actualizadas = 0;
+  const _ids = [];
+  Object.keys(porTel).forEach(function (t) { porTel[t].forEach(function (d) { _ids.push(_chatIdDe(d.data() || {})); }); });
+  const origenes = await _origenesWa(_ids);
   for (const t of Object.keys(porTel)) {
     const docs = porTel[t];
-    const h = _historialDe(docs);
+    const h = _historialDe(docs, origenes);
     const ref = db.collection('fichas').doc(t);
     const snap = await ref.get();
     const x = snap.exists ? (snap.data() || {}) : {};
@@ -3063,7 +3131,7 @@ async function _lineaHistorial(r) {
       return !(x.fecha === r.fecha && x.hora === r.hora); // no contar esta misma reserva
     });
     if (!antes.length) return '\n🆕 Primera vez que reserva';
-    const h = _historialDe(antes);
+    const h = _historialDe(antes, await _origenesWa(antes.map(function (d) { return _chatIdDe(d.data() || {}); })));
     const icono = { 'se atendió': '💉 se atendió', 'vino': '✅ vino (no se atendió)', 'no vino': '❌ no vino', 'sin marcar': '❔ sin marcar', 'cancelada': '🚫 cancelada' };
     return '\n🔁 YA RESERVÓ ANTES (' + h.resumen.total + '):\n' + h.reservas.slice(0, 5).map(function (x) {
       return '  • ' + x.jornada + ' — ' + x.fecha.slice(8, 10) + '/' + x.fecha.slice(5, 7) + ' ' + x.hora
@@ -4897,7 +4965,7 @@ async function notificarNuevaReserva(r) {
     + '📍 ' + (r.subsede || r.lugar || '-') + '\n'
     + '📅 ' + (r.fecha || '-') + ' · ' + (r.hora || '-') + '\n'
     + (r.notas ? ('💬 ' + r.notas + '\n') : '')
-    + '🔗 Por: ' + _caminoDe(r, 'reservas_beni')
+    + '🔗 Por: ' + _caminoDe(r, 'reservas_beni', await _origenesWa([_chatIdDe(r)]))
     + _hist;
   // WhatsApp al equipo (78922666). Nota: si no hay ventana de 24h, Meta puede rechazarlo.
   waSend(ADMIN_WHATSAPP, txt).catch(function(e){ console.error('notif reserva WA:', e.message); });
