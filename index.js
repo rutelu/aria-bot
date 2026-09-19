@@ -120,7 +120,7 @@ async function _syncEventoReserva(docRef, before, after, mapFn) {
   const calId = (after.gcalCalendarId) || (await getCitasCalendarId());
   if (!calId) return;
   if (!before) { // NUEVA
-    if (after.recuperada) return; // restaurada del chat: es historia, no una cita nueva
+    if (after.recuperada || after.sinCita) return; // historia o visita ya ocurrida: no es una cita por venir
     if (_esCancelado(after.estado) || !c.fecha || !c.hora) return;
     try { const id = await gcalCrearEvento(calId, c); await docRef.set({ gcalEventId: id, gcalCalendarId: calId }, { merge: true }); console.log('📅 Evento creado ' + id + ' (' + (c.nombre || '?') + ')'); }
     catch (e) { console.error('crearEvento:', e.message); }
@@ -1815,6 +1815,7 @@ async function revisarRecordatoriosConfirmar() {
     for (const d of snap.docs) {
       const c = d.data();
       if (c.modalidad === 'virtual') continue;      // solo presencial
+      if (c.sinCita) continue;                      // visita ya ocurrida (se cargó desde la ficha): no hay nada que recordar
       const fecha = c.fecha, hora = c.hora;
       if (!fecha || !hora) continue;
       const citaMs = Date.parse(fecha + 'T' + (String(hora).length === 5 ? hora : ('0' + hora)) + ':00-04:00');
@@ -2973,6 +2974,8 @@ function _caminoDe(r, col, origenes) {
   // "campaña" = reservó para una JORNADA (reservas_beni); "sitio web" = una cita de
   // la AGENDA GENERAL del sitio (citas). Messenger, Instagram y Telegram no se
   // separan: casi no se usan y dividirlos dejaría listas de una persona.
+  // Llegó a la sede sin reservar: la visita la registró el equipo al guardar su ficha.
+  if (r.sinCita) return 'Llegó sin cita';
   const ctx = (col === 'citas') ? 'sitio web' : 'campaña';
   const pref = String(r.chatId || '').split('_')[0];
   const canal = String(r.canal || '');
@@ -2994,7 +2997,7 @@ function _caminoDe(r, col, origenes) {
 // A qué jornada pertenece. Se arma de la sede y el mes, sin un tercer registro de
 // campañas que mantener: "Jornada Beni · junio", "Jornada Oruro · agosto".
 function _jornadaDe(r, col) {
-  if (col === 'citas') return 'Agenda del sitio';
+  if (col === 'citas') return r.sinCita ? 'Atención sin cita' : 'Agenda del sitio';
   const sede = String(r.subsede || r.lugar || '');
   let grupo = sede;
   if (_PUNTOS_BENI.indexOf(sede) !== -1) grupo = 'Beni';
@@ -3156,7 +3159,9 @@ function iniciarWatcherFichas() {
         snap.docChanges().forEach(function (ch) {
           const x = ch.doc.data() || {};
           if (ch.type === 'added' || ch.type === 'modified') _programarSyncFicha(x.telefono);
-          if (col === 'citas' && ch.type === 'added' && String(x.canal || '') !== 'voz' && !x.recuperada) {
+          // Una visita SIN CITA la cargó el propio equipo al guardar la ficha: avisarle
+          // "nueva cita" sería avisarle de algo que acaba de hacer él mismo.
+          if (col === 'citas' && ch.type === 'added' && String(x.canal || '') !== 'voz' && !x.recuperada && !x.sinCita) {
             notificarNuevaCita(Object.assign({}, x, { canal: x.canal || 'calendario del sitio' }));
           }
         });
@@ -3187,6 +3192,62 @@ app.get('/debug/pasar-a-atendido', async (req, res) => {
     }
   } catch (e) { return res.json({ error: e.message, hechas: hechas }); }
   res.json({ escrito: escribir, cambios: hechas });
+});
+
+// Fichas guardadas ANTES de que guardar una ficha registrara la visita (18 sep): su
+// visita no quedó en ningún lado. Esto las lee (fecha, hora, sede y tratamiento del
+// propio documento) y muestra qué visita crearía. Sin &confirmar=1 no escribe nada;
+// con &confirmar=1&tel=NNNNNNNN&estado=atendio|vino crea SOLO la de esa persona.
+app.get('/debug/visitas-de-fichas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const campo = function (datos, id) {
+    const k = Object.keys(datos || {}).find(function (x) { return x.indexOf(id + '__') === 0; });
+    return k ? String(datos[k] || '').trim() : '';
+  };
+  const aISO = function (f, respaldo) {
+    let m = String(f || '').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (m) return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+    m = String(f || '').match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+    if (m) return m[3] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
+    return respaldo;
+  };
+  const soloTel = req.query.tel ? _portalTel8(req.query.tel) : '';
+  const escribir = req.query.confirmar === '1' && !!soloTel;
+  const estado = req.query.estado === 'vino' ? 'Asistió' : 'Se atendió';
+  const lista = [];
+  try {
+    const snap = await db.collection('fichas').get();
+    for (const d of snap.docs) {
+      const x = d.data() || {};
+      if (!x.ficha || !Object.keys(x.ficha).length) continue;     // sin documento llenado
+      if (x.historial && x.historial.total) continue;              // ya tiene visitas o reservas
+      if (soloTel && d.id !== soloTel) continue;
+      const guardada = x.fichaAt && x.fichaAt.toDate ? x.fichaAt.toDate() : null;
+      const respaldo = guardada ? new Date(guardada.getTime() - 4 * 3600 * 1000).toISOString().slice(0, 10) : '';
+      const sede = campo(x.ficha, 'd-sede');
+      const h = campo(x.ficha, 'd-hora').match(/(\d{1,2}):(\d{2})/);
+      const v = {
+        tel8: d.id, nombre: x.nombre || x.patientName || campo(x.ficha, 'd-nombre'),
+        telefono: x.telefono || x.phone || d.id,
+        fecha: aISO(campo(x.ficha, 'd-fecha'), respaldo), hora: h ? (('0' + h[1]).slice(-2) + ':' + h[2]) : '',
+        sede: sede.split('—')[0].trim(), lugar: sede, tratamiento: campo(x.ficha, 'd-trat'),
+        especialidad: campo(x.ficha, 'd-esp'), fichaGuardada: respaldo
+      };
+      if (escribir) {
+        await db.collection('citas').doc('sincita_' + d.id + '_' + (v.fecha || 'sinfecha')).set({
+          nombre: v.nombre, telefono: v.telefono, fecha: v.fecha, hora: v.hora,
+          sede: v.sede, subsede: v.sede, lugar: v.lugar,
+          servicio: v.tratamiento || 'Consulta', tratamiento: v.tratamiento, especialidadNombre: v.especialidad,
+          modalidad: 'presencial', canal: 'presencial', sinCita: true, origen: 'ficha (recuperada)',
+          estado: 'confirmada', seguimiento: estado, seguimientoAt: new Date(), timestamp: new Date()
+        }, { merge: true });
+        v.creada = estado;
+      }
+      lista.push(v);
+    }
+  } catch (e) { return res.json({ error: e.message, lista: lista }); }
+  res.json({ escrito: escribir, fichasSinVisita: lista.length, lista: lista });
 });
 
 app.get('/debug/sincronizar-fichas', async (req, res) => {
