@@ -2976,6 +2976,8 @@ function _caminoDe(r, col, origenes) {
   // separan: casi no se usan y dividirlos dejaría listas de una persona.
   // Llegó a la sede sin reservar: la visita la registró el equipo al guardar su ficha.
   if (r.sinCita) return 'Llegó sin cita';
+  // La próxima cita que agendó el equipo al terminar una atención.
+  if (r.porEquipo) return 'Agendada por el equipo';
   const ctx = (col === 'citas') ? 'sitio web' : 'campaña';
   const pref = String(r.chatId || '').split('_')[0];
   const canal = String(r.canal || '');
@@ -3032,7 +3034,13 @@ function _historialDe(docs, origenes) {
         const precio = n(c.precio), descuento = Math.min(n(c.descuento), precio), cobrado = n(c.cobrado);
         return { precio: precio, descuento: descuento, cobrado: cobrado,
                  saldo: Math.max(0, precio - descuento - cobrado), nota: String(c.nota || '') };
-      })(r.cobro) : null
+      })(r.cobro) : null,
+      // La próxima cita que se le dio al terminar esta atención (si se le dio).
+      proximaCita: (r.proximaCita && typeof r.proximaCita === 'object' && r.proximaCita.fecha) ? {
+        fecha: r.proximaCita.fecha, hora: r.proximaCita.hora || '', horaAConfirmar: !!r.proximaCita.horaAConfirmar,
+        tratamiento: r.proximaCita.tratamiento || '', citaId: r.proximaCita.citaId || ''
+      } : null,
+      horaAConfirmar: !!r.horaAConfirmar
     };
   }).sort(function (a, b) { return (b.fecha + b.hora).localeCompare(a.fecha + a.hora); });
   const cuenta = function (k) { return reservas.filter(function (x) { return x.asistencia === k; }).length; };
@@ -3053,7 +3061,15 @@ function _historialDe(docs, origenes) {
       // Totales de lo cobrado a esta persona en todas sus atenciones, en Bs.
       facturado: reservas.reduce(function (t, x) { return t + (x.cobro ? (x.cobro.precio - x.cobro.descuento) : 0); }, 0),
       cobrado: reservas.reduce(function (t, x) { return t + (x.cobro ? x.cobro.cobrado : 0); }, 0),
-      saldo: reservas.reduce(function (t, x) { return t + (x.cobro ? x.cobro.saldo : 0); }, 0)
+      saldo: reservas.reduce(function (t, x) { return t + (x.cobro ? x.cobro.saldo : 0); }, 0),
+      // Su próxima cita: la más cercana de hoy en adelante que no esté cancelada.
+      proxima: (function () {
+        const hoy = new Date(Date.now() - 4 * 3600 * 1000).toISOString().slice(0, 10);
+        const fut = reservas.filter(function (x) { return x.fecha >= hoy && x.asistencia !== 'cancelada'; })
+          .sort(function (a, b) { return (a.fecha + a.hora).localeCompare(b.fecha + b.hora); });
+        return fut.length ? { fecha: fut[0].fecha, hora: fut[0].hora, horaAConfirmar: fut[0].horaAConfirmar || !fut[0].hora,
+                              tratamiento: fut[0].tratamiento, sede: fut[0].sede } : null;
+      })()
     }
   };
 }
@@ -3161,7 +3177,7 @@ function iniciarWatcherFichas() {
           if (ch.type === 'added' || ch.type === 'modified') _programarSyncFicha(x.telefono);
           // Una visita SIN CITA la cargó el propio equipo al guardar la ficha: avisarle
           // "nueva cita" sería avisarle de algo que acaba de hacer él mismo.
-          if (col === 'citas' && ch.type === 'added' && String(x.canal || '') !== 'voz' && !x.recuperada && !x.sinCita) {
+          if (col === 'citas' && ch.type === 'added' && String(x.canal || '') !== 'voz' && !x.recuperada && !x.sinCita && !x.porEquipo) {
             notificarNuevaCita(Object.assign({}, x, { canal: x.canal || 'calendario del sitio' }));
           }
         });
@@ -3231,7 +3247,9 @@ app.get('/debug/visitas-de-fichas', async (req, res) => {
         tel8: d.id, nombre: x.nombre || x.patientName || campo(x.ficha, 'd-nombre'),
         telefono: x.telefono || x.phone || d.id,
         fecha: aISO(campo(x.ficha, 'd-fecha'), respaldo), hora: h ? (('0' + h[1]).slice(-2) + ':' + h[2]) : '',
-        sede: sede.split('—')[0].trim(), lugar: sede, tratamiento: campo(x.ficha, 'd-trat'),
+        // ?sede= y ?trat= corrigen lo que la ficha no tenía (Félix no tenía sede).
+        sede: (req.query.sede || sede.split('—')[0].trim()), lugar: (req.query.sede || sede),
+        tratamiento: (req.query.trat || campo(x.ficha, 'd-trat')),
         especialidad: campo(x.ficha, 'd-esp'), fichaGuardada: respaldo
       };
       if (escribir) {
@@ -3248,6 +3266,43 @@ app.get('/debug/visitas-de-fichas', async (req, res) => {
     }
   } catch (e) { return res.json({ error: e.message, lista: lista }); }
   res.json({ escrito: escribir, fichasSinVisita: lista.length, lista: lista });
+});
+
+// PRÓXIMA CITA que se da al terminar una atención (pedido de Julio, 18 sep). Hace lo
+// mismo que el botón de /panel: crea una cita REAL en la agenda (citas, porEquipo),
+// así aparece en el Centro de Control, en el Área Paciente y en su historial, y
+// guarda en la atención de origen cuál es su próxima cita. Sin hora (a confirmar)
+// no recibe recordatorios; cuando se le pone hora, sí.
+// ?col=&doc= la atención de origen · ?fecha=AAAA-MM-DD · ?hora=HH:MM (vacío = a confirmar)
+// · ?trat= · ?sede= · sin &confirmar=1 solo muestra.
+app.get('/debug/agendar-proxima', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const col = String(req.query.col || ''), docId = String(req.query.doc || '');
+  const fecha = String(req.query.fecha || ''), hora = String(req.query.hora || '');
+  if (!col || !docId || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return res.json({ error: 'faltan col, doc o fecha (AAAA-MM-DD)' });
+  try {
+    const ref = db.collection(col).doc(docId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.json({ error: 'no existe esa atención' });
+    const v = snap.data() || {};
+    const citaId = 'prox_' + docId;
+    const sede = String(req.query.sede || v.subsede || v.sede || '');
+    const cita = {
+      nombre: v.nombre || '', telefono: v.telefono || '', email: v.email || '',
+      fecha: fecha, hora: hora, horaAConfirmar: !hora,
+      sede: sede, subsede: sede, lugar: sede,
+      servicio: String(req.query.trat || 'Consulta'), tratamiento: String(req.query.trat || ''),
+      modalidad: 'presencial', canal: 'presencial', porEquipo: true, origen: 'próxima cita (equipo)',
+      agendadaDesde: { col: col, docId: docId }, estado: 'confirmada', timestamp: new Date()
+    };
+    const enAtencion = { proximaCita: { fecha: fecha, hora: hora, horaAConfirmar: !hora, tratamiento: cita.tratamiento, citaId: citaId } };
+    if (req.query.confirmar === '1') {
+      await db.collection('citas').doc(citaId).set(cita, { merge: true });
+      await ref.set(enAtencion, { merge: true });
+    }
+    res.json({ escrito: req.query.confirmar === '1', citaId: citaId, cita: cita });
+  } catch (e) { res.json({ error: e.message }); }
 });
 
 app.get('/debug/sincronizar-fichas', async (req, res) => {
