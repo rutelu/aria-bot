@@ -3305,6 +3305,45 @@ app.get('/debug/agendar-proxima', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
+// El embudo con los datos reales, para leerlo sin abrir el panel (solo lectura).
+// Mismo criterio que "Pacientes y leads" en /panel.
+app.get('/debug/embudo', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  try {
+    const hoy = new Date(Date.now() - 4 * 3600 * 1000).toISOString().slice(0, 10);
+    const fichas = await db.collection('fichas').get();
+    const conReserva = {};
+    let reservaron = 0, atendidas = 0, volvieron = 0, nuncaVino = 0, sinMarcar = 0, sinVolver = 0;
+    fichas.forEach(function (d) {
+      const x = d.data() || {}; const h = x.historial || {};
+      if (!h.total) return;
+      conReserva[d.id] = 1; reservaron++;
+      if (h.seAtendio) atendidas++;
+      if ((h.seAtendio || 0) >= 2 || (h.proxima && h.proxima.fecha)) volvieron++;
+      if (h.noVino && !h.vino) nuncaVino++;
+      if (h.sinMarcar && !h.vino && !h.noVino) sinMarcar++;
+      const ult = (x.reservas || []).filter(function (r) { return r.asistencia === 'se atendió'; }).map(function (r) { return r.fecha || ''; }).sort().pop();
+      if (h.seAtendio && !(h.proxima && h.proxima.fecha) && ult && (Date.parse(hoy) - Date.parse(ult)) / 86400000 >= 90) sinVolver++;
+    });
+    const chats = await db.collection('valeria_chats').get();
+    const porCanal = {}; let conversaron = 0;
+    chats.forEach(function (d) {
+      const c = d.data() || {}; const k = String(c.canal || '').toLowerCase();
+      let tel = k === 'wa' ? String(c.contacto || '') : String(c.telefono || '');
+      const t8 = tel.replace(/[^0-9]/g, '').slice(-8);
+      if (t8 && ['78922666', '76951552'].indexOf(t8) !== -1) return;
+      if (t8 && conReserva[t8]) return;
+      if (!c.lastUserMsgAt && !(c.totalMensajes > 1)) return;
+      if (k === 'web' && !t8) return;
+      conversaron++; porCanal[k || '?'] = (porCanal[k || '?'] || 0) + 1;
+    });
+    res.json({ conversaronSinReservar: conversaron, porCanal: porCanal, reservaron: reservaron,
+               todaviaSinMarcar: sinMarcar, seAtendieron: atendidas, volvieronOTienenProxima: volvieron,
+               reservaronYNuncaVinieron: nuncaVino, sinVolver90: sinVolver });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/sincronizar-fichas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   try {
