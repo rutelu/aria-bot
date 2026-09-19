@@ -3091,7 +3091,11 @@ async function _sincronizarFichas(soloTel8) {
     else actualizadas++;
     await ref.set(up, { merge: true });
   }
-  return { personas: Object.keys(porTel).length, fichasCreadas: creadas, fichasActualizadas: actualizadas };
+  // Cuántas reservas llegaron por cada camino: sirve para ver de un vistazo si la
+  // clasificación tiene sentido (y cuáles no se pudieron saber).
+  const porCamino = {};
+  Object.keys(porTel).forEach(function (t) { _historialDe(porTel[t], origenes).reservas.forEach(function (x) { porCamino[x.camino] = (porCamino[x.camino] || 0) + 1; }); });
+  return { personas: Object.keys(porTel).length, fichasCreadas: creadas, fichasActualizadas: actualizadas, porCamino: porCamino };
 }
 
 async function _puntosDe(t) {
