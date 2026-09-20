@@ -4678,7 +4678,13 @@ app.post('/debug/importar-fichas', async (req, res) => {
       const payload = {
         id: tel8, telefono: p.telefono || '', phone: p.telefono || '',
         nombre: p.nombre || '', patientName: p.nombre || '',
-        ficha: Object.assign({}, prev.ficha || {}, p.ficha || {}),
+        ficha: (function () {
+          // Se parte de lo que ya había, se quitan las claves que pide la lista
+          // (las del primer intento, escritas con nombre equivocado) y se pone lo nuevo.
+          const f = Object.assign({}, prev.ficha || {});
+          (p.quitar || []).forEach(k => { delete f[k]; });
+          return Object.assign(f, p.ficha || {});
+        })(),
         perfil: Object.assign({}, prev.perfil || {}, p.perfil || {}),
         origenCarga: 'notas-2026-09-20',
         actualizadoAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -4711,6 +4717,14 @@ app.post('/debug/importar-fichas', async (req, res) => {
 
       if (aplicar) {
         await ref.set(payload, { merge: true });
+        // merge fusiona los mapas, así que las claves viejas hay que borrarlas aparte.
+        // Los nombres llevan espacios y dos puntos: se usa FieldPath, no ruta con puntos.
+        const quitar = (p.quitar || []).filter(k => (prev.ficha || {})[k] !== undefined);
+        if (quitar.length) {
+          const upd = [];
+          quitar.forEach(k => upd.push(new admin.firestore.FieldPath('ficha', k), admin.firestore.FieldValue.delete()));
+          await ref.update.apply(ref, upd);
+        }
         if (cita) await db.collection('citas').doc(cita.id).set(cita.datos, { merge: true });
       }
       (sn.exists ? actualizadas : creadas).push({ tel8, nombre: p.nombre });
