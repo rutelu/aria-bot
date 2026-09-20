@@ -4641,6 +4641,92 @@ app.get('/debug/ficha', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
+// TEMPORAL (20 sep 2026): carga de los pacientes históricos que Julio tenía anotados
+// fuera del sistema (Notas rápidas y bloc de notas). Se quita después de usarlo.
+// Por defecto NO escribe: hay que mandar aplicar=1. Nunca pisa la ficha de otra persona.
+app.post('/debug/importar-fichas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const aplicar = req.query.aplicar === '1';
+  const lista = Array.isArray(req.body && req.body.lista) ? req.body.lista : null;
+  if (!lista) return res.json({ error: 'falta lista' });
+
+  // Mismo criterio que el panel: si el teléfono ya es de OTRA persona, no se toca.
+  const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const mismoNombre = (a, b) => {
+    const x = norm(a), y = norm(b);
+    if (!x || !y) return true;
+    if (x === y || x.indexOf(y) === 0 || y.indexOf(x) === 0) return true;
+    const px = x.split(' '), py = y.split(' ');
+    return px[0] === py[0] && (px.length === 1 || py.length === 1 || px[1] === py[1]);
+  };
+
+  const creadas = [], actualizadas = [], conflictos = [], atenciones = [], errores = [];
+  for (const p of lista) {
+    const tel8 = String(p.tel8 || '').replace(/[^0-9]/g, '').slice(-8);
+    if (tel8.length < 7) { errores.push({ nombre: p.nombre, error: 'teléfono inválido' }); continue; }
+    try {
+      const ref = db.collection('fichas').doc(tel8);
+      const sn = await ref.get();
+      const prev = sn.exists ? (sn.data() || {}) : {};
+      const nomPrev = String(prev.nombre || prev.patientName || '').trim();
+      if (nomPrev && !mismoNombre(nomPrev, p.nombre)) {
+        conflictos.push({ tel8, enSistema: nomPrev, enLaNota: p.nombre });
+        continue;
+      }
+      const payload = {
+        id: tel8, telefono: p.telefono || '', phone: p.telefono || '',
+        nombre: p.nombre || '', patientName: p.nombre || '',
+        ficha: Object.assign({}, prev.ficha || {}, p.ficha || {}),
+        perfil: Object.assign({}, prev.perfil || {}, p.perfil || {}),
+        origenCarga: 'notas-2026-09-20',
+        actualizadoAt: admin.firestore.FieldValue.serverTimestamp(),
+        fichaAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+      if (p.email) { payload.patientEmail = p.email; payload.email = p.email; }
+      if (p.perfil && p.perfil.edad) payload.edad = p.perfil.edad;
+      if (p.perfil && p.perfil.alergias) payload.allergies = p.perfil.alergias;
+      if (p.perfil && p.perfil.enfermedades) payload.conditions = p.perfil.enfermedades;
+      if (p.perfil && p.perfil.medicacion) payload.medications = p.perfil.medicacion;
+      if (p.perfil && p.perfil.previos) payload.tratamientosPrevios = p.perfil.previos;
+      if (p.perfil && p.perfil.nacimiento) payload.dob = p.perfil.nacimiento;
+
+      // Son personas que YA se atendieron: queda su atención marcada.
+      let cita = null;
+      if (p.fecha) {
+        cita = {
+          id: 'sincita_' + tel8 + '_' + p.fecha,
+          datos: {
+            nombre: p.nombre || '', telefono: p.telefono || '', email: p.email || '',
+            fecha: p.fecha, hora: '', sede: p.sede || '', subsede: p.sede || '', lugar: p.sede || '',
+            servicio: p.tratamiento || 'Consulta', tratamiento: p.tratamiento || '',
+            modalidad: 'presencial', canal: 'presencial', sinCita: true, origen: 'carga-notas',
+            estado: 'confirmada', seguimiento: 'Se atendió',
+            seguimientoAt: admin.firestore.FieldValue.serverTimestamp(),
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+          }
+        };
+      }
+
+      if (aplicar) {
+        await ref.set(payload, { merge: true });
+        if (cita) await db.collection('citas').doc(cita.id).set(cita.datos, { merge: true });
+      }
+      (sn.exists ? actualizadas : creadas).push({ tel8, nombre: p.nombre });
+      if (cita) atenciones.push({ tel8, fecha: p.fecha, sede: p.sede || '(sin sede)' });
+    } catch (e) { errores.push({ nombre: p.nombre, error: e.message }); }
+  }
+  res.json({
+    modo: aplicar ? 'ESCRITO' : 'PRUEBA (no se escribió nada)',
+    recibidas: lista.length,
+    fichasNuevas: creadas.length, fichasActualizadas: actualizadas.length,
+    atencionesMarcadas: atenciones.length, sinFecha: lista.length - atenciones.length,
+    conflictos, errores,
+    creadas: creadas.map(x => x.nombre), actualizadas: actualizadas.map(x => x.nombre)
+  });
+});
+
 app.get('/debug/fidelidad', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const tel8 = _portalTel8(String(req.query.tel || ''));
