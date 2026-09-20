@@ -4505,6 +4505,54 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
 
 // Ver la ficha de una persona tal como está guardada (sin fotos, que pesan).
 // Solo lectura: sirve para revisar qué quedó escrito y de cuándo.
+// Reparación puntual (20 sep): una ficha en blanco de prueba se guardó con el teléfono de
+// Felix Lora Blanco (77775450) y pisó su ficha. Devuelve el nombre, quita lo que se escribió
+// en la prueba (incluida la foto) y borra la visita del 20/09 que se creó. Guarda antes una
+// copia de cómo estaba en fichas_respaldo/<tel8>_<fecha>. Aprobado por Julio.
+app.get('/debug/reparar-ficha', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const tel8 = String(req.query.tel || '').replace(/[^0-9]/g, '').slice(-8);
+  const nombre = String(req.query.nombre || '').trim();
+  if (tel8.length !== 8 || !nombre) return res.json({ error: 'falta tel o nombre' });
+  const raiz = String(req.query.raiz || '').split(',').filter(Boolean);       // campos sueltos a quitar
+  const perfil = String(req.query.perfil || '').split(',').filter(Boolean);   // dentro de perfil
+  const claves = String(req.query.claves || '').split(',').filter(Boolean);   // dentro de ficha
+  const cita = String(req.query.cita || '').trim();                           // visita a borrar
+  const quitarFoto = req.query.foto === '1';
+  try {
+    const ref = db.collection('fichas').doc(tel8);
+    const f = await ref.get();
+    if (!f.exists) return res.json({ error: 'no existe esa ficha' });
+    const x = f.data() || {};
+    const antes = {
+      nombre: x.nombre, perfil: x.perfil || null,
+      ficha: Object.keys(x.ficha || {}).reduce(function (o, k) { o[k] = (k === 'fotos') ? ((x.ficha.fotos || []).length + ' foto(s)') : x.ficha[k]; return o; }, {})
+    };
+    if (req.query.confirmar !== '1') return res.json({ escrito: false, antes: antes, quitaria: { raiz: raiz, perfil: perfil, claves: claves, foto: quitarFoto, cita: cita }, nombre: nombre });
+    // Copia de seguridad antes de tocar nada.
+    await db.collection('fichas_respaldo').doc(tel8 + '_' + new Date().toISOString().slice(0, 10)).set(
+      Object.assign({}, x, { _motivo: 'antes de reparar la ficha pisada por una prueba', _at: new Date() }));
+    const nuevaFicha = Object.assign({}, x.ficha || {});
+    claves.forEach(function (k) { delete nuevaFicha[k]; });
+    if (quitarFoto) delete nuevaFicha.fotos;
+    // El nombre también vive dentro del documento (primer campo).
+    Object.keys(nuevaFicha).forEach(function (k) { if (k.indexOf('d-nombre__') === 0) nuevaFicha[k] = nombre; });
+    const nuevoPerfil = Object.assign({}, x.perfil || {});
+    perfil.forEach(function (k) { delete nuevoPerfil[k]; });
+    const cambios = { nombre: nombre, patientName: nombre, ficha: nuevaFicha, perfil: nuevoPerfil, reparadaAt: new Date() };
+    raiz.forEach(function (k) { cambios[k] = admin.firestore.FieldValue.delete(); });
+    await ref.set(cambios, { merge: true });
+    // La ficha se reemplaza entera (merge dejaría las claves viejas).
+    await ref.update({ ficha: nuevaFicha, perfil: nuevoPerfil });
+    let citaBorrada = false;
+    if (cita) { await db.collection('citas').doc(cita).delete(); citaBorrada = true; }
+    const d = await ref.get();
+    res.json({ escrito: true, citaBorrada: citaBorrada, respaldo: 'fichas_respaldo/' + tel8 + '_' + new Date().toISOString().slice(0, 10),
+               ahora: { nombre: (d.data() || {}).nombre, perfil: (d.data() || {}).perfil || null, ficha: Object.keys((d.data() || {}).ficha || {}) } });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/ficha', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
