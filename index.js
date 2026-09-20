@@ -3032,13 +3032,24 @@ function _historialDe(docs, origenes) {
       cobro: (r.cobro && typeof r.cobro === 'object') ? (function (c) {
         const n = function (v) { return Math.max(0, Number(v) || 0); };
         const precio = n(c.precio), descuento = Math.min(n(c.descuento), precio), cobrado = n(c.cobrado);
-        return { precio: precio, descuento: descuento, cobrado: cobrado,
-                 saldo: Math.max(0, precio - descuento - cobrado), nota: String(c.nota || '') };
+        // Lo que dejó a cuenta al agendar esta cita también está pagado: si no se
+        // descuenta acá, el saldo la hace deber dos veces lo mismo.
+        const anticipo = n(c.anticipo != null ? c.anticipo : (r.anticipo && r.anticipo.monto));
+        return { precio: precio, descuento: descuento, cobrado: cobrado, anticipo: anticipo,
+                 saldo: Math.max(0, precio - descuento - cobrado - anticipo), nota: String(c.nota || '') };
       })(r.cobro) : null,
+      // Lo que dejó a cuenta cuando se agendó esta cita (todavía sin atender).
+      anticipo: (r.anticipo && typeof r.anticipo === 'object' && Number(r.anticipo.monto) > 0) ? {
+        monto: Math.max(0, Number(r.anticipo.monto) || 0), nota: String(r.anticipo.nota || '')
+      } : null,
       // La próxima cita que se le dio al terminar esta atención (si se le dio).
       proximaCita: (r.proximaCita && typeof r.proximaCita === 'object' && r.proximaCita.fecha) ? {
         fecha: r.proximaCita.fecha, hora: r.proximaCita.hora || '', horaAConfirmar: !!r.proximaCita.horaAConfirmar,
-        tratamiento: r.proximaCita.tratamiento || '', citaId: r.proximaCita.citaId || ''
+        tratamiento: r.proximaCita.tratamiento || '', citaId: r.proximaCita.citaId || '',
+        anticipo: (r.proximaCita.anticipo && Number(r.proximaCita.anticipo.monto) > 0) ? {
+          monto: Math.max(0, Number(r.proximaCita.anticipo.monto) || 0),
+          nota: String(r.proximaCita.anticipo.nota || '')
+        } : null
       } : null,
       horaAConfirmar: !!r.horaAConfirmar
     };
