@@ -4704,8 +4704,17 @@ app.post('/debug/importar-fichas', async (req, res) => {
 
       // Son personas que YA se atendieron: queda su atención marcada. Varias notas no
       // anotaban la fecha; igual se registran, marcadas para saber que no se conoce.
+      // Si ya tenían su reserva de ese día, se marca ESA y no se crea otra al lado.
       let cita = null;
-      {
+      if (p.reserva && p.reserva.docId) {
+        cita = {
+          col: p.reserva.col || 'reservas_beni', id: p.reserva.docId,
+          datos: {
+            seguimiento: 'Se atendió',
+            seguimientoAt: admin.firestore.FieldValue.serverTimestamp()
+          }
+        };
+      } else {
         cita = {
           id: 'sincita_' + tel8 + '_' + (p.fecha || 'sinfecha'),
           datos: {
@@ -4731,7 +4740,7 @@ app.post('/debug/importar-fichas', async (req, res) => {
           quitar.forEach(k => upd.push(new admin.firestore.FieldPath('ficha', k), admin.firestore.FieldValue.delete()));
           await ref.update.apply(ref, upd);
         }
-        if (cita) await db.collection('citas').doc(cita.id).set(cita.datos, { merge: true });
+        if (cita) await db.collection(cita.col || 'citas').doc(cita.id).set(cita.datos, { merge: true });
       }
       (sn.exists ? actualizadas : creadas).push({ tel8, nombre: p.nombre });
       if (cita) atenciones.push({ tel8, fecha: p.fecha, sede: p.sede || '(sin sede)' });
