@@ -4505,6 +4505,34 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
 
 // Ver la ficha de una persona tal como está guardada (sin fotos, que pesan).
 // Solo lectura: sirve para revisar qué quedó escrito y de cuándo.
+// Reservas sueltas que parecen prueba (aunque el teléfono no sea interno): el tratamiento
+// o el nombre es texto al azar ("mmmm", "aaa", "test"). Solo lectura.
+app.get('/debug/pruebas-sueltas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const AZAR = /^(.)\1{2,}$|^(asd|qwe|zxc|test|prueba|aaa|bbb|ccc|xxx|zzz|mmm|nnn|jjj|kkk)/i;
+  const out = [];
+  try {
+    for (const col of ['reservas_beni', 'citas', 'appointments']) {
+      const snap = await db.collection(col).get();
+      snap.forEach(function (d) {
+        const x = d.data() || {};
+        const nom = String(x.nombre || x.patientName || '').trim();
+        const tra = String(x.tratamiento || x.servicio || '').trim();
+        const tel = String(x.telefono || x.phone || '').replace(/[^0-9]/g, '').slice(-8);
+        const raro = [];
+        if (AZAR.test(nom.replace(/\s/g, ''))) raro.push('nombre raro');
+        if (AZAR.test(tra.replace(/\s/g, ''))) raro.push('tratamiento raro');
+        if (nom && nom.replace(/\s/g, '').length <= 3) raro.push('nombre muy corto');
+        if (!tel || tel.length < 7) raro.push('sin teléfono');
+        if (raro.length) out.push({ col: col, id: d.id, fecha: x.fecha || '', tel: tel, nombre: nom, tratamiento: tra, motivos: raro });
+      });
+    }
+    out.sort(function (a, b) { return String(a.fecha).localeCompare(String(b.fecha)); });
+    res.json({ total: out.length, reservas: out });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 // Candidatos a PRUEBA (solo lectura): agrupa por teléfono la ficha, sus sesiones y sus
 // reservas, y marca por qué parece una prueba. No borra nada: sirve para decidir.
 app.get('/debug/pruebas', async (req, res) => {
