@@ -4671,10 +4671,13 @@ app.post('/debug/importar-fichas', async (req, res) => {
       const sn = await ref.get();
       const prev = sn.exists ? (sn.data() || {}) : {};
       const nomPrev = String(prev.nombre || prev.patientName || '').trim();
-      if (nomPrev && !mismoNombre(nomPrev, p.nombre)) {
+      // Se frena si ese teléfono ya es de otra persona, salvo que Julio lo haya
+      // confirmado (forzar): entonces se corrige el nombre y se guarda cuál era.
+      if (nomPrev && !mismoNombre(nomPrev, p.nombre) && !p.forzar) {
         conflictos.push({ tel8, enSistema: nomPrev, enLaNota: p.nombre });
         continue;
       }
+      const corregido = nomPrev && !mismoNombre(nomPrev, p.nombre) ? nomPrev : null;
       const payload = {
         id: tel8, telefono: p.telefono || '', phone: p.telefono || '',
         nombre: p.nombre || '', patientName: p.nombre || '',
@@ -4690,6 +4693,7 @@ app.post('/debug/importar-fichas', async (req, res) => {
         actualizadoAt: admin.firestore.FieldValue.serverTimestamp(),
         fichaAt: admin.firestore.FieldValue.serverTimestamp()
       };
+      if (corregido) payload.nombreAnterior = corregido;   // queda el rastro de qué decía antes
       if (p.email) { payload.patientEmail = p.email; payload.email = p.email; }
       if (p.perfil && p.perfil.edad) payload.edad = p.perfil.edad;
       if (p.perfil && p.perfil.alergias) payload.allergies = p.perfil.alergias;
@@ -4698,14 +4702,16 @@ app.post('/debug/importar-fichas', async (req, res) => {
       if (p.perfil && p.perfil.previos) payload.tratamientosPrevios = p.perfil.previos;
       if (p.perfil && p.perfil.nacimiento) payload.dob = p.perfil.nacimiento;
 
-      // Son personas que YA se atendieron: queda su atención marcada.
+      // Son personas que YA se atendieron: queda su atención marcada. Varias notas no
+      // anotaban la fecha; igual se registran, marcadas para saber que no se conoce.
       let cita = null;
-      if (p.fecha) {
+      {
         cita = {
-          id: 'sincita_' + tel8 + '_' + p.fecha,
+          id: 'sincita_' + tel8 + '_' + (p.fecha || 'sinfecha'),
           datos: {
             nombre: p.nombre || '', telefono: p.telefono || '', email: p.email || '',
-            fecha: p.fecha, hora: '', sede: p.sede || '', subsede: p.sede || '', lugar: p.sede || '',
+            fecha: p.fecha || '', fechaDesconocida: !p.fecha,
+            hora: '', sede: p.sede || '', subsede: p.sede || '', lugar: p.sede || '',
             servicio: p.tratamiento || 'Consulta', tratamiento: p.tratamiento || '',
             modalidad: 'presencial', canal: 'presencial', sinCita: true, origen: 'carga-notas',
             estado: 'confirmada', seguimiento: 'Se atendió',
@@ -4735,7 +4741,8 @@ app.post('/debug/importar-fichas', async (req, res) => {
     modo: aplicar ? 'ESCRITO' : 'PRUEBA (no se escribió nada)',
     recibidas: lista.length,
     fichasNuevas: creadas.length, fichasActualizadas: actualizadas.length,
-    atencionesMarcadas: atenciones.length, sinFecha: lista.length - atenciones.length,
+    atencionesMarcadas: atenciones.length,
+    sinFechaConocida: atenciones.filter(a => !a.fecha).length,
     conflictos, errores,
     creadas: creadas.map(x => x.nombre), actualizadas: actualizadas.map(x => x.nombre)
   });
