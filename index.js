@@ -4505,6 +4505,60 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
 
 // Ver la ficha de una persona tal como está guardada (sin fotos, que pesan).
 // Solo lectura: sirve para revisar qué quedó escrito y de cuándo.
+// Candidatos a PRUEBA (solo lectura): agrupa por teléfono la ficha, sus sesiones y sus
+// reservas, y marca por qué parece una prueba. No borra nada: sirve para decidir.
+app.get('/debug/pruebas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const INTERNOS = String(req.query.internos || '78922666,76951552,75801518,75801519').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+  const NOMBRE_PRUEBA = /prueba|test|ejemplo|demo|asdf|qwer|xxx|zzz/i;
+  try {
+    const persona = {};   // tel8 → datos
+    const anota = function (tel8, nombre) {
+      if (!persona[tel8]) persona[tel8] = { tel: tel8, nombre: nombre || '', ficha: false, sesiones: 0, fotos: 0, reservas: [], motivos: [] };
+      if (nombre && !persona[tel8].nombre) persona[tel8].nombre = nombre;
+      return persona[tel8];
+    };
+    const fichas = await db.collection('fichas').get();
+    for (const d of fichas.docs) {
+      const x = d.data() || {};
+      const p = anota(String(d.id), x.nombre || x.patientName || '');
+      p.ficha = true;
+      p.actualizada = x.actualizadoAt ? new Date(x.actualizadoAt._seconds * 1000).toISOString().slice(0, 16) : null;
+      const ses = await db.collection('fichas').doc(d.id).collection('sesiones').get();
+      ses.forEach(function (s) { const y = s.data() || {}; if (y.tipo === 'foto') p.fotos++; else if (y.tipo !== 'receta') p.sesiones++; });
+    }
+    for (const col of ['reservas_beni', 'citas', 'appointments']) {
+      const snap = await db.collection(col).get();
+      snap.forEach(function (d) {
+        const x = d.data() || {};
+        const tel8 = String(x.telefono || x.phone || x.tel || '').replace(/[^0-9]/g, '').slice(-8);
+        if (!tel8) return;
+        const p = anota(tel8, x.nombre || x.patientName || '');
+        p.reservas.push({ col: col, id: d.id, fecha: x.fecha || '', estado: x.estado || '', seguimiento: x.seguimiento || '', tratamiento: x.tratamiento || x.servicio || '', origen: x.origen || '' });
+      });
+    }
+    const lista = [];
+    Object.keys(persona).forEach(function (t) {
+      const p = persona[t];
+      if (INTERNOS.indexOf(t) !== -1) p.motivos.push('número interno de la clínica');
+      if (NOMBRE_PRUEBA.test(p.nombre)) p.motivos.push('el nombre dice prueba/test');
+      if (!p.nombre) p.motivos.push('sin nombre');
+      if (p.motivos.length) lista.push(p);
+    });
+    lista.sort(function (a, b) { return b.reservas.length - a.reservas.length; });
+    res.json({
+      personas: Object.keys(persona).length,
+      candidatos: lista.length,
+      borraria: lista.reduce(function (n, p) { return n + p.reservas.length; }, 0) + ' reservas/visitas, ' +
+                lista.filter(function (p) { return p.ficha; }).length + ' fichas, ' +
+                lista.reduce(function (n, p) { return n + p.sesiones; }, 0) + ' sesiones y ' +
+                lista.reduce(function (n, p) { return n + p.fotos; }, 0) + ' fotos',
+      lista: lista
+    });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 // Buscar fichas por nombre o teléfono (solo lectura), para revisar qué se guardó.
 app.get('/debug/fichas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
