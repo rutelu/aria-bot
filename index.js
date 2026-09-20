@@ -4503,6 +4503,42 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
              quienesYaSumarian: conPuntos });
 });
 
+// Ver la ficha de una persona tal como está guardada (sin fotos, que pesan).
+// Solo lectura: sirve para revisar qué quedó escrito y de cuándo.
+app.get('/debug/ficha', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const tel8 = String(req.query.tel || '').replace(/[^0-9]/g, '').slice(-8);
+  if (tel8.length !== 8) return res.json({ error: 'falta tel' });
+  try {
+    const f = await db.collection('fichas').doc(tel8).get();
+    if (!f.exists) return res.json({ error: 'no existe esa ficha' });
+    const x = f.data() || {};
+    const limpiar = function (o) {
+      if (!o || typeof o !== 'object') return o;
+      const out = {};
+      Object.keys(o).forEach(function (k) {
+        if (k === 'fotos') { out.fotos = (o.fotos || []).length + ' foto(s)'; return; }
+        const v = o[k];
+        out[k] = (v && typeof v === 'string' && v.length > 300) ? (v.slice(0, 60) + '…') : v;
+      });
+      return out;
+    };
+    const ses = await db.collection('fichas').doc(tel8).collection('sesiones').get();
+    res.json({
+      id: tel8, nombre: x.nombre, patientName: x.patientName, telefono: x.telefono, phone: x.phone,
+      email: x.patientEmail || x.email, perfil: x.perfil || null, ci: x.ci, dob: x.dob, edad: x.edad,
+      occupation: x.occupation, address: x.address, comoNosConocio: x.comoNosConocio,
+      allergies: x.allergies, conditions: x.conditions, medications: x.medications,
+      actualizadoAt: x.actualizadoAt, fichaAt: x.fichaAt, ficha: limpiar(x.ficha),
+      tratamiento: x.tratamiento ? 'sí (hoja vieja)' : null, receta: x.receta ? 'sí' : null,
+      usoImagen: x.usoImagen ? 'sí' : null,
+      reservas: (x.reservas || []).map(function (r) { return { fecha: r.fecha, col: r.col, docId: r.docId, asistencia: r.asistencia, tratamiento: r.tratamiento, cobro: r.cobro ? (r.cobro.precio + '/' + r.cobro.cobrado) : null }; }),
+      sesiones: ses.docs.map(function (d) { const y = d.data() || {}; return { id: d.id, tipo: y.tipo, n: y.n, fecha: y.fecha, tratamiento: y.tratamiento, cobro: y.cobro || null }; })
+    });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/fidelidad', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   const tel8 = _portalTel8(String(req.query.tel || ''));
