@@ -4505,69 +4505,6 @@ app.get('/debug/fidelidad-resumen', async (req, res) => {
 
 // Ver la ficha de una persona tal como está guardada (sin fotos, que pesan).
 // Solo lectura: sirve para revisar qué quedó escrito y de cuándo.
-// Limpieza de registros de PRUEBA (aprobada por Julio, 20 sep). Antes de borrar, cada
-// documento se copia a "respaldo_pruebas" (así se puede volver atrás). Sin confirmar=1
-// no borra nada: solo dice qué haría. Solo toca lo que se le pasa por teléfono o por id.
-app.get('/debug/limpiar-pruebas', async (req, res) => {
-  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
-  if (!db) return res.json({ error: 'sin base' });
-  const tels = String(req.query.tels || '').split(',').map(function (s) { return s.replace(/[^0-9]/g, '').slice(-8); }).filter(function (s) { return s.length === 8; });
-  const sueltos = String(req.query.ids || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);   // "coleccion/id"
-  if (!tels.length && !sueltos.length) return res.json({ error: 'falta tels o ids' });
-  const hacer = req.query.confirmar === '1';
-  const plan = { fichas: [], reservas: [], cupos: [] };
-  try {
-    // Reservas y visitas de esos teléfonos
-    for (const col of ['reservas_beni', 'citas', 'appointments']) {
-      const snap = await db.collection(col).get();
-      snap.forEach(function (d) {
-        const x = d.data() || {};
-        const t = String(x.telefono || x.phone || '').replace(/[^0-9]/g, '').slice(-8);
-        if (t && tels.indexOf(t) !== -1) plan.reservas.push({ col: col, id: d.id, fecha: x.fecha || '', nombre: x.nombre || '', datos: x });
-      });
-    }
-    sueltos.forEach(function (s) { const p = s.split('/'); if (p.length === 2) plan.reservas.push({ col: p[0], id: p[1], suelto: true }); });
-    // Fichas (y sus sesiones)
-    for (const t of tels) {
-      const f = await db.collection('fichas').doc(t).get();
-      if (f.exists) {
-        const ses = await db.collection('fichas').doc(t).collection('sesiones').get();
-        plan.fichas.push({ tel: t, nombre: (f.data() || {}).nombre || '', sesiones: ses.size, datos: f.data() });
-      }
-    }
-    // Cupos de las jornadas (para que la hora quede libre)
-    for (const r of plan.reservas) {
-      if (r.col !== 'reservas_beni') continue;
-      const c = await db.collection('cupos_ocupados').doc(r.id).get();
-      if (c.exists) plan.cupos.push(r.id);
-    }
-    const resumen = { reservas: plan.reservas.length, fichas: plan.fichas.length, cupos: plan.cupos.length,
-                      detalle: plan.reservas.map(function (r) { return r.col + '/' + r.id + (r.fecha ? (' · ' + r.fecha) : '') + (r.nombre ? (' · ' + r.nombre) : ''); }),
-                      fichasDetalle: plan.fichas.map(function (f) { return f.tel + ' · ' + f.nombre + ' · ' + f.sesiones + ' sesiones'; }) };
-    if (!hacer) return res.json(Object.assign({ borrado: false, nota: 'esto es lo que borraría' }, resumen));
-    const sello = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '');
-    // 1) Copia de seguridad
-    for (const r of plan.reservas) {
-      const datos = r.datos || ((await db.collection(r.col).doc(r.id).get()).data() || {});
-      await db.collection('respaldo_pruebas').doc(sello + '__' + r.col + '__' + r.id).set({ coleccion: r.col, id: r.id, datos: datos, _at: new Date() });
-    }
-    for (const f of plan.fichas) {
-      await db.collection('respaldo_pruebas').doc(sello + '__fichas__' + f.tel).set({ coleccion: 'fichas', id: f.tel, datos: f.datos, _at: new Date() });
-      const ses = await db.collection('fichas').doc(f.tel).collection('sesiones').get();
-      for (const s of ses.docs) await db.collection('respaldo_pruebas').doc(sello + '__sesiones__' + f.tel + '__' + s.id).set({ coleccion: 'fichas/' + f.tel + '/sesiones', id: s.id, datos: s.data(), _at: new Date() });
-    }
-    // 2) Borrado
-    for (const r of plan.reservas) await db.collection(r.col).doc(r.id).delete();
-    for (const id of plan.cupos) await db.collection('cupos_ocupados').doc(id).delete();
-    for (const f of plan.fichas) {
-      const ses = await db.collection('fichas').doc(f.tel).collection('sesiones').get();
-      for (const s of ses.docs) await s.ref.delete();
-      await db.collection('fichas').doc(f.tel).delete();
-    }
-    res.json(Object.assign({ borrado: true, respaldo: 'respaldo_pruebas (' + sello + ')' }, resumen));
-  } catch (e) { res.json({ error: e.message, plan: { reservas: plan.reservas.length, fichas: plan.fichas.length } }); }
-});
-
 // Reservas sueltas que parecen prueba (aunque el teléfono no sea interno): el tratamiento
 // o el nombre es texto al azar ("mmmm", "aaa", "test"). Solo lectura.
 app.get('/debug/pruebas-sueltas', async (req, res) => {
