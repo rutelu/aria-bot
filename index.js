@@ -4640,7 +4640,8 @@ app.get('/debug/ficha', async (req, res) => {
     const ses = await db.collection('fichas').doc(tel8).collection('sesiones').get();
     res.json({
       id: tel8, nombre: x.nombre, patientName: x.patientName, telefono: x.telefono, phone: x.phone,
-      email: x.patientEmail || x.email, perfil: x.perfil || null, ci: x.ci, dob: x.dob, edad: x.edad,
+      email: x.patientEmail || x.email, nota: x.nota || null,
+      perfil: x.perfil || null, ci: x.ci, dob: x.dob, edad: x.edad,
       occupation: x.occupation, address: x.address, comoNosConocio: x.comoNosConocio,
       allergies: x.allergies, conditions: x.conditions, medications: x.medications,
       actualizadoAt: x.actualizadoAt, fichaAt: x.fichaAt, ficha: limpiar(x.ficha),
