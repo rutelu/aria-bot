@@ -3027,6 +3027,8 @@ function _historialDe(docs, origenes) {
       sede: r.subsede || r.lugar || '', jornada: _jornadaDe(r, col),
       tratamiento: r.tratamiento || r.servicio || '', camino: _caminoDe(r, col, origenes),
       asistencia: _asistenciaDe(r), recuperada: !!r.recuperada,
+      // Lo que anotó el profesional de ESE día (si se trató o no, y lo que haga falta).
+      nota: String(r.nota || ''),
       // Lo que se cobró en esa atención (lo carga el equipo desde la ficha). El saldo
       // se recalcula acá: nunca se confía en un saldo guardado a mano.
       cobro: (r.cobro && typeof r.cobro === 'object') ? (function (c) {
@@ -4647,7 +4649,7 @@ app.get('/debug/ficha', async (req, res) => {
       actualizadoAt: x.actualizadoAt, fichaAt: x.fichaAt, ficha: limpiar(x.ficha),
       tratamiento: x.tratamiento ? 'sí (hoja vieja)' : null, receta: x.receta ? 'sí' : null,
       usoImagen: x.usoImagen ? 'sí' : null,
-      reservas: (x.reservas || []).map(function (r) { return { fecha: r.fecha, col: r.col, docId: r.docId, asistencia: r.asistencia, tratamiento: r.tratamiento, cobro: r.cobro ? (r.cobro.precio + '/' + r.cobro.cobrado) : null }; }),
+      reservas: (x.reservas || []).map(function (r) { return { fecha: r.fecha, col: r.col, docId: r.docId, asistencia: r.asistencia, tratamiento: r.tratamiento, nota: r.nota || null, cobro: r.cobro ? (r.cobro.precio + '/' + r.cobro.cobrado) : null }; }),
       sesiones: ses.docs.map(function (d) { const y = d.data() || {}; return { id: d.id, tipo: y.tipo, n: y.n, fecha: y.fecha, tratamiento: y.tratamiento, cobro: y.cobro || null }; })
     });
   } catch (e) { res.json({ error: e.message }); }
