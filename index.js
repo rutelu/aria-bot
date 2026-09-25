@@ -5801,7 +5801,9 @@ app.get('/debug/segunda-vuelta', async (req, res) => {
   const enviar = req.query.send === '1';
   const zona = String(req.query.zona || 'cochabamba').toLowerCase();
   const plantilla = String(req.query.plantilla || 'cochabamba_segunda_vuelta');
-  const foto = String(req.query.foto || '');
+  // Si la plantilla lleva cabecera de imagen y no se manda la foto, Meta rechaza TODOS
+  // los envios con (#132012). Paso una vez: el enlace iba sin ?foto= y no salio ninguno.
+  const foto = String(req.query.foto || 'https://harmonieinstitute.com/afiche_cochabamba_relampago.jpg');
   const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
 
   const cfg = await getBeniConfig();
