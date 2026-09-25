@@ -5816,6 +5816,90 @@ app.get('/debug/aviso-reservadas', async (req, res) => {
   res.json({ avisadas: ok, fallidos: fallos.length, fallos: fallos.slice(0, 5) });
 });
 
+// ── CERRAR A QUIEN PREGUNTÓ Y SE APAGÓ ──────────────────────────────────────
+// El agujero del embudo no es la publicidad: es que preguntan el precio, Valeria
+// contesta, y nadie vuelve a escribirles. Estas son las personas más calientes
+// que hay —preguntaron cuánto cuesta— y se pierden en silencio.
+// Va como mensaje normal (escribieron hoy, la ventana está abierta) y ofrece
+// HORAS CONCRETAS: pedir que elija entre tres es mucho más fácil que "¿agendamos?".
+app.get('/debug/cerrar', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const enviar = req.query.send === '1';
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  const cfg = await getBeniConfig();
+  const dia = ((cfg && cfg.dias) || [])[0];
+  if (!dia) return res.json({ error: 'la campaña no tiene días' });
+
+  // Las horas REALMENTE libres, las mismas que ve Valeria.
+  const dispo = await toolConsultarDisponibilidad({ fecha: dia.fecha }, cfg);
+  const entry = ((dispo && dispo.disponibilidad) || []).find(function (r) { return r.fecha === dia.fecha; });
+  const libres = (entry && entry.horas_libres) || [];
+  if (!libres.length) return res.json({ error: 'no quedan horas libres' });
+  // Tres horas repartidas en el día: mañana, mediodía y tarde.
+  const tres = [libres[0], libres[Math.floor(libres.length / 2)], libres[libres.length - 1]]
+    .filter(function (h, i, a) { return h && a.indexOf(h) === i; });
+
+  const marca = 'cierre:' + (cfg.campaignVersion || 'x');
+  const t8 = t => String(t || '').replace(/\D/g, '').slice(-8);
+  const conReserva = new Set();
+  (await getReservasConfirmadas()).forEach(r => {
+    if ((r.fecha || '') >= fechaBoliviaISO()) { const t = t8(r.telefono); if (t) conReserva.add(t); }
+  });
+
+  const lista = []; const fuera = { ya_reservo: 0, sin_hablar_hoy: 0, ya_cerrado: 0, no_seguir: 0, pausado: 0, contesto_ultima: 0 };
+  const chats = await db.collection('valeria_chats').get();
+  for (const d of chats.docs) {
+    const c = d.data() || {};
+    if (String(c.canal || '') !== 'wa') continue;
+    const t = t8(c.contacto);
+    if (!t) continue;
+    if (c.noSeguir === true) { fuera.no_seguir++; continue; }
+    if (c.pausada === true) { fuera.pausado++; continue; }
+    if (conReserva.has(t)) { fuera.ya_reservo++; continue; }
+    if (c[marca]) { fuera.ya_cerrado++; continue; }
+    const lu = c.lastUserMsgAt && c.lastUserMsgAt.toDate ? c.lastUserMsgAt.toDate() : null;
+    const horas = lu ? (Date.now() - lu.getTime()) / 3600000 : 999;
+    if (horas >= 22) { fuera.sin_hablar_hoy++; continue; }   // fuera de las 24 h
+    // Si el último que habló fue ELLA, la pelota está en nuestro campo: no la empujamos.
+    if (String(c.ultimoRol || '') !== 'valeria') { fuera.contesto_ultima++; continue; }
+    lista.push({ ref: d.ref, tel: String(c.contacto || '').replace(/\D/g, ''),
+                 nombre: (String(c.nombre || '').trim().split(/\s+/)[0]) || '' });
+  }
+
+  const texto = p => (p.nombre && !/^[^a-zA-Z]+$/.test(p.nombre) ? p.nombre + ', ' : '')
+    + 'te quedó pendiente agendar 💛 Para mañana ' + String(dia.label || '').toLowerCase()
+    + ' me quedan ' + (tres.length > 1 ? 'estas horas' : 'esta hora') + ': *' + tres.join('*, *') + '*.\n\n'
+    + 'La valoración es gratis y el 40% aplica a cualquier tratamiento, sin condiciones. '
+    + '¿Te reservo alguna? Con que me digas la hora, listo.';
+
+  if (!enviar) return res.json({ modo: 'SOLO LISTA — no se envió nada', dia: dia.label,
+                                 horas_ofrecidas: tres, a_quien: lista.length,
+                                 quienes: lista.map(p => (p.nombre || p.tel)),
+                                 descartados: fuera, ejemplo: texto(lista[0] || { nombre: 'Yeli' }) });
+  if (!TOKEN || !PHONE) return res.json({ error: 'faltan las llaves de WhatsApp' });
+
+  let ok = 0; const fallos = [];
+  for (const p of lista) {
+    try {
+      const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messaging_product: 'whatsapp', to: p.tel, type: 'text', text: { body: texto(p) } })
+      });
+      const j = await r.json();
+      if (j.error) fallos.push({ tel: p.tel, error: j.error.message.slice(0, 80) });
+      else {
+        ok++;
+        // Queda en su conversación: si contesta, Valeria sabe qué se le ofreció.
+        await p.ref.collection('mensajes').add({ rol: 'valeria', texto: texto(p), ts: new Date() });
+        await p.ref.set({ [marca]: new Date(), ultimoRol: 'valeria', ultimoTexto: texto(p) }, { merge: true });
+      }
+    } catch (e) { fallos.push({ tel: p.tel, error: e.message.slice(0, 60) }); }
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  res.json({ enviados: ok, fallidos: fallos.length, fallos: fallos.slice(0, 5) });
+});
+
 app.get('/debug/segunda-vuelta', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
