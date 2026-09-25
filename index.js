@@ -171,8 +171,8 @@ const BENI_SEED = {
   publicada: true, // 🚀 Cochabamba: sábado 26 sep 2026, sin anuncio pago (se reengancha a los leads)
   campaignVersion: 'cochabamba-2026-09-26a',   // 25 sep: vuelve Cochabamba por un día
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
-  promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
-  ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
+  promo: 'Valoración GRATIS (sin costo) en la jornada y 40 por ciento de descuento en CUALQUIER tratamiento, solo por agendar. Es una promoción relámpago de un solo día (sábado 26 de septiembre): NO hace falta traer a nadie recomendado, el 40 por ciento es para todas las personas que agenden.',
+  ofertaConfirmacion: 'Con tu reserva ya tenés 40% de descuento en cualquier tratamiento, sin condiciones.', // versión CORTA para el WhatsApp de confirmación (por campaña)
   slug: 'cochabamba', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
   rutaMinisitio: 'cochabamba', // ruta que Valeria comparte. ⚠️ Debe ser la de la sede que se ATIENDE HOY
   subsedes: [
@@ -4227,7 +4227,7 @@ async function enviarConfirmacionReserva(r) {
   // Antes aqui iba el enlace para COMPARTIR la jornada. Julio (30/08): en este mensaje es mas util
   // el calendario para cambiar la cita — compartir ya tiene su propio boton en la plantilla.
   // El '?agendar=1' abre el calendario directo, sin pasar por la portada.
-  const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.')
+  const oferta = (cfg.ofertaConfirmacion || 'Con tu reserva ya tenés 40% de descuento en cualquier tratamiento, sin condiciones.')
     + ' Si necesitas cambiar la fecha u hora, mira el calendario en vivo aqui: https://harmonieinstitute.com/' + rutaZona + '?agendar=1';
   const bodyComp = { type: 'body', parameters: [
     { type: 'text', text: nombre },
