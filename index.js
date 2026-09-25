@@ -6073,7 +6073,9 @@ async function revisarEnvioProgramado() {
   await ref.set({ hecho: true, empezadoAt: new Date() }, { merge: true });
   console.log('📣 Envío programado: arrancando para ' + c.zona);
   try {
-    const r = await fetch('http://127.0.0.1:' + PORT + '/debug/invitar?key=diag-9x&zona='
+    // Primera vuelta o segunda: son dos envios distintos, con publicos distintos.
+    const ruta = (c.tipo === 'segunda') ? '/debug/segunda-vuelta' : '/debug/invitar';
+    const r = await fetch('http://127.0.0.1:' + PORT + ruta + '?key=diag-9x&zona='
       + encodeURIComponent(c.zona) + '&plantilla=' + encodeURIComponent(c.plantilla)
       + (c.foto ? '&foto=' + encodeURIComponent(c.foto) : '') + '&send=1');
     const j = await r.json();
