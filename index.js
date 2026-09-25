@@ -5713,6 +5713,7 @@ app.get('/debug/invitar', async (req, res) => {
 
   // Prueba a un solo numero: para VER el mensaje antes de mandarselo a todos.
   const prueba = String(req.query.prueba || '').replace(/D/g, '');
+  const yaInvitados = new Set();   // ya recibieron esta invitacion: no se les repite nunca
   const elegidos = [], fuera = { no_seguir: 0, ya_reservo: 0, ya_invitado: 0, otra_zona: 0, sin_tel: 0 };
   if (prueba) { elegidos.push({ ref: db.collection('wa_pruebas').doc(prueba), tel: prueba, nombre: String(req.query.nombre || 'Julio') }); }
   else {
@@ -5724,7 +5725,7 @@ app.get('/debug/invitar', async (req, res) => {
     if (!t || INTERNOS.includes(t)) { fuera.sin_tel++; continue; }
     if (c.noSeguir === true) { fuera.no_seguir++; continue; }
     if (conReserva.has(t)) { fuera.ya_reservo++; continue; }
-    if (c[etiqueta]) { fuera.ya_invitado++; continue; }
+    if (c[etiqueta]) { fuera.ya_invitado++; yaInvitados.add(t); continue; }
     const de = [c.origen, c.origenTitulo, c.anuncio, c.campana, c.zona, c.sede,
                 JSON.stringify(c.referralRaw || '')].join(' ');
     if (!rx.test(de)) { fuera.otra_zona++; continue; }
@@ -5746,7 +5747,7 @@ app.get('/debug/invitar', async (req, res) => {
       if (!rx.test(donde)) continue;
       const t = tel8(x.telefono || d.id);
       if (!t || t.length !== 8 || t[0] === '0' || INTERNOS.includes(t)) continue;   // numeros invalidos fuera
-      if (yaEsta.has(t) || conReserva.has(t)) continue;
+      if (yaEsta.has(t) || conReserva.has(t) || yaInvitados.has(t) || x[etiqueta]) continue;
       const nom = String(x.nombre || x.patientName || '').trim().split(/s+/)[0] || 'hola';
       if (/prueba/i.test(nom)) continue;
       yaEsta.add(t); dePacientes++;
