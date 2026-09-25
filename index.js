@@ -5854,6 +5854,9 @@ app.get('/debug/cerrar', async (req, res) => {
     if (String(c.canal || '') !== 'wa') continue;
     const t = t8(c.contacto);
     if (!t) continue;
+    // Los numeros de la propia clinica no son clientas.
+    if (['78922666', '76951552'].indexOf(t) !== -1) continue;
+    if (/armonniza|harmonie|prueba/i.test(String(c.nombre || ''))) continue;
     if (c.noSeguir === true) { fuera.no_seguir++; continue; }
     if (c.pausada === true) { fuera.pausado++; continue; }
     if (conReserva.has(t)) { fuera.ya_reservo++; continue; }
