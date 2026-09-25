@@ -5594,6 +5594,45 @@ app.get('/debug/crear-plantilla-afiche', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
+// ── TE CONOCEMOS ────────────────────────────────────────────────────────────
+// El minisitio no tiene sesión y las fichas no se leen sin ella, así que este
+// endpoint devuelve SOLO lo justo para no hacerle escribir de nuevo lo que ya
+// nos dio: su nombre y su correo. Nada clínico: ni tratamientos, ni notas, ni
+// cobros. Se identifica por teléfono, igual que la ficha en todo el sistema.
+app.get('/publico/datos', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'no-store');
+  if (!db) return res.json({});
+  const crudo = String(req.query.tel || '');
+  const t = crudo.replace(/\D/g, '').slice(-8);
+  if (t.length !== 8) return res.json({});
+  try {
+    const f = await db.collection('fichas').doc(t).get();
+    let nombre = '', email = '';
+    if (f.exists) {
+      const x = f.data() || {};
+      nombre = String(x.nombre || x.patientName || '').trim();
+      email = String(x.patientEmail || x.email || '').trim();
+    }
+    if (!nombre) {
+      // Puede no tener ficha todavía pero sí haber reservado antes.
+      for (const col of ['reservas_beni', 'citas', 'appointments']) {
+        let s = { empty: true };
+        try { s = await db.collection(col).where('telefono', '==', crudo).limit(1).get(); } catch (e) {}
+        if (!s.empty) {
+          const y = s.docs[0].data() || {};
+          nombre = String(y.nombre || '').trim();
+          email = String(y.email || '').trim();
+          if (nombre) break;
+        }
+      }
+    }
+    if (/prueba/i.test(nombre)) return res.json({});
+    if (/paciente@harmonieinstitute/i.test(email)) email = '';
+    res.json(nombre ? { nombre: nombre, email: email } : {});
+  } catch (e) { res.json({}); }
+});
+
 app.get('/debug/invitar', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
