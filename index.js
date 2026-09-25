@@ -163,32 +163,23 @@ function iniciarWatcherCalendario() {
 // Se crea SOLO si no existe, para no pisar ediciones hechas desde la consola.
 const BENI_SEED = {
   id: 'beni',
-  titulo: 'Jornada La Paz y Beni',
+  titulo: 'Jornada Cochabamba',
   especialista: 'Equipo Harmonie',
   especialidad: 'Especialista en Medicina Estética',
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
-  publicada: true, // 🚀 LANZADA 28 ago 2026 (dirección real, 3 días)
-  campaignVersion: 'lapaz-2026-09h',   // 8 sep: los enlaces de Valeria van a /beni (/lapaz mostraba la jornada finalizada)
+  publicada: true, // 🚀 Cochabamba: sábado 26 sep 2026, sin anuncio pago (se reengancha a los leads)
+  campaignVersion: 'cochabamba-2026-09-26a',   // 25 sep: vuelve Cochabamba por un día
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada. Descuento del 20 por ciento si la persona viene sola. Si TRAE a un recomendado y ese recomendado se realiza ALGÚN tratamiento, la persona obtiene 50 por ciento de descuento en su tratamiento. Aplica a cualquier tratamiento.',
   ofertaConfirmacion: 'Con tu reserva ya ganaste 20% de descuento; y si traes a un recomendado que se atienda, obtienes 50% OFF en tu tratamiento.', // versión CORTA para el WhatsApp de confirmación (por campaña)
-  slug: 'beni', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
-  rutaMinisitio: 'beni', // ruta que Valeria comparte. ⚠️ Debe ser la de la sede que se ATIENDE HOY: /lapaz mostraba 'Jornada finalizada' desde que la campaña paso al Beni
+  slug: 'cochabamba', // ruta corta del minisitio para el botón "Compartir" de la confirmación (por campaña)
+  rutaMinisitio: 'cochabamba', // ruta que Valeria comparte. ⚠️ Debe ser la de la sede que se ATIENDE HOY
   subsedes: [
-    { id: 'La Paz', nombre: 'La Paz', direccion: 'Av. 20 de Octubre Nro. 1756, casi esq. Conchitas — timbre Reyna y Harmonie, piso 2', telefonos: ['+591 76951552'] },
-    { id: 'San Borja', nombre: 'San Borja', direccion: 'Hotel Spa Kamajal', telefonos: ['+591 76951552'], lat: -14.8570042, lng: -66.7507243 },
-    { id: 'Rurrenabaque', nombre: 'Rurrenabaque', direccion: 'Body Face Center Spa', telefonos: ['+591 76951552'], lat: -14.4435725, lng: -67.5279381 }
+    { id: 'Cochabamba', nombre: 'Cochabamba', direccion: 'Beauty Clinic — Av. Ayacucho esq. calle La Paz', telefonos: ['+591 76951552'] }
   ],
   dias: [
-    { fecha: '2026-08-31', label: 'Lunes 31 de agosto', subsede: 'La Paz' },
-    { fecha: '2026-09-01', label: 'Martes 1 de septiembre', subsede: 'La Paz' },
-    { fecha: '2026-09-02', label: 'Miércoles 2 de septiembre', subsede: 'La Paz' },
-    { fecha: '2026-09-05', label: 'Sábado 5 de septiembre', subsede: 'Rurrenabaque' },
-    { fecha: '2026-09-06', label: 'Domingo 6 de septiembre', subsede: 'Rurrenabaque' },
-    { fecha: '2026-09-07', label: 'Lunes 7 de septiembre', subsede: 'San Borja' },
-    { fecha: '2026-09-08', label: 'Martes 8 de septiembre', subsede: 'San Borja' },
-    { fecha: '2026-09-09', label: 'Miércoles 9 de septiembre', subsede: 'San Borja' }
+    { fecha: '2026-09-26', label: 'Sábado 26 de septiembre', subsede: 'Cochabamba' }
   ],
   horas: ['09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00']
 };
@@ -5482,6 +5473,160 @@ app.get('/debug/plantilla-zona', async (req, res) => {
     a_quienes: elegidos.length, enviados: enviados, fallidos: fallidos,
     descartados: descartados, detalle: elegidos
   });
+});
+
+// ══════════════════════════════════════════════════════════════════════════
+//  INVITAR A UNA JORNADA — plantilla + envío por lotes
+// ══════════════════════════════════════════════════════════════════════════
+// Para reenganchar a los leads de una ciudad SIN pagar anuncio. Como ninguno
+// está dentro de las 24 h, Meta obliga a usar una plantilla aprobada: por eso
+// van juntas la creación de la plantilla y el envío.
+//
+//   /debug/crear-plantilla-jornada?key=diag-9x&nombre=jornada_cochabamba
+//   /debug/invitar?key=diag-9x&zona=cochabamba            → SOLO LISTA, no envía
+//   /debug/invitar?key=diag-9x&zona=cochabamba&send=1     → envía de verdad
+//
+// Reglas que NO se saltan (son las que evitan una multa de Meta y una queja):
+//   · nunca a quien pidió no seguir
+//   · nunca a quien ya tiene una reserva próxima
+//   · nunca dos veces: queda marcado en el chat con la etiqueta del envío
+//   · de a poco (pausa entre mensajes) para no gatillar el antispam
+
+const PLANTILLA_JORNADA = {
+  // {{1}} nombre · {{2}} ciudad · {{3}} día · {{4}} enlace para reservar
+  body: 'Hola {{1}} 💛 Te escribe Valeria, de Harmonie. Volvemos a {{2}} este {{3}}. '
+      + 'La valoración es gratis y tenés 20% de descuento en tu tratamiento (50% si traés a una '
+      + 'recomendada que se atienda). Reservá tu hora acá: {{4}}'
+};
+
+app.get('/debug/crear-plantilla-jornada', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN;
+  const WABA = req.query.waba || process.env.WHATSAPP_WABA_ID || '2396268927545198';
+  const nombre = String(req.query.nombre || 'jornada_invitacion').toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  if (!TOKEN) return res.json({ error: 'falta WHATSAPP_TOKEN' });
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + WABA + '/message_templates', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: nombre,
+        language: 'es',
+        category: 'MARKETING',
+        components: [{
+          type: 'BODY',
+          text: PLANTILLA_JORNADA.body,
+          example: { body_text: [['María', 'Cochabamba', 'sábado 26 de septiembre',
+                                  'https://harmonieinstitute.com/cochabamba']] }
+        }]
+      })
+    });
+    const j = await r.json();
+    res.json({ enviada_a_revision: !j.error, nombre: nombre, respuesta: j });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
+// Estado de UNA plantilla (para saber si Meta ya la aprobó).
+app.get('/debug/estado-plantilla', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN;
+  const WABA = req.query.waba || process.env.WHATSAPP_WABA_ID || '2396268927545198';
+  const nombre = String(req.query.nombre || '');
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + WABA + '/message_templates?name='
+      + encodeURIComponent(nombre) + '&fields=name,status,category,components',
+      { headers: { Authorization: 'Bearer ' + TOKEN } });
+    const j = await r.json();
+    const t = (j.data || [])[0];
+    res.json(t ? { nombre: t.name, estado: t.status, lista_para_enviar: t.status === 'APPROVED' }
+               : { error: 'no existe esa plantilla', respuesta: j });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
+app.get('/debug/invitar', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const TOKEN = process.env.WHATSAPP_TOKEN;
+  const PHONE = process.env.WHATSAPP_PHONE_ID;
+  const enviar = req.query.send === '1';
+  const zona = String(req.query.zona || '').toLowerCase().trim();
+  const plantilla = String(req.query.plantilla || 'jornada_cochabamba');
+  const tope = Math.min(parseInt(req.query.tope || '500', 10) || 500, 500);
+  if (!zona) return res.json({ error: 'falta ?zona=cochabamba' });
+  if (enviar && (!TOKEN || !PHONE)) return res.json({ error: 'faltan las llaves de WhatsApp' });
+
+  const cfg = await getBeniConfig();
+  const dia = ((cfg && cfg.dias) || [])[0];
+  if (!dia) return res.json({ error: 'la campaña no tiene días cargados' });
+  const ciudad = (cfg.subsedes && cfg.subsedes[0] && cfg.subsedes[0].nombre) || zona;
+  const enlace = 'https://harmonieinstitute.com/' + (cfg.rutaMinisitio || zona);
+  const etiqueta = 'invitado:' + (cfg.campaignVersion || zona);
+
+  const tel8 = t => String(t || '').replace(/\D/g, '').slice(-8);
+  const INTERNOS = ['78922666', '76951552'];
+  const rx = new RegExp(zona.replace(/[^a-z]/g, '') + '|' + (zona === 'cochabamba' ? 'cbba' : zona), 'i');
+
+  // Quien ya tiene una reserva próxima no recibe una invitación a reservar.
+  const hoyISO = fechaBoliviaISO();
+  const conReserva = new Set();
+  (await getReservasConfirmadas()).forEach(r => {
+    if ((r.fecha || '') >= hoyISO) { const t = tel8(r.telefono); if (t) conReserva.add(t); }
+  });
+
+  const elegidos = [], fuera = { no_seguir: 0, ya_reservo: 0, ya_invitado: 0, otra_zona: 0, sin_tel: 0 };
+  const chats = await db.collection('valeria_chats').get();
+  for (const d of chats.docs) {
+    const c = d.data() || {};
+    if (String(c.canal || '') !== 'wa') continue;
+    const t = tel8(c.contacto);
+    if (!t || INTERNOS.includes(t)) { fuera.sin_tel++; continue; }
+    if (c.noSeguir === true) { fuera.no_seguir++; continue; }
+    if (conReserva.has(t)) { fuera.ya_reservo++; continue; }
+    if (c[etiqueta]) { fuera.ya_invitado++; continue; }
+    const de = [c.origen, c.origenTitulo, c.anuncio, c.campana, c.zona, c.sede,
+                JSON.stringify(c.referralRaw || '')].join(' ');
+    if (!rx.test(de)) { fuera.otra_zona++; continue; }
+    elegidos.push({ ref: d.ref, tel: String(c.contacto || '').replace(/\D/g, ''),
+                    nombre: (String(c.nombre || '').trim().split(/\s+/)[0]) || 'hola' });
+    if (elegidos.length >= tope) break;
+  }
+
+  if (!enviar) {
+    return res.json({
+      modo: 'SOLO LISTA — no se envió nada', zona: zona, plantilla: plantilla,
+      ciudad: ciudad, dia: dia.label, enlace: enlace,
+      a_quien: elegidos.length, descartados: fuera,
+      ejemplo: elegidos.slice(0, 5).map(x => x.nombre + ' · ' + x.tel),
+      para_enviar: 'repetí la misma dirección agregando &send=1'
+    });
+  }
+
+  let ok = 0; const fallos = [];
+  for (const p of elegidos) {
+    try {
+      const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp', to: p.tel, type: 'template',
+          template: {
+            name: plantilla, language: { code: 'es' },
+            components: [{ type: 'body', parameters: [
+              { type: 'text', text: p.nombre },
+              { type: 'text', text: ciudad },
+              { type: 'text', text: String(dia.label || '').toLowerCase() },
+              { type: 'text', text: enlace }
+            ] }]
+          }
+        })
+      });
+      const j = await r.json();
+      if (j.error) { fallos.push({ tel: p.tel, error: j.error.message, codigo: j.error.code }); }
+      else { ok++; await p.ref.set({ [etiqueta]: new Date() }, { merge: true }); }
+    } catch (e) { fallos.push({ tel: p.tel, error: e.message }); }
+    await new Promise(r => setTimeout(r, 1200));   // despacio: el antispam de Meta mira el ritmo
+  }
+  res.json({ enviados: ok, fallidos: fallos.length, de: elegidos.length, fallos: fallos.slice(0, 10) });
 });
 
 app.get('/debug/reenganche', async (req, res) => {
