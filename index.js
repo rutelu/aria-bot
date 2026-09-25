@@ -5543,6 +5543,57 @@ app.get('/debug/estado-plantilla', async (req, res) => {
   } catch (e) { res.json({ error: e.message }); }
 });
 
+// ── PLANTILLA CON AFICHE ────────────────────────────────────────────────────
+// Para que el mensaje llegue con la imagen arriba. Meta pide subir un ejemplo de
+// la foto por su "resumable upload" y usar el handle que devuelve; no acepta una
+// URL suelta. Por eso son tres pasos y no uno.
+app.get('/debug/crear-plantilla-afiche', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const TOKEN = process.env.WHATSAPP_TOKEN;
+  let APP = String(req.query.app || '');            // id de la app de Meta (se descubre solo si falta)
+  const WABA = req.query.waba || '2396268927545198';
+  const nombre = String(req.query.nombre || 'jornada_afiche').toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const imagen = String(req.query.imagen || 'https://harmonieinstitute.com/afiche_cochabamba_relampago.jpg');
+  if (!TOKEN) return res.json({ error: 'falta WHATSAPP_TOKEN' });
+  if (!APP) {
+    try {
+      const d = await (await fetch('https://graph.facebook.com/v25.0/debug_token?input_token=' + TOKEN + '&access_token=' + TOKEN)).json();
+      APP = String(((d.data) || {}).app_id || '');
+    } catch (e) {}
+  }
+  if (!APP) return res.json({ error: 'no pude averiguar el id de la app; pasalo con ?app=' });
+  try {
+    // 1) traer la foto
+    const img = Buffer.from(await (await fetch(imagen)).arrayBuffer());
+    // 2) abrir la sesión de subida
+    const s = await (await fetch('https://graph.facebook.com/v25.0/' + APP + '/uploads?file_length='
+      + img.length + '&file_type=image/jpeg&access_token=' + TOKEN, { method: 'POST' })).json();
+    if (!s.id) return res.json({ paso: 'abrir sesión', respuesta: s });
+    // 3) subirla y quedarse con el handle
+    const u = await (await fetch('https://graph.facebook.com/v25.0/' + s.id, {
+      method: 'POST',
+      headers: { Authorization: 'OAuth ' + TOKEN, file_offset: '0', 'Content-Type': 'application/octet-stream' },
+      body: img
+    })).json();
+    if (!u.h) return res.json({ paso: 'subir', respuesta: u });
+    // 4) crear la plantilla con la foto de cabecera
+    const r = await (await fetch('https://graph.facebook.com/v25.0/' + WABA + '/message_templates', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: nombre, language: 'es', category: 'MARKETING',
+        components: [
+          { type: 'HEADER', format: 'IMAGE', example: { header_handle: [u.h] } },
+          { type: 'BODY', text: PLANTILLA_JORNADA.body,
+            example: { body_text: [['María', 'Cochabamba', 'sábado 26 de septiembre',
+                                    'https://harmonieinstitute.com/cochabamba']] } }
+        ]
+      })
+    })).json();
+    res.json({ enviada_a_revision: !r.error, nombre: nombre, respuesta: r });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/invitar', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
@@ -5552,6 +5603,7 @@ app.get('/debug/invitar', async (req, res) => {
   const zona = String(req.query.zona || '').toLowerCase().trim();
   const plantilla = String(req.query.plantilla || 'jornada_cochabamba');
   const tope = Math.min(parseInt(req.query.tope || '500', 10) || 500, 500);
+  const foto = String(req.query.foto || '');   // afiche opcional arriba del mensaje
   if (!zona) return res.json({ error: 'falta ?zona=cochabamba' });
   if (enviar && (!TOKEN || !PHONE)) return res.json({ error: 'faltan las llaves de WhatsApp' });
 
@@ -5636,12 +5688,12 @@ app.get('/debug/invitar', async (req, res) => {
           messaging_product: 'whatsapp', to: p.tel, type: 'template',
           template: {
             name: plantilla, language: { code: 'es' },
-            components: [{ type: 'body', parameters: [
+            components: (foto ? [{ type: 'header', parameters: [{ type: 'image', image: { link: foto } }] }] : []).concat([{ type: 'body', parameters: [
               { type: 'text', text: p.nombre },
               { type: 'text', text: ciudad },
               { type: 'text', text: String(dia.label || '').toLowerCase() },
               { type: 'text', text: enlace }
-            ] }]
+            ] }])
           }
         })
       });
