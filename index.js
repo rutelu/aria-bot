@@ -5736,6 +5736,27 @@ app.get('/debug/avisar', async (req, res) => {
 // puede subir su descuento trayendo a alguien: es lo que hace crecer la jornada
 // sin gastar en publicidad. Va como mensaje normal: están dentro de las 24 h
 // porque acaban de conversar para reservar.
+// Corrige, a quien ya reservó, el descuento que se le dijo mal. Se identifica por
+// teléfono para no mandárselo a quien ya lo tiene bien.
+app.get('/debug/corregir-descuento', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const tel = String(req.query.tel || '').replace(/D/g, '');
+  const nombre = String(req.query.nombre || '').trim();
+  if (!tel || !nombre) return res.json({ error: 'falta ?tel= y ?nombre=' });
+  const texto = nombre + ', una corrección a mi favor tuyo 💛 Te dije 20% de descuento y en realidad '
+    + 'es *40% en cualquier tratamiento*, sin ninguna condición. Y si traés a alguien que también se '
+    + 'atienda, sube a *50%*.\n\nTu cita de mañana sigue igual. ¡Disculpá el enredo y nos vemos!';
+  if (req.query.send !== '1') return res.json({ modo: 'SOLO PRUEBA', a: tel, texto: texto });
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + process.env.WHATSAPP_PHONE_ID + '/messages', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + process.env.WHATSAPP_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to: tel, type: 'text', text: { body: texto } })
+    });
+    const j = await r.json();
+    res.json(j.error ? { error: j.error.message } : { enviado: true, a: nombre });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
 app.get('/debug/aviso-reservadas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
