@@ -5496,7 +5496,7 @@ const PLANTILLA_JORNADA = {
   // {{1}} nombre · {{2}} ciudad · {{3}} día · {{4}} enlace para reservar
   body: 'Hola {{1}} 💛 Te escribe Valeria, de Harmonie. Volvemos a {{2}} este {{3}}. '
       + 'La valoración es gratis y tenés 20% de descuento en tu tratamiento (50% si traés a una '
-      + 'recomendada que se atienda). Reservá tu hora acá: {{4}}'
+      + 'recomendada que se atienda). Reservá tu hora acá: {{4}} — es gratis y al instante. ¡Te esperamos!'
 };
 
 app.get('/debug/crear-plantilla-jornada', async (req, res) => {
