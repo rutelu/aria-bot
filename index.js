@@ -5654,6 +5654,75 @@ app.get('/debug/invitar', async (req, res) => {
   res.json({ enviados: ok, fallidos: fallos.length, de: elegidos.length, fallos: fallos.slice(0, 10) });
 });
 
+// ── ENVÍO PROGRAMADO ────────────────────────────────────────────────────────
+// La invitación se manda sola a la hora que se deje pactada. Vive en el servidor
+// a propósito: un mensaje de promoción a medianoche molesta, la gente lo bloquea
+// y eso le baja la calificación al número ante Meta. Pero tampoco puede depender
+// de que alguien esté despierto para apretar un botón.
+//
+//   /debug/programar-envio?key=diag-9x&zona=cochabamba&hora=8&fecha=2026-09-25
+//   /debug/programar-envio?key=diag-9x&cancelar=1
+//   /debug/programar-envio?key=diag-9x                → dice qué hay programado
+//
+// Se ejecuta UNA sola vez: al mandarse queda marcado y no se repite.
+function horaBolivia() { return new Date(Date.now() - 4 * 3600 * 1000).getUTCHours(); }
+
+app.get('/debug/programar-envio', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const ref = db.collection('config').doc('envio_programado');
+  try {
+    if (req.query.cancelar === '1') {
+      await ref.set({ activo: false, canceladoAt: new Date() }, { merge: true });
+      return res.json({ cancelado: true });
+    }
+    if (!req.query.zona) {
+      const d = await ref.get();
+      return res.json(d.exists ? d.data() : { nada_programado: true });
+    }
+    const dato = {
+      activo: true,
+      zona: String(req.query.zona).toLowerCase(),
+      plantilla: String(req.query.plantilla || 'jornada_' + String(req.query.zona).toLowerCase()),
+      fecha: String(req.query.fecha || fechaBoliviaISO()),
+      hora: Math.max(6, Math.min(21, parseInt(req.query.hora || '8', 10) || 8)),
+      hecho: false,
+      programadoAt: new Date()
+    };
+    await ref.set(dato, { merge: true });
+    res.json({ programado: dato, ahora_en_bolivia: horaBolivia() + 'h' });
+  } catch (e) { res.json({ error: e.message }); }
+});
+
+async function revisarEnvioProgramado() {
+  if (!db) return;
+  const ref = db.collection('config').doc('envio_programado');
+  const d = await ref.get();
+  if (!d.exists) return;
+  const c = d.data() || {};
+  if (!c.activo || c.hecho) return;
+  const hoy = fechaBoliviaISO();
+  if (hoy < String(c.fecha || '')) return;              // todavía no es el día
+  if (horaBolivia() < (c.hora || 8)) return;            // todavía no es la hora
+  if (horaBolivia() > 21) return;                       // muy tarde: mejor mañana
+  // Se marca ANTES de mandar: si algo falla a mitad, no se reenvía a los que ya
+  // recibieron (de eso se encarga igual la marca por persona, pero dos redes son mejores).
+  await ref.set({ hecho: true, empezadoAt: new Date() }, { merge: true });
+  console.log('📣 Envío programado: arrancando para ' + c.zona);
+  try {
+    const r = await fetch('http://127.0.0.1:' + PORT + '/debug/invitar?key=diag-9x&zona='
+      + encodeURIComponent(c.zona) + '&plantilla=' + encodeURIComponent(c.plantilla) + '&send=1');
+    const j = await r.json();
+    await ref.set({ resultado: j, terminadoAt: new Date() }, { merge: true });
+    console.log('📣 Envío programado terminado: ' + JSON.stringify(j).slice(0, 200));
+  } catch (e) {
+    await ref.set({ error: e.message, terminadoAt: new Date() }, { merge: true });
+    console.error('📣 Envío programado falló:', e.message);
+  }
+}
+setInterval(function () { revisarEnvioProgramado().catch(function () {}); }, 10 * 60 * 1000);
+setTimeout(function () { revisarEnvioProgramado().catch(function () {}); }, 90 * 1000);
+
 app.get('/debug/reenganche', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.status(200).json({ error: 'sin db' });
