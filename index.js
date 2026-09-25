@@ -5738,6 +5738,7 @@ app.get('/debug/programar-envio', async (req, res) => {
       plantilla: String(req.query.plantilla || 'jornada_' + String(req.query.zona).toLowerCase()),
       fecha: String(req.query.fecha || fechaBoliviaISO()),
       hora: Math.max(6, Math.min(21, parseInt(req.query.hora || '8', 10) || 8)),
+      foto: String(req.query.foto || ''),
       hecho: false,
       programadoAt: new Date()
     };
@@ -5763,7 +5764,8 @@ async function revisarEnvioProgramado() {
   console.log('📣 Envío programado: arrancando para ' + c.zona);
   try {
     const r = await fetch('http://127.0.0.1:' + PORT + '/debug/invitar?key=diag-9x&zona='
-      + encodeURIComponent(c.zona) + '&plantilla=' + encodeURIComponent(c.plantilla) + '&send=1');
+      + encodeURIComponent(c.zona) + '&plantilla=' + encodeURIComponent(c.plantilla)
+      + (c.foto ? '&foto=' + encodeURIComponent(c.foto) : '') + '&send=1');
     const j = await r.json();
     await ref.set({ resultado: j, terminadoAt: new Date() }, { merge: true });
     console.log('📣 Envío programado terminado: ' + JSON.stringify(j).slice(0, 200));
