@@ -5801,11 +5801,24 @@ app.get('/debug/segunda-vuelta', async (req, res) => {
   const enviar = req.query.send === '1';
   const zona = String(req.query.zona || 'cochabamba').toLowerCase();
   const plantilla = String(req.query.plantilla || 'cochabamba_segunda_vuelta');
-  // Si la plantilla lleva cabecera de imagen y no se manda la foto, Meta rechaza TODOS
-  // los envios con (#132012). Paso una vez: el enlace iba sin ?foto= y no salio ninguno.
-  const foto = String(req.query.foto || 'https://harmonieinstitute.com/afiche_cochabamba_relampago.jpg');
+  // La cabecera NO se adivina: se le pregunta a Meta si esta plantilla la lleva. Mandar
+  // una foto a una plantilla sin cabecera —o no mandarla cuando si la tiene— hace que
+  // Meta rechace TODOS los envios con (#132012). Ya paso, y no salio ninguno.
+  let foto = String(req.query.foto || '');
   const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
 
+  // ¿Esta plantilla lleva cabecera de imagen?
+  let llevaCabecera = false;
+  try {
+    const tr = await fetch('https://graph.facebook.com/v25.0/2396268927545198/message_templates?name='
+      + encodeURIComponent(plantilla) + '&fields=name,components',
+      { headers: { Authorization: 'Bearer ' + TOKEN } });
+    const tj = await tr.json();
+    const comp = (((tj.data || [])[0] || {}).components) || [];
+    llevaCabecera = comp.some(function (c) { return c.type === 'HEADER' && c.format === 'IMAGE'; });
+  } catch (e) {}
+  if (llevaCabecera && !foto) foto = 'https://harmonieinstitute.com/afiche_cochabamba_relampago.jpg';
+  if (!llevaCabecera) foto = '';
   const cfg = await getBeniConfig();
   const dia = ((cfg && cfg.dias) || [])[0];
   if (!dia) return res.json({ error: 'la campaña no tiene días' });
