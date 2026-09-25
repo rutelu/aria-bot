@@ -5738,6 +5738,7 @@ app.get('/debug/programar-envio', async (req, res) => {
       plantilla: String(req.query.plantilla || 'jornada_' + String(req.query.zona).toLowerCase()),
       fecha: String(req.query.fecha || fechaBoliviaISO()),
       hora: Math.max(6, Math.min(21, parseInt(req.query.hora || '8', 10) || 8)),
+      minuto: Math.max(0, Math.min(59, parseInt(req.query.minuto || '0', 10) || 0)),
       foto: String(req.query.foto || ''),
       hecho: false,
       programadoAt: new Date()
@@ -5756,7 +5757,9 @@ async function revisarEnvioProgramado() {
   if (!c.activo || c.hecho) return;
   const hoy = fechaBoliviaISO();
   if (hoy < String(c.fecha || '')) return;              // todavía no es el día
+  const min = new Date(Date.now() - 4 * 3600 * 1000).getUTCMinutes();
   if (horaBolivia() < (c.hora || 8)) return;            // todavía no es la hora
+  if (horaBolivia() === (c.hora || 8) && min < (c.minuto || 0)) return;   // ni los minutos
   if (horaBolivia() > 21) return;                       // muy tarde: mejor mañana
   // Se marca ANTES de mandar: si algo falla a mitad, no se reenvía a los que ya
   // recibieron (de eso se encarga igual la marca por persona, pero dos redes son mejores).
@@ -5774,7 +5777,7 @@ async function revisarEnvioProgramado() {
     console.error('📣 Envío programado falló:', e.message);
   }
 }
-setInterval(function () { revisarEnvioProgramado().catch(function () {}); }, 10 * 60 * 1000);
+setInterval(function () { revisarEnvioProgramado().catch(function () {}); }, 5 * 60 * 1000);
 setTimeout(function () { revisarEnvioProgramado().catch(function () {}); }, 90 * 1000);
 
 app.get('/debug/reenganche', async (req, res) => {
