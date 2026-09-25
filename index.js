@@ -5573,7 +5573,11 @@ app.get('/debug/invitar', async (req, res) => {
     if ((r.fecha || '') >= hoyISO) { const t = tel8(r.telefono); if (t) conReserva.add(t); }
   });
 
+  // Prueba a un solo numero: para VER el mensaje antes de mandarselo a todos.
+  const prueba = String(req.query.prueba || '').replace(/D/g, '');
   const elegidos = [], fuera = { no_seguir: 0, ya_reservo: 0, ya_invitado: 0, otra_zona: 0, sin_tel: 0 };
+  if (prueba) { elegidos.push({ ref: db.collection('wa_pruebas').doc(prueba), tel: prueba, nombre: String(req.query.nombre || 'Julio') }); }
+  else {
   const chats = await db.collection('valeria_chats').get();
   for (const d of chats.docs) {
     const c = d.data() || {};
@@ -5589,6 +5593,7 @@ app.get('/debug/invitar', async (req, res) => {
     elegidos.push({ ref: d.ref, tel: String(c.contacto || '').replace(/\D/g, ''),
                     nombre: (String(c.nombre || '').trim().split(/\s+/)[0]) || 'hola' });
     if (elegidos.length >= tope) break;
+  }
   }
 
   if (!enviar) {
