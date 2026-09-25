@@ -5633,6 +5633,53 @@ app.get('/publico/datos', async (req, res) => {
   } catch (e) { res.json({}); }
 });
 
+// ── ENLACE CORTO PARA LANZAR LA INVITACIÓN ──────────────────────────────────
+// El enlace largo, con todos sus "&", se corta al pegarlo en WhatsApp o en la
+// barra del navegador. Este es corto, se escribe a mano si hace falta, y muestra
+// el resultado en una página legible en vez de un JSON.
+// Lo que se va a enviar se deja preparado antes en config/enlace_<zona>.
+app.get('/ir/:zona', async (req, res) => {
+  const zona = String(req.params.zona || '').toLowerCase();
+  const pag = function (titulo, cuerpo, color) {
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.send('<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+      + '<title>Harmonie</title><style>body{margin:0;background:#0a1628;color:#f5f5f0;'
+      + 'font-family:Montserrat,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;'
+      + 'min-height:100vh;padding:24px;text-align:center}.c{max-width:430px}'
+      + 'h1{font-size:1.6rem;margin:0 0 14px;color:' + (color || '#c9a96e') + '}'
+      + 'p{color:#a8a89e;line-height:1.6;margin:10px 0}b{color:#f5f5f0}</style>'
+      + '<div class="c"><h1>' + titulo + '</h1>' + cuerpo + '</div>');
+  };
+  if (req.query.key !== 'diag-9x') return pag('No autorizado', '<p>Falta la llave.</p>', '#b54848');
+  if (!db) return pag('Sin base', '<p>No hay conexión con la base.</p>', '#b54848');
+  try {
+    const d = await db.collection('config').doc('enlace_' + zona).get();
+    const c = d.exists ? (d.data() || {}) : {};
+    if (!c.plantilla) return pag('Nada preparado', '<p>No hay una invitación lista para <b>' + zona + '</b>.</p>', '#d4a574');
+    const u = 'http://127.0.0.1:' + PORT + '/debug/invitar?key=diag-9x&zona=' + encodeURIComponent(zona)
+      + '&plantilla=' + encodeURIComponent(c.plantilla)
+      + (c.foto ? '&foto=' + encodeURIComponent(c.foto) : '') + '&send=1';
+    const j = await (await fetch(u)).json();
+    if (j.error) return pag('No se pudo', '<p>' + j.error + '</p>', '#b54848');
+    pag('Listo',
+      '<p>Se enviaron <b>' + (j.enviados || 0) + '</b> invitaciones'
+      + (j.fallidos ? ' · <b>' + j.fallidos + '</b> no salieron' : ' y no falló ninguna') + '.</p>'
+      + '<p>Ya podés cerrar esta pantalla.</p>',
+      j.fallidos ? '#d4a574' : '#5b8e5a');
+  } catch (e) { pag('No se pudo', '<p>' + e.message + '</p>', '#b54848'); }
+});
+
+// Deja preparado QUÉ se enviará con el enlace corto (no envía nada).
+app.get('/debug/preparar-enlace', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const zona = String(req.query.zona || '').toLowerCase();
+  if (!zona) return res.json({ error: 'falta ?zona=' });
+  const dato = { plantilla: String(req.query.plantilla || ''), foto: String(req.query.foto || ''), at: new Date() };
+  await db.collection('config').doc('enlace_' + zona).set(dato, { merge: true });
+  res.json({ preparado: dato, enlace: '/ir/' + zona + '?key=diag-9x' });
+});
+
 app.get('/debug/invitar', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
