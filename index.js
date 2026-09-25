@@ -5664,7 +5664,9 @@ app.get('/ir/:zona', async (req, res) => {
     const d = await db.collection('config').doc('enlace_' + zona).get();
     const c = d.exists ? (d.data() || {}) : {};
     if (!c.plantilla) return pag('Nada preparado', '<p>No hay una invitación lista para <b>' + zona + '</b>.</p>', '#d4a574');
-    const ruta = (c.tipo === 'segunda') ? '/debug/segunda-vuelta' : '/debug/invitar';
+    const ruta = (c.tipo === 'segunda') ? '/debug/segunda-vuelta'
+              : (c.tipo === 'cerrar') ? '/debug/cerrar'
+              : '/debug/invitar';
     const u = 'http://127.0.0.1:' + PORT + ruta + '?key=diag-9x&zona=' + encodeURIComponent(zona)
       + '&plantilla=' + encodeURIComponent(c.plantilla)
       + (c.foto ? '&foto=' + encodeURIComponent(c.foto) : '') + '&send=1';
@@ -5871,10 +5873,13 @@ app.get('/debug/cerrar', async (req, res) => {
   }
 
   const texto = p => (p.nombre && !/^[^a-zA-Z]+$/.test(p.nombre) ? p.nombre + ', ' : '')
-    + 'te quedó pendiente agendar 💛 Para mañana ' + String(dia.label || '').toLowerCase()
-    + ' me quedan ' + (tres.length > 1 ? 'estas horas' : 'esta hora') + ': *' + tres.join('*, *') + '*.\n\n'
-    + 'La valoración es gratis y el 40% aplica a cualquier tratamiento, sin condiciones. '
-    + '¿Te reservo alguna? Con que me digas la hora, listo.';
+    + 'no quiero que te quedes con las ganas 💛 Mañana ' + String(dia.label || '').toLowerCase()
+    + ' es el ÚNICO día con el 40% en cualquier tratamiento, y no se repite.\n\n'
+    + 'Sobre el precio que te pasé, el 40% te lo baja casi a la mitad. Y la valoración con el '
+    + 'especialista es gratis: vas, te dice exactamente qué te conviene para lo que querés, '
+    + 'y decidís ahí sin ningún compromiso.\n\n'
+    + 'Me quedan ' + (tres.length > 1 ? 'estas horas' : 'esta hora') + ': *' + tres.join('*, *') + '*.\n'
+    + 'Decime cuál te viene bien y te la reservo ahora mismo 😊';
 
   if (!enviar) return res.json({ modo: 'SOLO LISTA — no se envió nada', dia: dia.label,
                                  horas_ofrecidas: tres, a_quien: lista.length,
@@ -6182,7 +6187,9 @@ async function revisarEnvioProgramado() {
   console.log('📣 Envío programado: arrancando para ' + c.zona);
   try {
     // Primera vuelta o segunda: son dos envios distintos, con publicos distintos.
-    const ruta = (c.tipo === 'segunda') ? '/debug/segunda-vuelta' : '/debug/invitar';
+    const ruta = (c.tipo === 'segunda') ? '/debug/segunda-vuelta'
+              : (c.tipo === 'cerrar') ? '/debug/cerrar'
+              : '/debug/invitar';
     const r = await fetch('http://127.0.0.1:' + PORT + ruta + '?key=diag-9x&zona='
       + encodeURIComponent(c.zona) + '&plantilla=' + encodeURIComponent(c.plantilla)
       + (c.foto ? '&foto=' + encodeURIComponent(c.foto) : '') + '&send=1');
