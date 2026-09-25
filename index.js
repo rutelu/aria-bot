@@ -169,7 +169,7 @@ const BENI_SEED = {
   especialidadId: 'med', // especialidad responsable de la campaña (para cruzar disponibilidad con virtual/presencial)
   avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=80&h=80',
   publicada: true, // 🚀 Cochabamba: sábado 26 sep 2026, sin anuncio pago (se reengancha a los leads)
-  campaignVersion: 'cochabamba-2026-09-26a',   // 25 sep: vuelve Cochabamba por un día
+  campaignVersion: 'cochabamba-2026-09-26b-relampago40',   // 25 sep: vuelve Cochabamba por un día
   prevaloraciones: true, // esta campaña incluye pre-valoraciones de cirugías con el especialista presente
   promo: 'Valoración GRATIS (sin costo) en la jornada y 40 por ciento de descuento en CUALQUIER tratamiento, solo por agendar. Es una promoción relámpago de un solo día (sábado 26 de septiembre): NO hace falta traer a nadie recomendado, el 40 por ciento es para todas las personas que agenden.',
   ofertaConfirmacion: 'Con tu reserva ya tenés 40% de descuento en cualquier tratamiento, sin condiciones.', // versión CORTA para el WhatsApp de confirmación (por campaña)
