@@ -5596,9 +5596,29 @@ app.get('/debug/invitar', async (req, res) => {
   }
   }
 
+  // Y las PACIENTES que ya se atendieron en esa ciudad: la audiencia mas caliente
+  // que hay, y no siempre escribieron por WhatsApp, asi que no estaban en la lista.
+  let dePacientes = 0;
+  if (!prueba) {
+    const yaEsta = new Set(elegidos.map(function (x) { return tel8(x.tel); }));
+    const fichas = await db.collection('fichas').get();
+    for (const d of fichas.docs) {
+      const x = d.data() || {};
+      const donde = [x.sede, x.ciudad, JSON.stringify(x.reservas || [])].join(' ');
+      if (!rx.test(donde)) continue;
+      const t = tel8(x.telefono || d.id);
+      if (!t || t.length !== 8 || t[0] === '0' || INTERNOS.includes(t)) continue;   // numeros invalidos fuera
+      if (yaEsta.has(t) || conReserva.has(t)) continue;
+      const nom = String(x.nombre || x.patientName || '').trim().split(/s+/)[0] || 'hola';
+      if (/prueba/i.test(nom)) continue;
+      yaEsta.add(t); dePacientes++;
+      elegidos.push({ ref: db.collection('fichas').doc(d.id), tel: '591' + t, nombre: nom });
+    }
+  }
+
   if (!enviar) {
     return res.json({
-      modo: 'SOLO LISTA — no se envió nada', zona: zona, plantilla: plantilla,
+      modo: 'SOLO LISTA — no se envió nada', zona: zona, plantilla: plantilla, de_pacientes: dePacientes,
       ciudad: ciudad, dia: dia.label, enlace: enlace,
       a_quien: elegidos.length, descartados: fuera,
       ejemplo: elegidos.slice(0, 5).map(x => x.nombre + ' · ' + x.tel),
