@@ -5662,7 +5662,8 @@ app.get('/ir/:zona', async (req, res) => {
     const d = await db.collection('config').doc('enlace_' + zona).get();
     const c = d.exists ? (d.data() || {}) : {};
     if (!c.plantilla) return pag('Nada preparado', '<p>No hay una invitación lista para <b>' + zona + '</b>.</p>', '#d4a574');
-    const u = 'http://127.0.0.1:' + PORT + '/debug/invitar?key=diag-9x&zona=' + encodeURIComponent(zona)
+    const ruta = (c.tipo === 'segunda') ? '/debug/segunda-vuelta' : '/debug/invitar';
+    const u = 'http://127.0.0.1:' + PORT + ruta + '?key=diag-9x&zona=' + encodeURIComponent(zona)
       + '&plantilla=' + encodeURIComponent(c.plantilla)
       + (c.foto ? '&foto=' + encodeURIComponent(c.foto) : '') + '&send=1';
     const j = await (await fetch(u)).json();
@@ -5728,6 +5729,70 @@ app.get('/debug/avisar', async (req, res) => {
 //     se les dio la vieja por error.
 //   · Quien NO contestó → plantilla, que es lo único que Meta permite.
 // Nunca a quien ya reservó, a quien pidió no seguir, ni dos veces.
+// ── AVISO A QUIEN YA RESERVÓ ────────────────────────────────────────────────
+// No se le insiste con la invitación (ya reservó), pero sí vale contarle que
+// puede subir su descuento trayendo a alguien: es lo que hace crecer la jornada
+// sin gastar en publicidad. Va como mensaje normal: están dentro de las 24 h
+// porque acaban de conversar para reservar.
+app.get('/debug/aviso-reservadas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const enviar = req.query.send === '1';
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  const cfg = await getBeniConfig();
+  const dia = ((cfg && cfg.dias) || [])[0];
+  if (!dia) return res.json({ error: 'la campaña no tiene días' });
+  const enlace = 'https://harmonieinstitute.com/' + (cfg.rutaMinisitio || 'cochabamba');
+  const marca = 'aviso50:' + (cfg.campaignVersion || 'x');
+
+  const t8 = t => String(t || '').replace(/\D/g, '').slice(-8);
+  const gente = new Map();
+  for (const col of ['reservas_beni', 'citas', 'appointments']) {
+    const s = await db.collection(col).where('fecha', '==', dia.fecha).get();
+    s.forEach(d => {
+      const x = d.data() || {};
+      const t = t8(x.telefono);
+      if (!t || /prueba/i.test(String(x.nombre || ''))) return;
+      gente.set(t, { tel: String(x.telefono || '').replace(/\D/g, ''),
+                     nombre: String(x.nombre || '').trim().split(/\s+/)[0] || 'hola',
+                     hora: x.hora || '' });
+    });
+  }
+  // A quien ya se le avisó no se le repite.
+  const lista = [];
+  for (const [t, p] of gente) {
+    const d = await db.collection('valeria_chats').doc('wa_591' + t).get().catch(() => null);
+    const c = d && d.exists ? (d.data() || {}) : null;
+    if (c && c[marca]) continue;
+    lista.push(Object.assign({ t8: t, ref: d && d.exists ? d.ref : null }, p));
+  }
+
+  const texto = p => '¡' + p.nombre + ', una buena noticia! 💛 Además del *40% de descuento* que ya '
+    + 'ganaste con tu reserva' + (p.hora ? ' de mañana a las ' + p.hora : '') + ', si traés a alguien '
+    + 'que también se atienda, tu descuento sube a *50%*.\n\n'
+    + 'Podés compartirle esto: ' + enlace + '\n\nQuedan pocos cupos para mañana. ¡Te esperamos!';
+
+  if (!enviar) return res.json({ modo: 'SOLO LISTA — no se envió nada', a_quien: lista.length,
+                                 nombres: lista.map(p => p.nombre + (p.hora ? ' ' + p.hora : '')),
+                                 ejemplo: texto(lista[0] || { nombre: 'Amparo', hora: '12:00' }) });
+  if (!TOKEN || !PHONE) return res.json({ error: 'faltan las llaves de WhatsApp' });
+
+  let ok = 0; const fallos = [];
+  for (const p of lista) {
+    try {
+      const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messaging_product: 'whatsapp', to: p.tel, type: 'text', text: { body: texto(p) } })
+      });
+      const j = await r.json();
+      if (j.error) fallos.push({ tel: p.tel, error: j.error.message.slice(0, 80) });
+      else { ok++; if (p.ref) await p.ref.set({ [marca]: new Date() }, { merge: true }); }
+    } catch (e) { fallos.push({ tel: p.tel, error: e.message.slice(0, 60) }); }
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  res.json({ avisadas: ok, fallidos: fallos.length, fallos: fallos.slice(0, 5) });
+});
+
 app.get('/debug/segunda-vuelta', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
@@ -5963,6 +6028,7 @@ app.get('/debug/programar-envio', async (req, res) => {
       fecha: String(req.query.fecha || fechaBoliviaISO()),
       hora: Math.max(6, Math.min(21, parseInt(req.query.hora || '8', 10) || 8)),
       minuto: Math.max(0, Math.min(59, parseInt(req.query.minuto || '0', 10) || 0)),
+      tipo: String(req.query.tipo || 'invitar'),
       foto: String(req.query.foto || ''),
       hecho: false,
       programadoAt: new Date()
