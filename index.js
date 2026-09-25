@@ -5721,6 +5721,102 @@ app.get('/debug/avisar', async (req, res) => {
   res.json(salida);
 });
 
+// ── SEGUNDA VUELTA ──────────────────────────────────────────────────────────
+// Dos públicos distintos, dos formas de hablarles:
+//   · Quien YA escribió y no reservó → mensaje normal (está dentro de las 24 h,
+//     no hace falta plantilla) y se le aclara la oferta buena, porque a algunas
+//     se les dio la vieja por error.
+//   · Quien NO contestó → plantilla, que es lo único que Meta permite.
+// Nunca a quien ya reservó, a quien pidió no seguir, ni dos veces.
+app.get('/debug/segunda-vuelta', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const enviar = req.query.send === '1';
+  const zona = String(req.query.zona || 'cochabamba').toLowerCase();
+  const plantilla = String(req.query.plantilla || 'cochabamba_segunda_vuelta');
+  const foto = String(req.query.foto || '');
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+
+  const cfg = await getBeniConfig();
+  const dia = ((cfg && cfg.dias) || [])[0];
+  if (!dia) return res.json({ error: 'la campaña no tiene días' });
+  const ciudad = (cfg.subsedes && cfg.subsedes[0] && cfg.subsedes[0].nombre) || zona;
+  const enlace = 'https://harmonieinstitute.com/' + (cfg.rutaMinisitio || zona);
+  const marca = 'segunda:' + (cfg.campaignVersion || zona);
+  const primera = 'invitado:cochabamba-2026-09-26b-relampago40';
+
+  const t8 = t => String(t || '').replace(/\D/g, '').slice(-8);
+  const conReserva = new Set();
+  (await getReservasConfirmadas()).forEach(r => {
+    if ((r.fecha || '') >= fechaBoliviaISO()) { const t = t8(r.telefono); if (t) conReserva.add(t); }
+  });
+
+  const escribieron = [], callados = [];
+  const fuera = { ya_reservo: 0, no_seguir: 0, ya_segunda: 0, no_invitado: 0 };
+  const chats = await db.collection('valeria_chats').get();
+  for (const d of chats.docs) {
+    const c = d.data() || {};
+    if (!c[primera]) { fuera.no_invitado++; continue; }
+    const t = t8(c.contacto);
+    if (c.noSeguir === true) { fuera.no_seguir++; continue; }
+    if (conReserva.has(t)) { fuera.ya_reservo++; continue; }
+    if (c[marca]) { fuera.ya_segunda++; continue; }
+    const p = { ref: d.ref, tel: String(c.contacto || '').replace(/\D/g, ''),
+                nombre: (String(c.nombre || '').trim().split(/\s+/)[0]) || 'hola' };
+    // ¿Escribió después de que saliera la invitación? Entonces su ventana está abierta.
+    const lu = c.lastUserMsgAt && c.lastUserMsgAt.toDate ? c.lastUserMsgAt.toDate() : null;
+    const horas = lu ? (Date.now() - lu.getTime()) / 3600000 : 999;
+    (horas < 22 ? escribieron : callados).push(p);
+  }
+
+  const textoLibre = p => 'Hola ' + p.nombre + ' 💛 Te aclaro bien la promoción de mañana, porque es mejor de lo que '
+    + 'te dije: son *40% de descuento en cualquier tratamiento* solo por agendar, sin ninguna condición. '
+    + 'Y si traés a alguien que se atienda, sube a *50%*.\n\n'
+    + 'Es solo mañana ' + String(dia.label || '').toLowerCase() + ' en ' + ciudad + ', y la valoración es gratis.\n\n'
+    + '¿Te agendo tu hora? ' + enlace;
+
+  if (!enviar) {
+    return res.json({
+      modo: 'SOLO LISTA — no se envió nada',
+      a_quienes_escribieron: escribieron.length, ejemplo_texto: textoLibre(escribieron[0] || { nombre: 'Yeli' }),
+      a_quienes_no_contestaron: callados.length, plantilla: plantilla,
+      descartados: fuera, para_enviar: 'la misma dirección con &send=1'
+    });
+  }
+  if (!TOKEN || !PHONE) return res.json({ error: 'faltan las llaves de WhatsApp' });
+
+  let ok1 = 0, ok2 = 0; const fallos = [];
+  const mandar = async (body) => {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return r.json();
+  };
+  for (const p of escribieron) {
+    const j = await mandar({ messaging_product: 'whatsapp', to: p.tel, type: 'text', text: { body: textoLibre(p) } });
+    if (j.error) fallos.push({ tel: p.tel, error: j.error.message.slice(0, 80) });
+    else { ok1++; await p.ref.set({ [marca]: new Date() }, { merge: true }); }
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  for (const p of callados) {
+    const j = await mandar({
+      messaging_product: 'whatsapp', to: p.tel, type: 'template',
+      template: {
+        name: plantilla, language: { code: 'es' },
+        components: (foto ? [{ type: 'header', parameters: [{ type: 'image', image: { link: foto } }] }] : [])
+          .concat([{ type: 'body', parameters: [
+            { type: 'text', text: p.nombre }, { type: 'text', text: ciudad },
+            { type: 'text', text: String(dia.label || '').toLowerCase() }, { type: 'text', text: enlace }] }])
+      }
+    });
+    if (j.error) fallos.push({ tel: p.tel, error: j.error.message.slice(0, 80) });
+    else { ok2++; await p.ref.set({ [marca]: new Date() }, { merge: true }); }
+    await new Promise(r => setTimeout(r, 1200));
+  }
+  res.json({ aclaraciones: ok1, segunda_vuelta: ok2, fallidos: fallos.length, fallos: fallos.slice(0, 8) });
+});
+
 app.get('/debug/invitar', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
