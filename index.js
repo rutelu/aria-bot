@@ -5544,7 +5544,9 @@ app.get('/debug/estado-plantilla', async (req, res) => {
       { headers: { Authorization: 'Bearer ' + TOKEN } });
     const j = await r.json();
     const t = (j.data || [])[0];
-    res.json(t ? { nombre: t.name, estado: t.status, lista_para_enviar: t.status === 'APPROVED' }
+    res.json(t ? { nombre: t.name, estado: t.status, lista_para_enviar: t.status === 'APPROVED',
+                   partes: (t.components || []).map(function (c) { return c.type + (c.format ? '/' + c.format : ''); }),
+                   cuerpo: ((t.components || []).find(function (c) { return c.type === 'BODY'; }) || {}).text }
                : { error: 'no existe esa plantilla', respuesta: j });
   } catch (e) { res.json({ error: e.message }); }
 });
