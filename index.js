@@ -5680,6 +5680,41 @@ app.get('/debug/preparar-enlace', async (req, res) => {
   res.json({ preparado: dato, enlace: '/ir/' + zona + '?key=diag-9x' });
 });
 
+// ── AVISO AL CELULAR DE JULIO ───────────────────────────────────────────────
+// Para contarle cómo va una campaña sin que tenga que mirar pantallas. Va por
+// WhatsApp y, si WhatsApp no puede (la ventana de 24 h cerrada), por Telegram.
+// Devuelve por dónde salió, para no dar por avisado lo que no llegó.
+app.get('/debug/avisar', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const texto = String(req.query.texto || '').trim();
+  if (!texto) return res.json({ error: 'falta ?texto=' });
+  const salida = { whatsapp: null, telegram: null };
+  // WhatsApp (solo entra si él escribió en las últimas 24 h)
+  try {
+    const r = await fetch('https://graph.facebook.com/v25.0/' + process.env.WHATSAPP_PHONE_ID + '/messages', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + process.env.WHATSAPP_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to: ADMIN_WHATSAPP,
+                             type: 'text', text: { body: texto } })
+    });
+    const j = await r.json();
+    salida.whatsapp = j.error ? ('no: ' + j.error.message.slice(0, 90)) : 'enviado';
+  } catch (e) { salida.whatsapp = 'no: ' + e.message.slice(0, 60); }
+  // Telegram (no tiene ventana de 24 h: es el respaldo confiable)
+  try {
+    const chat = process.env.ADMIN_TELEGRAM_CHAT_ID || process.env.TELEGRAM_ADMIN_CHAT_ID || '';
+    if (chat && process.env.TELEGRAM_TOKEN) {
+      const r = await fetch('https://api.telegram.org/bot' + process.env.TELEGRAM_TOKEN + '/sendMessage', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chat, text: texto })
+      });
+      const j = await r.json();
+      salida.telegram = j.ok ? 'enviado' : ('no: ' + String(j.description || '').slice(0, 80));
+    } else salida.telegram = 'no hay chat de Telegram configurado';
+  } catch (e) { salida.telegram = 'no: ' + e.message.slice(0, 60); }
+  res.json(salida);
+});
+
 app.get('/debug/invitar', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
