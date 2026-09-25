@@ -5492,6 +5492,12 @@ app.get('/debug/plantilla-zona', async (req, res) => {
 //   · nunca dos veces: queda marcado en el chat con la etiqueta del envío
 //   · de a poco (pausa entre mensajes) para no gatillar el antispam
 
+// Segunda vuelta: la oferta mejorada, para quien no contestó la primera.
+const PLANTILLA_SEGUNDA = {
+  body: 'Hola {{1}} 💛 Te aclaro la promoción de {{2}} de mañana {{3}}: es 40% de descuento en '
+      + 'cualquier tratamiento solo por agendar, sin ninguna condición — y si traés a alguien que se '
+      + 'atienda, sube a 50%. Reservá tu hora acá: {{4}} — la valoración es gratis. ¡Te esperamos!'
+};
 const PLANTILLA_JORNADA = {
   // {{1}} nombre · {{2}} ciudad · {{3}} día · {{4}} enlace para reservar
   body: 'Hola {{1}} 💛 Te escribe Valeria, de Harmonie. Volvemos a {{2}} este {{3}}, solo por ese día: '
@@ -5515,7 +5521,7 @@ app.get('/debug/crear-plantilla-jornada', async (req, res) => {
         category: 'MARKETING',
         components: [{
           type: 'BODY',
-          text: PLANTILLA_JORNADA.body,
+          text: (req.query.variante === 'segunda' ? PLANTILLA_SEGUNDA.body : PLANTILLA_JORNADA.body),
           example: { body_text: [['María', 'Cochabamba', 'sábado 26 de septiembre',
                                   'https://harmonieinstitute.com/cochabamba']] }
         }]
@@ -5584,7 +5590,7 @@ app.get('/debug/crear-plantilla-afiche', async (req, res) => {
         name: nombre, language: 'es', category: 'MARKETING',
         components: [
           { type: 'HEADER', format: 'IMAGE', example: { header_handle: [u.h] } },
-          { type: 'BODY', text: PLANTILLA_JORNADA.body,
+          { type: 'BODY', text: (req.query.variante === 'segunda' ? PLANTILLA_SEGUNDA.body : PLANTILLA_JORNADA.body),
             example: { body_text: [['María', 'Cochabamba', 'sábado 26 de septiembre',
                                     'https://harmonieinstitute.com/cochabamba']] } }
         ]
