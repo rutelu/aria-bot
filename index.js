@@ -1226,7 +1226,7 @@ async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
       } catch (e) { console.error('reserva check:', e.message); }
       if (_mia) {
         console.log('♻️ crear_reserva idempotente: ' + slotId + ' ya era de esta persona');
-        return { ok: true, id: slotId, ya_existia: true, mensaje: 'Esa reserva YA ESTÁ CREADA y es de ESTA MISMA persona (' + (_nom || nombre) + '): la hiciste tú hace un momento. ⛔ NO le digas que el horario está ocupado ni que no hay disponibilidad — es SU PROPIA cita. Confírmasela con calidez (día, hora y sede) como si acabaras de crearla, y recuérdale que con su reserva ya ganó el 20%.' };
+        return { ok: true, id: slotId, ya_existia: true, mensaje: 'Esa reserva YA ESTÁ CREADA y es de ESTA MISMA persona (' + (_nom || nombre) + '): la hiciste tú hace un momento. ⛔ NO le digas que el horario está ocupado ni que no hay disponibilidad — es SU PROPIA cita. Confírmasela con calidez (día, hora y sede) como si acabaras de crearla, y recuérdale que con su reserva ya ganó el 40% en cualquier tratamiento.' };
       }
       return { error: 'Ese horario ya está ocupado POR OTRA PERSONA. Ofrece otro horario libre del mismo día u otro día.' };
     }
