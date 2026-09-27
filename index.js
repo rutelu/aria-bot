@@ -190,7 +190,15 @@ async function seedBeniConfig() {
     const ref = db.collection('config').doc('jornada_beni');
     const snap = await ref.get();
     if (!snap.exists || snap.data().campaignVersion !== BENI_SEED.campaignVersion) {
-      await ref.set(BENI_SEED);
+      // Lo OPERATIVO no se pisa al actualizar la campaña. Si alguien suspendió la jornada
+      // desde el Centro de Control, un reinicio del bot no puede reactivarla en silencio:
+      // eso volvería a mandar pacientes a un local cerrado.
+      const previo = snap.exists ? (snap.data() || {}) : {};
+      const conserva = {};
+      ['estado', 'avisoJornada', 'instruccionValeria', 'estadoAt'].forEach(function (k) {
+        if (previo[k] !== undefined) conserva[k] = previo[k];
+      });
+      await ref.set(Object.assign({}, BENI_SEED, conserva));
       console.log('🌱 config/jornada_beni actualizado a la campaña ' + BENI_SEED.campaignVersion);
     } else {
       console.log('ℹ️ config/jornada_beni ya está en la versión ' + BENI_SEED.campaignVersion);
@@ -5893,6 +5901,42 @@ const DISCULPAS_2609 = [
 //   ...&estado=suspendida&aviso=<texto>                    → la suspende
 //   ...&estado=activa                                      → la reactiva
 //   ...&instruccion=<texto libre>                          → orden general para Valeria
+// El botón del Centro de Control escribe por acá. Va por POST con el texto en el
+// cuerpo y no en la dirección: metido en la URL, "sábado" llegaba como "s?bado".
+app.options('/panel/estado-jornada', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.sendStatus(204);
+});
+app.get('/panel/estado-jornada', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const c = (await db.collection('config').doc('jornada_beni').get()).data() || {};
+  res.json({ estado: c.estado || 'activa', aviso: c.avisoJornada || '',
+             instruccion: c.instruccionValeria || '', jornada: c.titulo || '',
+             dias: (c.dias || []).map(x => x.fecha) });
+});
+app.post('/panel/estado-jornada', async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const b = req.body || {};
+  if (b.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const e = String(b.estado || '').toLowerCase();
+  if (['activa', 'suspendida', 'llena'].indexOf(e) === -1) return res.json({ error: 'estado inválido' });
+  try {
+    await db.collection('config').doc('jornada_beni').set({
+      estado: e,
+      avisoJornada: String(b.aviso || ''),
+      instruccionValeria: String(b.instruccion || ''),
+      estadoAt: new Date()
+    }, { merge: true });
+    _beniCache = { data: null, ts: 0 };   // que Valeria lo vea ya, sin esperar el refresco
+    res.json({ guardado: true, estado: e });
+  } catch (err) { res.json({ error: err.message }); }
+});
+
 app.get('/debug/estado-jornada', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
