@@ -5824,6 +5824,74 @@ app.get('/debug/aviso-reservadas', async (req, res) => {
 // que hay —preguntaron cuánto cuesta— y se pierden en silencio.
 // Va como mensaje normal (escribieron hoy, la ventana está abierta) y ofrece
 // HORAS CONCRETAS: pedir que elija entre tres es mucho más fácil que "¿agendamos?".
+// ── DISCULPAS DE LA JORNADA SUSPENDIDA (26 sep 2026) ────────────────────────
+// Van desde el número de Valeria, que es donde ellas venían conversando: el aviso
+// del equipo salió de otro número y no lo leyeron a tiempo. Una por una, escritas
+// para lo que le pasó a cada una, y quedan guardadas en su conversación para que
+// Valeria sepa qué se les dijo si contestan.
+const DISCULPAS_2609 = [
+  { tel: '59170799105', nombre: 'Amparo', texto:
+      'Amparo, soy Valeria. Quiero pedirte disculpas yo misma: hoy te confirmé tu cita de las 12:00 '
+    + 'y te dije que el equipo te esperaba, cuando la jornada ya estaba suspendida. Yo no tenía esa '
+    + 'información y te hice salir para nada.\n\n'
+    + 'Como te dijo el equipo, volvemos a Cochabamba en 15 días. Tu descuento queda guardado y vas a '
+    + 'tener prioridad para elegir el horario que quieras.\n\n'
+    + 'Te aviso yo apenas tengamos la fecha. Gracias por la paciencia que tuviste hoy 💛' },
+
+  { tel: '59167633081', nombre: 'Mirtha', texto:
+      'Mirtha, soy Valeria, y te debo una disculpa grande. Hoy te estuve guiando hasta Beauty Clinic, '
+    + 'te dije "ya estás en el lugar" y "el equipo te está esperando" — y la jornada ya estaba '
+    + 'suspendida. Yo no lo sabía. Te hice buscar en la calle un lugar donde no había nadie.\n\n'
+    + 'Eso estuvo mal y la responsabilidad es nuestra. Como te dijo el equipo, volvemos en 15 días: '
+    + 'tus 15:00 quedan reservadas con prioridad, con tu descuento guardado, y el viaje de hoy te lo '
+    + 'vamos a compensar.\n\n'
+    + 'Te aviso yo misma apenas esté la fecha. Mil disculpas 💛' },
+
+  // Carmen confirmó de verdad: está en nuestro propio registro y ella tiene las capturas.
+  // Sostener que no confirmó la pierde para siempre. Y no se le ofrece nada: dijo que no
+  // le interesa ninguna oferta, e insistir confirmaría que nos importa la venta y no ella.
+  { tel: '59172288847', nombre: 'Carmen', texto:
+      'Carmen, soy Valeria. Revisé nuestra conversación y tenés razón: vos confirmaste tu cita '
+    + 'conmigo y yo misma te respondí "nos vemos mañana a las 16:00". El error fue nuestro, no tuyo.\n\n'
+    + 'Entiendo que hayas viajado desde tu provincia para nada y que estés molesta. No te voy a '
+    + 'insistir con ninguna oferta, porque sé que no es el momento.\n\n'
+    + 'Solo quería que supieras que fue una falla nuestra de coordinación, no una falta de '
+    + 'consideración hacia vos. Si alguna vez querés darnos otra oportunidad, vas a tener prioridad '
+    + 'y no vas a tener que pedir nada. Y si no, lo entiendo perfectamente.\n\n'
+    + 'Disculpá de verdad 💛' }
+];
+
+app.get('/debug/disculpas', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  const enviar = req.query.send === '1';
+  const TOKEN = process.env.WHATSAPP_TOKEN, PHONE = process.env.WHATSAPP_PHONE_ID;
+  if (!enviar) return res.json({ modo: 'SOLO PRUEBA — no se envió nada',
+                                 a_quienes: DISCULPAS_2609.map(d => d.nombre + ' · ' + d.tel),
+                                 mensajes: DISCULPAS_2609.map(d => d.nombre + ': ' + d.texto) });
+  if (!TOKEN || !PHONE) return res.json({ error: 'faltan las llaves de WhatsApp' });
+  const hechos = [], fallos = [];
+  for (const d of DISCULPAS_2609) {
+    try {
+      const r = await fetch('https://graph.facebook.com/v25.0/' + PHONE + '/messages', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messaging_product: 'whatsapp', to: d.tel, type: 'text', text: { body: d.texto } })
+      });
+      const j = await r.json();
+      if (j.error) { fallos.push({ nombre: d.nombre, error: j.error.message.slice(0, 110) }); }
+      else {
+        hechos.push(d.nombre);
+        if (db) {
+          const ref = db.collection('valeria_chats').doc('wa_' + d.tel);
+          await ref.collection('mensajes').add({ rol: 'valeria', texto: d.texto, ts: new Date() });
+          await ref.set({ ultimoRol: 'valeria', ultimoTexto: d.texto, disculpa2609: new Date() }, { merge: true });
+        }
+      }
+    } catch (e) { fallos.push({ nombre: d.nombre, error: e.message.slice(0, 80) }); }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  res.json({ enviados: hechos, fallidos: fallos.length, fallos: fallos });
+});
+
 app.get('/debug/cerrar', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
   if (!db) return res.json({ error: 'sin base' });
