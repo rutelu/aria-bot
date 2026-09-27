@@ -726,6 +726,9 @@ function buildBeniSection(cfg, dispo, _rsvPropia) {
   // (La Paz vs. San Borja/Rurrenabaque). Listar las tres a todos confunde y alarga.
   s += '⛔⛔ NUNCA DIGAS "CONFIRMADA" SIN HABER CREADO LA RESERVA (LA REGLA MÁS IMPORTANTE DE TODAS): está TERMINANTEMENTE PROHIBIDO escribir "tu cita quedó confirmada", "listo, ya te agendé", "¡Felicidades por tu reserva!" o cualquier frase parecida si NO ejecutaste la herramienta crear_reserva_beni y te respondió ok. Tener el nombre, el teléfono, el día y la hora NO es haber reservado: la cita existe SOLO cuando la herramienta la crea. Si te falta un dato, pídelo; si la herramienta falla o devuelve error, DÍSELO con calidez y ofrécele otro horario — pero NUNCA inventes una confirmación. Una persona a la que le dijiste "confirmada" se presenta ese día en la sede, y si no está en la agenda queda mal parada frente al especialista y HARMONIE pierde a esa paciente. Primero la herramienta, después la confirmación. SIEMPRE en ese orden.\n';
   s += 'PRECIO SIEMPRE CON EL DESCUENTO (REGLA COMERCIAL, no la olvides nunca): está PROHIBIDO dar un precio "pelado". CADA vez que menciones un precio, en el MISMO mensaje decí el descuento vigente: 40% en CUALQUIER tratamiento sin ninguna condición, que sube a 50% si trae a alguien recomendado que se atienda, y que la valoración es GRATIS. Si sueltas el número sin el beneficio, la persona sale a comparar precios con la competencia y se va; con el descuento al lado, lo que compara ya no es el mismo número. Ejemplo correcto: "La micropigmentación de cejas está desde Bs 800, pero en la jornada tienes 40% de descuento en cualquier tratamiento sin ninguna condición, y 50% si traes a alguien que se atienda. Además la valoración es gratis."\n';
+  // Orden general que deja Julio desde el Centro de Control: manda sobre todo lo demas.
+  if (cfg && cfg.instruccionValeria) s += 'INSTRUCCIÓN DEL EQUIPO (manda sobre todo lo demás, respetala al pie de la letra): ' + cfg.instruccionValeria + '\n';
+  if (cfg && String(cfg.estado || 'activa') !== 'activa') s += 'ESTADO DE LA JORNADA: ' + String(cfg.estado).toUpperCase() + '. NO confirmes ninguna cita ni ofrezcas horarios. Avisá con calidez: ' + (cfg.avisoJornada || 'la jornada quedó suspendida') + '. Pedí disculpas y ofrecé avisarle para la próxima. NUNCA inventes un motivo (no digas que se llenó si no se llenó).\n';
   s += 'CÓMO NOMBRAR LA JORNADA: cuando sepas la ciudad de la persona, hablá de "la jornada en [su ciudad]" y NADA MÁS. ⛔ No uses el título completo de la campaña si nombra otras ciudades (por ejemplo, a alguien de La Paz NUNCA le digas "la Jornada La Paz y Beni": para ella es "la jornada en La Paz"). Nombrarle ciudades lejanas la confunde y le hace dudar de si el tratamiento es realmente en su ciudad.\n';
   s += 'SEDE SEGÚN DE DÓNDE TE ESCRIBE (REGLA IMPORTANTE): NO recites las sedes de la jornada como si fueran un menú. Si sabes desde qué ciudad o zona te escribe la persona —por el ORIGEN del contacto (el anuncio suele traer la ciudad en su título), porque ella la mencionó, o por el minisitio desde el que llegó— habla SOLO de ESA sede y dale SOLO esa dirección. Las sedes de una misma jornada pueden estar a cientos de kilómetros entre sí, así que nombrarle las otras la obliga a filtrar y la confunde.\n';
   s += 'Enumera TODAS las sedes solo en dos casos: (a) si de verdad NO sabes de dónde escribe —y en ese caso es mejor preguntarle con calidez "¿desde qué ciudad nos escribes?" antes que soltarle la lista completa—, o (b) si te pregunta expresamente por otra ciudad. Cuando ya sepas su ciudad, sostenla el resto de la conversación y no vuelvas a mencionar las demás.\n';
@@ -1047,6 +1050,10 @@ function resolverFecha(fechaArg, subsede, cfg) {
 async function toolConsultarDisponibilidad(args, cfg) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La jornada aún no está publicada.' };
+  if (String(cfg.estado || 'activa') !== 'activa') {
+    return { error: 'LA JORNADA ESTÁ SUSPENDIDA: no se puede reservar. Decile a la persona: '
+      + (cfg.avisoJornada || 'la jornada quedó suspendida y le avisamos apenas tengamos fecha nueva') };
+  }
   // CANDADO TEMPRANO: valida el tratamiento ANTES de ofrecer horarios. Si es estrictamente de otra especialidad,
   // rechaza YA (así Valeria avisa apenas escucha el tratamiento, sin pedir datos ni ofrecer horas que no aplican).
   if ((cfg.especialidadId || 'med') === 'med' && String(args.tratamiento || '').trim()) {
@@ -1145,12 +1152,29 @@ async function toolConsultarDisponibilidad(args, cfg) {
       }
     }
   } catch (e) { console.error('recomIntermedia:', e.message); }
+  // ESTADO DE LA JORNADA. El 26 de septiembre se suspendio una jornada y Valeria siguio
+  // confirmando y guiando pacientes hasta un local vacio durante ocho horas, porque no habia
+  // forma de avisarle. Ahora lo lee de la campaña, y sin horas no puede confirmar nada.
+  const _estado = String(cfg.estado || 'activa');
+  if (_estado !== 'activa') {
+    return {
+      jornada_suspendida: true,
+      estado: _estado,
+      aviso_para_la_persona: cfg.avisoJornada || 'La jornada quedó suspendida. Te avisamos apenas tengamos la fecha nueva.',
+      instruccion: 'NO confirmes ninguna cita ni ofrezcas horarios. Avisale con calidez lo que dice aviso_para_la_persona, pedile disculpas y ofrecele que la avisemos para la proxima. NO inventes motivos.',
+      disponibilidad: [], promo: cfg.promo, hora_actual_bolivia: ahoraHHMM
+    };
+  }
   return { disponibilidad: result, promo: cfg.promo, hora_actual_bolivia: ahoraHHMM, consulta_fecha: consulta_fecha, hora_intermedia: _recomIntermedia };
 }
 
 async function toolCrearReserva(args, cfg, canal, telFallback, chatId) {
   if (!db) return { error: 'No puedo acceder a la agenda en este momento.' };
   if (!cfg || cfg.publicada !== true) return { error: 'La jornada aún no está publicada.' };
+  if (String(cfg.estado || 'activa') !== 'activa') {
+    return { error: 'LA JORNADA ESTÁ SUSPENDIDA: no se puede reservar. Decile a la persona: '
+      + (cfg.avisoJornada || 'la jornada quedó suspendida y le avisamos apenas tengamos fecha nueva') };
+  }
   const subsede = resolverSubsede(args.subsede, cfg);
   const fecha = resolverFecha(args.fecha, subsede, cfg);
   const hora = normalizarHora(args.hora, cfg.horas);
@@ -5860,6 +5884,47 @@ const DISCULPAS_2609 = [
     + 'y no vas a tener que pedir nada. Y si no, lo entiendo perfectamente.\n\n'
     + 'Disculpá de verdad 💛' }
 ];
+
+// ── ESTADO DE LA JORNADA + INSTRUCCIONES PARA VALERIA ───────────────────────
+// Lo que faltó el 26 de septiembre: poder decirle a Valeria, desde el celular y
+// en un toque, que la jornada se suspendió. Sin esto siguió confirmando citas y
+// guiando pacientes hasta un local cerrado durante ocho horas.
+//   /debug/estado-jornada?key=diag-9x                      → dice cómo está
+//   ...&estado=suspendida&aviso=<texto>                    → la suspende
+//   ...&estado=activa                                      → la reactiva
+//   ...&instruccion=<texto libre>                          → orden general para Valeria
+app.get('/debug/estado-jornada', async (req, res) => {
+  if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
+  if (!db) return res.json({ error: 'sin base' });
+  const ref = db.collection('config').doc('jornada_beni');
+  try {
+    const cambios = {};
+    if (req.query.estado) {
+      const e = String(req.query.estado).toLowerCase();
+      if (['activa', 'suspendida', 'llena'].indexOf(e) === -1)
+        return res.json({ error: 'estado debe ser activa, suspendida o llena' });
+      cambios.estado = e;
+      cambios.estadoAt = new Date();
+    }
+    if (typeof req.query.aviso === 'string') cambios.avisoJornada = req.query.aviso;
+    if (typeof req.query.instruccion === 'string') cambios.instruccionValeria = req.query.instruccion;
+    if (Object.keys(cambios).length) {
+      // La versión cambia para que Valeria relea su copia sin esperar.
+      cambios.campaignVersion = (String((await ref.get()).data().campaignVersion || 'v') + '-' + Date.now()).slice(-40);
+      await ref.set(cambios, { merge: true });
+      _beniCache = { data: null, ts: 0 };   // que no siga usando la copia vieja
+    }
+    const d = await ref.get();
+    const c = d.data() || {};
+    res.json({
+      estado: c.estado || 'activa',
+      aviso_para_las_pacientes: c.avisoJornada || '(ninguno)',
+      instruccion_para_valeria: c.instruccionValeria || '(ninguna)',
+      jornada: c.titulo, dias: (c.dias || []).map(x => x.fecha),
+      cambiado: Object.keys(cambios).length ? Object.keys(cambios) : 'nada'
+    });
+  } catch (e) { res.json({ error: e.message }); }
+});
 
 app.get('/debug/disculpas', async (req, res) => {
   if (req.query.key !== 'diag-9x') return res.status(403).json({ error: 'no' });
